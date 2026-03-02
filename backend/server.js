@@ -1,0 +1,145 @@
+
+
+import dns from "dns";
+import { activateScheduledAuctions } from "./cron/activateScheduledAuctions.js";
+import dotenv from "dotenv";
+import express from "express";
+import startAuctionCleanupCron from "./cron/auctionCleanup.js";
+import cors from "cors";
+import balanceRoutes from "./routes/balance.routes.js";
+import userRoutes from "./routes/user.routes.js";
+import closeAuctions from "./cron/auctionCloser.js";
+import connectDB from "./config/db.js";
+import authRoutes from "./routes/auth.routes.js";
+import auctionRoutes from "./routes/auction.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
+import ratingRoutes from "./routes/rating.routes.js";
+import notificationRoutes from "./routes/notification.routes.js";
+import { Server } from "socket.io";
+import { seedPlansIfEmpty } from "./utils/seedPlans.js";
+import { startSubscriptionCron } from "./cron/subscription.cron.js";
+import billingRoutes from "./routes/billing.routes.js";
+import paymentsRoutes from "./routes/payments.routes.js";
+import walletRoutes from "./routes/wallet.routes.js";
+import courierRoutes from "./routes/courier.routes.js";
+dotenv.config();
+console.log("ZC loaded:", {
+  msisdn: !!process.env.ZAINCASH_MSISDN,
+  merchant: !!process.env.ZAINCASH_MERCHANT_ID,
+  secret: !!process.env.ZAINCASH_SECRET,
+  redirect: !!process.env.ZAINCASH_REDIRECT_URL,
+});
+dns.setDefaultResultOrder("ipv4first");
+dns.setServers(["1.1.1.1", "8.8.8.8"]);
+const app = express();
+import http from "http";
+
+const httpServer = http.createServer(app);
+
+// soket.io دالة 
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*", // لاحقًا نقيّدها
+  },
+});
+
+import { initIo } from "./utils/socket.js";
+initIo(io);
+
+// Skeleton فقط
+io.on("connection", (socket) => {
+  socket.on("auction:join", (auctionId) => {
+    socket.join(auctionId);
+  });
+
+  // الغرض هنا ربط كل مستخدم بغرفته الخاصة لتلقي الإشعارات اللحظية
+  socket.on("user:join", (userId) => {
+    socket.join(userId);
+  });
+
+  // غرفة خاصة بالأدمن لتلقي التحديثات والإشعارات العامة
+  socket.on("admin:join", () => {
+    socket.join("admin_room");
+  });
+});
+
+/* ======================
+   Middlewares
+====================== */
+app.use(cors());
+app.use(express.json({ limit: "20mb" }));
+app.use("/uploads", express.static("uploads"));
+app.use(express.urlencoded({ extended: true, limit: "20mb" }));
+/* ======================
+   Routes
+====================== */
+app.use("/api/payments", paymentsRoutes);
+app.use("/api/billing", billingRoutes);
+app.use("/api/balance", balanceRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/ratings", ratingRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/auctions", auctionRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/wallet", walletRoutes);
+console.log("✅ admin routes mounted at /api/admin");
+app.use((req, _res, next) => {
+  console.log(req.method, req.url);
+  next();
+});
+app.use("/api/notifications", notificationRoutes);
+app.set("io", io);
+app.set("trust proxy", 1);
+
+app.get("/", (req, res) => {
+  res.json({ message: "Mazad API running" });
+});
+app.use("/api/courier", courierRoutes);
+/* ======================
+   Start Server (CORRECT)
+====================== */
+const PORT = process.env.PORT || 5000;
+console.log("SERVER PID:", process.pid, "CWD:", process.cwd());
+const startServer = async () => {
+  try {
+    console.log("MONGO_URI =", process.env.MONGO_URI);
+    // ⬅️ انتظر الاتصال أولًا
+    await connectDB();
+    await seedPlansIfEmpty();
+    // // ⬅️ Cron jobs
+    closeAuctions();
+    startSubscriptionCron();
+    startAuctionCleanupCron();
+    await activateScheduledAuctions();
+    // كل 30 ثانية
+    setInterval(async () => {
+      try {
+        await activateScheduledAuctions();
+      } catch (err) {
+        console.error("Activate scheduled auctions error:", err);
+      }
+    }, 30000);
+
+    console.log("CRON INITIALIZED (Scheduled Auctions Activator)");
+
+    httpServer.listen(PORT, () => {
+      console.log(`🚀 Server + WebSocket running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error("Failed to start server:", err);
+    process.exit(1);
+  }
+};
+
+
+// Error handling middleware (to ensure CORS headers on errors)
+app.use((err, req, res, next) => {
+  console.error("Global Error Handler:", err);
+  res.header("Access-Control-Allow-Origin", "*"); // Ensure CORS even on error
+  res.status(err.status || 500).json({
+    message: err.message || "Internal Server Error",
+    error: process.env.NODE_ENV === "development" ? err : {},
+  });
+});
+
+startServer();

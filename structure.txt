@@ -1,0 +1,139 @@
+Need to install the following packages:
+tree-node-cli@1.6.0
+Ok to proceed? (y) mazad2
+├── 20.rar
+├── App.tsx
+├── README.md
+├── backend
+│   ├── config
+│   │   ├── db.js
+│   │   └── env.js
+│   ├── controllers
+│   │   ├── admin.controller.js
+│   │   ├── adminAuctionArchive.controller.js
+│   │   ├── auction.controller.js
+│   │   ├── auth.controller.js
+│   │   ├── balance.controller.js
+│   │   ├── billing.controller.js
+│   │   ├── courier.controller.js
+│   │   ├── rating.controller.js
+│   │   ├── subscriptionRequest.controller.js
+│   │   ├── user.controller.js
+│   │   └── zaincash.controller.js
+│   ├── cron
+│   │   ├── activateScheduledAuctions.js
+│   │   ├── auctionCloser.js
+│   │   ├── auctionPenalty.js
+│   │   └── subscription.cron.js
+│   ├── middleware
+│   │   ├── auth.js
+│   │   ├── rateLimit.js
+│   │   ├── requireRole.js
+│   │   ├── roles.js
+│   │   ├── subscriptionGuard.js
+│   │   └── upload.js
+│   ├── models
+│   │   ├── Auction.js
+│   │   ├── AuditLog.js
+│   │   ├── BalanceRequest.js
+│   │   ├── Bid.js
+│   │   ├── BidThrottle.js
+│   │   ├── CourierCompany.js
+│   │   ├── DeliveryOrder.js
+│   │   ├── FinanceLog.js
+│   │   ├── Notification.js
+│   │   ├── PaymentTransaction.js
+│   │   ├── Plan.js
+│   │   ├── PlatformSetting.js
+│   │   ├── Rating.js
+│   │   ├── RefundRequest.js
+│   │   ├── Report.js
+│   │   ├── Subscription.js
+│   │   ├── SubscriptionRequest.js
+│   │   └── User.js
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── routes
+│   │   ├── admin.routes.js
+│   │   ├── auction.routes.js
+│   │   ├── auth.routes.js
+│   │   ├── balance.routes.js
+│   │   ├── billing.routes.js
+│   │   ├── courier.routes.js
+│   │   ├── notification.routes.js
+│   │   ├── payments.routes.js
+│   │   ├── rating.routes.js
+│   │   ├── user.routes.js
+│   │   └── wallet.routes.js
+│   ├── server.js
+│   └── utils
+│       ├── bidCooldown.js
+│       ├── helpers.js
+│       ├── hideIdentity.js
+│       ├── imageUpload.js
+│       ├── ratingReasons.js
+│       ├── seedPlans.js
+│       ├── subscriptionCron.js
+│       └── zaincashV2.js
+├── components
+│   ├── ArchivedAuctionCard.tsx
+│   ├── AuctionCard.tsx
+│   ├── AuctionCompactCard.tsx
+│   ├── AuctionSidebarCard.tsx
+│   ├── Countdown.tsx
+│   ├── LoginModal.tsx
+│   ├── NotificationManager.tsx
+│   ├── StatCard.tsx
+│   └── TopBar.tsx
+├── context
+│   └── AuthContext.tsx
+├── dolphenPassword.txt
+├── index.html
+├── index.tsx
+├── package-lock.json
+├── package.json
+├── pages
+│   ├── AdminBalanceRequests.tsx
+│   ├── AdminCompletedAuctions.tsx
+│   ├── AdminCourierManagement.tsx
+│   ├── AdminDashboard.tsx
+│   ├── AdminDepositPolicy.tsx
+│   ├── AdminPlatformBalance.tsx
+│   ├── AdminRefundRequests.tsx
+│   ├── AdminUserDetails.tsx
+│   ├── AdminUsers.tsx
+│   ├── ArchivedAuctions.tsx
+│   ├── AuctionDetails.tsx
+│   ├── CourierAgentDashboard.tsx
+│   ├── CourierStaffDashboard.tsx
+│   ├── CreateAuction.tsx
+│   ├── EndingSoonAuctions.tsx
+│   ├── FAQ.tsx
+│   ├── Home.tsx
+│   ├── OpenDeals.tsx
+│   ├── Pricing.tsx
+│   ├── PrivacyPolicy.tsx
+│   ├── UserProfile.tsx
+│   └── Wallet.tsx
+├── services
+│   ├── admin.ts
+│   ├── adminSubscriptions.service.ts
+│   ├── api.ts
+│   ├── auction.ts
+│   ├── auth.ts
+│   ├── billing.service.ts
+│   └── rating.ts
+├── structure.txt
+├── test.html
+├── tsconfig.json
+├── types.ts
+├── utils
+│   ├── getImageUrl.ts
+│   ├── getRemainingTime.ts
+│   ├── helpers.ts
+│   ├── maskUsername.ts
+│   └── ratingReasons.ts
+├── vite-env.d.ts
+├── vite.config.ts
+├── مزادات 7.txt
+└── ملاحظات.txt

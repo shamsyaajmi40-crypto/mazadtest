@@ -1,0 +1,684 @@
+import crypto from "crypto";
+import Auction from "../models/Auction.js";
+import DeliveryOrder from "../models/DeliveryOrder.js";
+import CourierCompany from "../models/CourierCompany.js";
+import Notification from "../models/Notification.js";
+import User from "../models/User.js";
+import bcrypt from "bcryptjs";
+import { getIo } from "../utils/socket.js";
+
+const FAILURE_REVIEW_MS = 24 * 60 * 60 * 1000; // 24 hours
+const DEFAULT_CONFIRMATION_MS = 4 * 24 * 60 * 60 * 1000; // 4 days
+const normalizeOtp = (x) =>
+  String(x || "")
+    .trim()
+    .replace(/[٠-٩]/g, (d) => "0123456789"["٠١٢٣٤٥٦٧٨٩".indexOf(d)])
+    .replace(/[۰-۹]/g, (d) => "0123456789"["۰۱۲۳۴۵۶۷۸۹".indexOf(d)]);
+
+const hashOtp = (otp) => crypto.createHash("sha256").update(String(otp)).digest("hex");
+const genOtp = () => String(Math.floor(100000 + Math.random() * 900000)); // 6 digits
+
+const pushLog = (order, { status, by, note = "", reason = null }) => {
+  order.logs.push({ status, by, note, reason, at: new Date() });
+};
+
+const BUYER_FAILURE_REASONS = new Set([
+  "BUYER_NO_SHOW",
+  "BUYER_REFUSED",
+  "BUYER_DID_NOT_RECEIVE",
+  "BUYER_UNREACHABLE",
+  "WRONG_ADDRESS",
+]);
+const SELLER_FAILURE_REASONS = new Set(["SELLER_NO_SHOW", "SELLER_NOT_READY"]);
+const COURIER_FAILURE_REASONS = new Set(["COURIER_ISSUE"]);
+const ALL_FAILURE_REASONS = new Set([
+  ...BUYER_FAILURE_REASONS,
+  ...SELLER_FAILURE_REASONS,
+  ...COURIER_FAILURE_REASONS,
+]);
+
+const notifyUser = async ({ userId, title, message, auctionId, event }) => {
+  if (!userId) return;
+  const notification = await Notification.create({
+    user: userId,
+    type: "SYSTEM",
+    event: event || "SYSTEM",
+    title,
+    message,
+    auction: auctionId,
+  });
+
+  const io = getIo();
+  if (io) {
+    io.to(userId.toString()).emit("new_notification", notification);
+    io.to(userId.toString()).emit("user_refresh"); // تحديث عداد الصفقات
+  }
+};
+
+const courierAuctionPopulate = {
+  path: "auction",
+  select: "currentPrice confirmationDeadline status winner seller",
+  populate: [
+    { path: "winner", select: "name phone governorate address" },
+    { path: "seller", select: "name phone governorate address" },
+  ],
+};
+
+const ensureOrderAccess = async (reqUser, order) => {
+  if (!reqUser || !order) return { ok: false, status: 404, message: "Order not found" };
+
+  if (reqUser.role === "courier_staff") {
+    const staff = await User.findById(reqUser._id).select("courierCompany");
+    if (!staff?.courierCompany) return { ok: false, status: 400, message: "Staff has no courierCompany" };
+    if (String(order.company) !== String(staff.courierCompany)) {
+      return { ok: false, status: 403, message: "Order not in your company" };
+    }
+  }
+
+  if (reqUser.role === "courier_agent") {
+    if (!order.agentUser || String(order.agentUser) !== String(reqUser._id)) {
+      return { ok: false, status: 403, message: "Order is not assigned to you" };
+    }
+  }
+
+  return { ok: true };
+};
+
+export const listCourierCompanies = async (req, res) => {
+  const companies = await CourierCompany.find({ isActive: true })
+    .select("_id name phone deliveryFee")
+    .sort({ createdAt: -1 });
+
+  return res.json(companies);
+};
+
+export const createDeliveryOrder = async (req, res) => {
+  try {
+    const { auctionId } = req.params;
+    const { companyId, trackingCode = "" } = req.body;
+
+    const auction = await Auction.findById(auctionId);
+    if (!auction) return res.status(404).json({ message: "Auction not found" });
+
+    // ✅ يسمح للبائع أو courier_staff/admin/superAdmin فقط
+    const isSeller =
+      String(auction.seller) === String(req.user._id) ||
+      String(auction.seller?._id) === String(req.user._id);
+
+    const isStaff =
+      req.user.role === "courier_staff" ||
+      req.user.role === "admin" ||
+      req.user.role === "superAdmin";
+
+    if (!isSeller && !isStaff) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    // ✅ لازم المزاد منتهي وفيه فائز
+    if (auction.status !== "ENDED" || !auction.winner) {
+      return res.status(400).json({ message: "Auction not ready for delivery" });
+    }
+
+    const company = await CourierCompany.findById(companyId);
+    if (!company || !company.isActive) {
+      return res.status(400).json({ message: "Courier company invalid" });
+    }
+
+    const existing = await DeliveryOrder.findOne({ auction: auction._id });
+    if (existing) return res.status(400).json({ message: "Delivery order already exists" });
+
+    // ✅ توليد OTP للمشتري فقط عند إنشاء الطلب
+    const buyerOtp = normalizeOtp(genOtp());
+
+    const order = await DeliveryOrder.create({
+      auction: auction._id,
+      company: company._id,
+      deliveryFee: Number(company.deliveryFee || 0),
+      trackingCode,
+      status: "READY_FOR_PICKUP",
+      staffUser: req.user._id,
+      logs: [
+        {
+          status: "READY_FOR_PICKUP",
+          by: req.user._id,
+          note: "Order created",
+          at: new Date(),
+        },
+      ],
+    });
+
+    auction.deliveryMode = "courier";
+    auction.deliveryOrder = order._id;
+    // Reset confirmations for courier flow lifecycle.
+    auction.winnerConfirmed = false;
+    auction.sellerConfirmed = false;
+
+    // ✅ buyer OTP only
+    auction.deliveryOtpCode = buyerOtp;
+    auction.deliveryOtpHash = hashOtp(buyerOtp);
+
+    // ✅ payout OTP للبائع لاحقاً بعد DELIVERED
+    auction.payoutOtpCode = null;
+    auction.payoutOtpHash = null;
+
+    await auction.save();
+
+    return res.json({
+      message: "Delivery order created",
+      orderId: order._id,
+    });
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+};
+
+export const assignAgent = async (req, res) => {
+  const { orderId } = req.params;
+  const { agentUserId } = req.body;
+
+  const staff = await User.findById(req.user._id).select("courierCompany");
+  if (!staff?.courierCompany) return res.status(400).json({ message: "Staff has no courierCompany" });
+
+  const order = await DeliveryOrder.findById(orderId);
+  if (!order) return res.status(404).json({ message: "Order not found" });
+
+  // تأكد الطلب أصلاً لنفس الشركة
+  if (String(order.company) !== String(staff.courierCompany)) {
+    return res.status(403).json({ message: "Order not in your company" });
+  }
+
+  const agent = await User.findOne({
+    _id: agentUserId,
+    role: "courier_agent",
+    courierCompany: staff.courierCompany,
+    isCourierActive: true,
+  });
+
+  if (!agent) return res.status(404).json({ message: "Agent not found for your company" });
+
+  order.agentUser = agent._id;
+  order.staffUser = req.user._id;
+  pushLog(order, { status: order.status, by: req.user._id, note: `Agent assigned: ${agent._id}` });
+  await order.save();
+
+  return res.json({ message: "Agent assigned" });
+};
+
+
+export const markPickedUp = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    const order = await DeliveryOrder.findById(orderId);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    const access = await ensureOrderAccess(req.user, order);
+    if (!access.ok) return res.status(access.status).json({ message: access.message });
+
+    order.status = "PICKED_UP";
+    order.pickedUpAt = new Date();
+    order.staffUser = req.user._id;
+    pushLog(order, { status: "PICKED_UP", by: req.user._id });
+
+    await order.save();
+    return res.json({ message: "Picked up" });
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+};
+
+export const markDeliveredByOtp = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { otp } = req.body;
+
+    const order = await DeliveryOrder.findById(orderId).populate("auction");
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    const access = await ensureOrderAccess(req.user, order);
+    if (!access.ok) return res.status(access.status).json({ message: access.message });
+
+    const auction = await Auction.findById(order.auction._id);
+    if (!auction) return res.status(404).json({ message: "Auction not found" });
+
+    if (auction.deliveryMode !== "courier") return res.status(400).json({ message: "Not courier mode" });
+    if (!auction.deliveryOtpHash) return res.status(400).json({ message: "Delivery OTP not set" });
+
+    const ok = hashOtp(normalizeOtp(otp)) === auction.deliveryOtpHash;
+
+    if (!ok) return res.status(400).json({ message: "Invalid OTP" });
+
+    order.status = "DELIVERED";
+    order.deliveredAt = new Date();
+    order.staffUser = req.user._id;
+    pushLog(order, { status: "DELIVERED", by: req.user._id, note: "Delivered by OTP" });
+    await order.save();
+
+    // ✅ Buyer confirmed receiving item via OTP
+    auction.winnerConfirmed = true;
+    auction.deliveryOtpCode = null;
+    auction.deliveryOtpHash = null;
+
+    // ✅ الآن فقط: توليد OTP البائع لاستلام مبلغ COD
+    if (!auction.payoutOtpHash) {
+      const sellerOtp = genOtp();
+      auction.payoutOtpCode = sellerOtp;
+      auction.payoutOtpHash = hashOtp(sellerOtp);
+
+      await notifyUser({
+        userId: auction.seller,
+        auctionId: auction._id,
+        event: "PAYOUT_OTP_READY",
+        title: "كود استلام مبلغ COD جاهز",
+        message: "تم تأكيد التسليم. الآن يظهر لك OTP استلام مبلغ الـCOD داخل تفاصيل المزاد.",
+      });
+    }
+
+    await auction.save();
+
+    return res.json({ message: "Delivered confirmed" });
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+};
+
+export const markFailed = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { reason, note = "" } = req.body;
+
+    const order = await DeliveryOrder.findById(orderId).populate("auction");
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    const access = await ensureOrderAccess(req.user, order);
+    if (!access.ok) return res.status(access.status).json({ message: access.message });
+
+    if (!ALL_FAILURE_REASONS.has(reason)) {
+      return res.status(400).json({ message: "Invalid failure reason" });
+    }
+
+    if (["COD_PAID_TO_SELLER", "COMPLETED"].includes(order.status)) {
+      return res.status(400).json({ message: "Order already finalized" });
+    }
+
+    const auction = await Auction.findById(order.auction._id);
+    if (!auction) return res.status(404).json({ message: "Auction not found" });
+
+    if (order.status === "DELIVERY_FAILED" && order.failureReason) {
+      if (auction.penaltyApplied) {
+        return res.status(400).json({ message: "Cannot change failure reason after penalty is applied" });
+      }
+      const reviewUntil = auction.confirmationDeadline ? new Date(auction.confirmationDeadline).getTime() : 0;
+      if (!reviewUntil || Date.now() >= reviewUntil) {
+        return res.status(400).json({ message: "Review window expired; penalty will be applied" });
+      }
+    }
+
+    order.status = "DELIVERY_FAILED";
+    order.failureReason = reason;
+    order.staffUser = req.user._id;
+    pushLog(order, { status: "DELIVERY_FAILED", by: req.user._id, reason, note });
+    await order.save();
+
+    // خزّن السبب على المزاد حتى يقرأه كرون العقوبات
+    auction.deliveryPenaltyReason = reason;
+    // Persist explicit confirmation flags for penalty/audit visibility.
+    if (SELLER_FAILURE_REASONS.has(reason)) {
+      // Buyer is not at fault in seller-related failures.
+      auction.winnerConfirmed = true;
+      auction.sellerConfirmed = false;
+    }
+    if (BUYER_FAILURE_REASONS.has(reason)) {
+      // Seller is not at fault in buyer-related failures.
+      auction.sellerConfirmed = true;
+      auction.winnerConfirmed = false;
+    }
+    if (reason === "COURIER_ISSUE") {
+      // Neutral courier fault: keep both parties non-confirmed.
+      auction.sellerConfirmed = false;
+      auction.winnerConfirmed = false;
+    }
+    auction.penaltyApplied = false;
+    auction.confirmationDeadline = new Date(Date.now() + FAILURE_REVIEW_MS);
+
+    // نظام الاعتراض (إشعار الطرف المتهم)
+    auction.isDisputed = false;
+    auction.disputeReason = null;
+    await auction.save();
+
+    if (SELLER_FAILURE_REASONS.has(reason)) {
+      await notifyUser({
+        userId: auction.seller,
+        title: "⚠️ تنبيه عاجل: فشل التوصيل",
+        message: "تم تسجيل فشل التوصيل بسببك. سيتم مصادرة عربونك خلال 24 ساعة. إذا كان هذا غير صحيح، قم بتقديم اعتراض فوراً من صفحة المزاد.",
+        auctionId: auction._id,
+        event: "DELIVERY_FAILED_ACCUSED",
+      });
+    } else if (BUYER_FAILURE_REASONS.has(reason) && auction.winner) {
+      await notifyUser({
+        userId: auction.winner,
+        title: "⚠️ تنبيه عاجل: رفض الاستلام",
+        message: "تم تسجيل رفضك لاستلام المزاد. سيتم مصادرة عربونك خلال 24 ساعة. إذا كان هذا غير صحيح، قم بتقديم اعتراض فوراً من صفحة المزاد.",
+        auctionId: auction._id,
+        event: "DELIVERY_FAILED_ACCUSED",
+      });
+    }
+
+    return res.json({
+      message: "Marked as failed (review window started)",
+      reviewUntil: auction.confirmationDeadline,
+    });
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+};
+
+export const revertFailedDecision = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { note = "" } = req.body || {};
+
+    const order = await DeliveryOrder.findById(orderId).populate("auction");
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    const access = await ensureOrderAccess(req.user, order);
+    if (!access.ok) return res.status(access.status).json({ message: access.message });
+
+    if (order.status !== "DELIVERY_FAILED") {
+      return res.status(400).json({ message: "Order is not in failed state" });
+    }
+
+    const auction = await Auction.findById(order.auction._id);
+    if (!auction) return res.status(404).json({ message: "Auction not found" });
+
+    if (auction.penaltyApplied) {
+      return res.status(400).json({ message: "Cannot revert after penalty is applied" });
+    }
+
+    const reviewUntil = auction.confirmationDeadline ? new Date(auction.confirmationDeadline).getTime() : 0;
+    if (!reviewUntil || Date.now() >= reviewUntil) {
+      return res.status(400).json({ message: "Review window expired; cannot revert failure" });
+    }
+
+    let fallbackStatus = "PICKED_UP";
+    for (let i = order.logs.length - 1; i >= 0; i--) {
+      const s = String(order.logs[i]?.status || "");
+      if (s && s !== "DELIVERY_FAILED") {
+        fallbackStatus = s;
+        break;
+      }
+    }
+
+    order.status = fallbackStatus;
+    order.failureReason = null;
+    order.staffUser = req.user._id;
+    pushLog(order, {
+      status: fallbackStatus,
+      by: req.user._id,
+      note: note || "Failure decision reverted during review window",
+    });
+    await order.save();
+
+    auction.deliveryPenaltyReason = null;
+    auction.winnerConfirmed = false;
+    auction.sellerConfirmed = false;
+    auction.penaltyApplied = false;
+    auction.confirmationDeadline = new Date(Date.now() + DEFAULT_CONFIRMATION_MS);
+    await auction.save();
+
+    return res.json({
+      message: "Failure decision reverted",
+      orderStatus: order.status,
+    });
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+};
+
+export const markCodPaidToSeller = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { otp, receiptNo = "" } = req.body;
+
+    const order = await DeliveryOrder.findById(orderId).populate("auction");
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    const access = await ensureOrderAccess(req.user, order);
+    if (!access.ok) return res.status(access.status).json({ message: access.message });
+
+    const auction = await Auction.findById(order.auction._id);
+    if (!auction) return res.status(404).json({ message: "Auction not found" });
+
+    if (!auction.payoutOtpHash) return res.status(400).json({ message: "Payout OTP not set yet" });
+
+    const ok = hashOtp(normalizeOtp(otp)) === auction.payoutOtpHash;
+
+
+    if (!ok) return res.status(400).json({ message: "Invalid OTP" });
+
+    const grossAmount = Number(auction.currentPrice || 0);
+    const deliveryFee = Number(order.deliveryFee || 0);
+    const sellerPayout = grossAmount;
+    const buyerTotalDue = grossAmount + deliveryFee;
+
+    order.status = "COD_PAID_TO_SELLER";
+    order.codPaidAt = new Date();
+    order.staffUser = req.user._id;
+    pushLog(order, {
+      status: "COD_PAID_TO_SELLER",
+      by: req.user._id,
+      note: `receiptNo=${receiptNo};sellerPayout=${sellerPayout};deliveryFee=${deliveryFee};buyerTotalDue=${buyerTotalDue}`,
+    });
+    await order.save();
+
+    // ✅ تأكيد استلام البائع + مسح OTP البائع
+    auction.sellerConfirmed = true;
+    auction.payoutOtpCode = null;
+    auction.payoutOtpHash = null;
+
+    // ✅ اكمل الصفقة فوراً
+    auction.status = "completed";
+    auction.penaltyApplied = true;
+    // 🔄 إعادة عربون المشتري
+    if (auction.winner && auction.depositAmount > 0) {
+      await User.updateOne(
+        { _id: auction.winner },
+        {
+          $inc: {
+            balance: auction.depositAmount,
+            heldBalance: -auction.depositAmount,
+          },
+        }
+      );
+      // ✅ إشعار إرجاع العربون للمشتري فوراً
+      await notifyUser({
+        userId: auction.winner,
+        auctionId: auction._id,
+        event: "DEPOSIT_REFUND",
+        title: "💰 تم إرجاع عربونك",
+        message: `تم إضافة عربونك بقيمة ${Number(auction.depositAmount).toLocaleString()} د.ع إلى رصيدك بعد إتمام الصفقة بنجاح.`,
+      });
+    }
+    if (auction.winner) {
+      await notifyUser({
+        userId: auction.winner,
+        auctionId: auction._id,
+        event: "DEAL_COMPLETED",
+        title: "✅ تمت الصفقة بنجاح",
+        message: "تم تسليم السلعة ودفع المبلغ للبائع. شكراً لاستخدامك المنصة.",
+      });
+    }
+    // 🔄 إعادة عربون البائع
+    if (auction.seller && auction.sellerDeposit > 0) {
+      await User.updateOne(
+        { _id: auction.seller },
+        {
+          $inc: {
+            balance: auction.sellerDeposit,
+            heldBalance: -auction.sellerDeposit,
+          },
+        }
+      );
+    }
+    await auction.save();
+
+    if (auction.seller) {
+      await notifyUser({
+        userId: auction.seller,
+        auctionId: auction._id,
+        event: "COD_PAYOUT_CONFIRMED",
+        title: "تم تأكيد دفع مبلغ COD",
+        message: `تم تأكيد استلام مبلغك: ${sellerPayout.toLocaleString()} د.ع. أجرة التوصيل (${deliveryFee.toLocaleString()} د.ع) تُدفع من المشتري.`,
+      });
+    }
+
+    return res.json({
+      message: "COD payout confirmed",
+      breakdown: {
+        sellerPayout,
+        deliveryFee,
+        buyerTotalDue,
+      },
+    });
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+};
+
+export const listCompanyOrders = async (req, res) => {
+  const { companyId } = req.params;
+
+  // ✅ staff لازم يشوف شركته فقط
+  if (req.user.role === "courier_staff") {
+    const staff = await User.findById(req.user._id).select("courierCompany");
+    if (!staff?.courierCompany) return res.status(400).json({ message: "Staff has no courierCompany" });
+
+    if (String(staff.courierCompany) !== String(companyId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+  }
+
+  const orders = await DeliveryOrder.find({ company: companyId })
+    .populate(courierAuctionPopulate)
+    .populate("agentUser", "name phone")
+    .sort({ createdAt: -1 });
+  return res.json(orders);
+};
+
+
+export const listAgentOrders = async (req, res) => {
+  const orders = await DeliveryOrder.find({ agentUser: req.user._id })
+    .populate(courierAuctionPopulate)
+    .populate("agentUser", "name phone")
+    .sort({ createdAt: -1 });
+  return res.json(orders);
+};
+export const listMyAgents = async (req, res) => {
+  const staff = await User.findById(req.user._id).select("courierCompany");
+  if (!staff?.courierCompany) return res.status(400).json({ message: "Staff has no courierCompany" });
+
+  const agents = await User.find({
+    role: "courier_agent",
+    courierCompany: staff.courierCompany,
+  }).select("_id name phone isCourierActive createdAt");
+
+  return res.json(agents);
+};
+export const createAgentForMyCompany = async (req, res) => {
+  const { name, phone, password } = req.body;
+
+  if (!name || !phone || !password) {
+    return res.status(400).json({ message: "name, phone, password are required" });
+  }
+
+  const staff = await User.findById(req.user._id).select("courierCompany");
+  if (!staff?.courierCompany) return res.status(400).json({ message: "Staff has no courierCompany" });
+
+  const exists = await User.findOne({ phone });
+  if (exists) return res.status(400).json({ message: "Phone already used" });
+  const hashed = await bcrypt.hash(String(password), 10);
+  // ⚠️ استخدم نفس طريقة hashing عندك (مثلاً bcrypt)
+  const agent = await User.create({
+    name,
+    phone,
+    password: hashed,
+    role: "courier_agent",
+    courierCompany: staff.courierCompany,
+    isCourierActive: true,
+    accountType: "user",
+  });
+  return res.json({
+    _id: agent._id,
+    name: agent.name,
+    phone: agent.phone,
+    isCourierActive: agent.isCourierActive,
+  });
+};
+export const toggleAgentActive = async (req, res) => {
+  const { agentId } = req.params;
+
+  const staff = await User.findById(req.user._id).select("courierCompany");
+  if (!staff?.courierCompany) return res.status(400).json({ message: "Staff has no courierCompany" });
+
+  const agent = await User.findOne({
+    _id: agentId,
+    role: "courier_agent",
+    courierCompany: staff.courierCompany,
+  });
+
+  if (!agent) return res.status(404).json({ message: "Agent not found" });
+
+  agent.isCourierActive = !agent.isCourierActive;
+  await agent.save();
+
+  return res.json({ message: "updated", isCourierActive: agent.isCourierActive });
+};
+export const listMyCompanyOrders = async (req, res) => {
+  const staff = await User.findById(req.user._id).select("courierCompany");
+  if (!staff?.courierCompany) return res.status(400).json({ message: "Staff has no courierCompany" });
+
+  const orders = await DeliveryOrder.find({ company: staff.courierCompany })
+    .populate(courierAuctionPopulate)
+    .populate("agentUser", "name phone")
+    .sort({ createdAt: -1 });
+  return res.json(orders);
+};
+export const adminCreateCourierStaffForCompany = async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const { name, phone, password } = req.body;
+
+    if (!name || !phone || !password) {
+      return res.status(400).json({ message: "name, phone, password required" });
+    }
+
+    const company = await CourierCompany.findById(companyId);
+    if (!company) return res.status(404).json({ message: "Company not found" });
+
+    const exists = await User.findOne({ phone });
+    if (exists) return res.status(400).json({ message: "Phone already used" });
+
+    // ✅ أهم نقطة: خزن الباسورد بنفس طريقة اللوجين عندك
+    const hashed = await bcrypt.hash(String(password), 10);
+
+    const staff = await User.create({
+      name,
+      phone,
+      password: hashed,
+      role: "courier_staff",
+      courierCompany: company._id,
+      blocked: false,
+    });
+
+    return res.json({
+      _id: staff._id,
+      name: staff.name,
+      phone: staff.phone,
+      role: staff.role,
+      courierCompany: staff.courierCompany,
+    });
+  } catch (e) {
+    console.error("adminCreateCourierStaffForCompany error:", e);
+    return res.status(500).json({ message: "Failed to create staff" });
+  }
+};

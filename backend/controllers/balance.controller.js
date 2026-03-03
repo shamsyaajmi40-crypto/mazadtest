@@ -80,6 +80,16 @@ export const approveBalanceRequest = async (req, res) => {
     request.status = "approved";
     await request.save();
 
+    // ✅ Audit: شحن رصيد يدوي
+    await FinanceLog.create({
+      user: request.user,
+      type: "WALLET_TOPUP_PAID",
+      amountIQD: request.amount,
+      refModel: "BalanceRequest",
+      refId: request._id,
+      meta: { adminId: req.user._id, note: request.note || "شحن يدوي" },
+    });
+
     res.json({ message: "Balance approved and updated" });
   } catch (error) {
     res.status(500).json({ message: error.message });

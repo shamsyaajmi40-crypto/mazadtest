@@ -226,16 +226,19 @@ export const getFinancialLogs = async (req, res) => {
             return [];
         };
 
-        // Fetch from FinanceLog (Manual Refund Requests)
+        // Fetch from FinanceLog (Manual Refund Requests & Manual Topups)
         const getFinanceLogs = async () => {
-            if (type === "all" || type === "refund") {
+            if (type === "all" || type === "refund" || type === "topup") {
+                const types = [];
+                if (type === "all" || type === "refund") types.push("REFUND_REQUEST_APPROVED", "REFUND_REQUEST_REJECTED");
+                if (type === "all" || type === "topup") types.push("WALLET_TOPUP_PAID");
+
                 const match = {
-                    type: { $in: ["REFUND_REQUEST_APPROVED", "REFUND_REQUEST_REJECTED"] },
+                    type: { $in: types },
+                    refModel: { $ne: "PaymentTransaction" }, // Avoid duplicates with getTxLogs
                     ...dateFilter
                 };
-                if (userMatchIds) {
-                    match.user = { $in: userMatchIds };
-                }
+                if (userMatchIds) match.user = { $in: userMatchIds };
 
                 const finLogs = await FinanceLog.find(match)
                     .sort({ createdAt: -1 })
@@ -245,14 +248,14 @@ export const getFinancialLogs = async (req, res) => {
 
                 return finLogs.map(l => ({
                     _id: l._id,
-                    type: "REFUND",
-                    status: l.type === "REFUND_REQUEST_APPROVED" ? "SUCCESS" : "FAILED",
+                    type: l.type === "WALLET_TOPUP_PAID" ? "TOPUP" : "REFUND",
+                    status: l.type === "REFUND_REQUEST_REJECTED" ? "FAILED" : "SUCCESS",
                     amount: l.amountIQD,
                     user: l.user,
                     createdAt: l.createdAt,
-                    reason: l.meta?.adminNote || l.meta?.reason || "طلب يدوي",
+                    reason: l.meta?.adminNote || l.meta?.reason || l.meta?.note || (l.type === "WALLET_TOPUP_PAID" ? "شحن يدوي" : "طلب إرجاع"),
                     source: "منصة (يدوي)",
-                    orderId: l.refId ? `REF-${l.refId.toString().slice(-6).toUpperCase()}` : "—"
+                    orderId: l.refId ? (l.type === "WALLET_TOPUP_PAID" ? `BAL-${l.refId.toString().slice(-6).toUpperCase()}` : `REF-${l.refId.toString().slice(-6).toUpperCase()}`) : "—"
                 }));
             }
             return [];
@@ -413,6 +416,30 @@ export const exportFinancialsExcel = async (req, res) => {
                     details: s.kind === "subscription" ? "اشتراك باقة" : "إيداع محفظة"
                 });
             });
+
+            // 2.1 Manual Topups (FinanceLog)
+            if (type === "all" || type === "topup") {
+                const ftMatch = {
+                    type: "WALLET_TOPUP_PAID",
+                    refModel: { $ne: "PaymentTransaction" },
+                    ...dateFilter
+                };
+                if (userMatchIds) ftMatch.user = { $in: userMatchIds };
+                const ftLogs = await FinanceLog.find(ftMatch).populate("user", "name phone").lean();
+                ftLogs.forEach(l => {
+                    logs.push({
+                        date: l.createdAt,
+                        type: "شحن رصيد",
+                        status: "ناجحة",
+                        user: l.user?.name || "—",
+                        phone: l.user?.phone || "—",
+                        amount: l.amountIQD,
+                        orderId: l.refId ? `BAL-${l.refId.toString().slice(-6).toUpperCase()}` : "—",
+                        source: "منصة (يدوي)",
+                        details: l.meta?.note || "شحن يدوي"
+                    });
+                });
+            }
         }
 
         // Search in local identifiers if search active

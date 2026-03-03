@@ -8,6 +8,7 @@ export type User = {
   _id: string;
   name: string;
   phone: string;
+  email?: string;
   governorate?: string;
   address?: string;
   role: UserRole;
@@ -126,6 +127,7 @@ export type LoginPayload = {
 export type RegisterPayload = {
   name: string;
   phone: string;
+  email: string;
   password: string;
   governorate?: string;
   address?: string;

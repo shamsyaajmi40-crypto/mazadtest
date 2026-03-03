@@ -4,6 +4,8 @@ import RefundRequest from "../models/RefundRequest.js";
 import FinanceLog from "../models/FinanceLog.js";
 import { getIo } from "../utils/socket.js";
 import { validateNumber, validateText } from "../utils/validation.js";
+import { generateReceiptId } from "../utils/receipt.js";
+import { sendReceiptEmail } from "../utils/email.js";
 
 // ================= USER =================
 
@@ -81,13 +83,26 @@ export const approveBalanceRequest = async (req, res) => {
     await request.save();
 
     // ✅ Audit: شحن رصيد يدوي
+    const receiptId = generateReceiptId();
     await FinanceLog.create({
       user: request.user,
       type: "WALLET_TOPUP_PAID",
       amountIQD: request.amount,
       refModel: "BalanceRequest",
       refId: request._id,
+      receiptId,
       meta: { adminId: req.user._id, note: request.note || "شحن يدوي" },
+    });
+
+    // ✅ Send Receipt Email
+    sendReceiptEmail({
+      to: updatedUser.email,
+      userName: updatedUser.name,
+      receiptId,
+      amount: request.amount,
+      type: "TOPUP",
+      date: new Date(),
+      details: request.note || "شحن رصيد يدوي بواسطة الإدارة"
     });
 
     res.json({ message: "Balance approved and updated" });
@@ -252,18 +267,31 @@ export const adminApproveRefundRequest = async (req, res) => {
     await rr.save();
 
     // ✅ Audit: موافقة (وهنا تم الخصم)
+    const receiptId = generateReceiptId();
     await FinanceLog.create({
       user: rr.user,
       type: "REFUND_REQUEST_APPROVED",
       amountIQD: rr.amountIQD,
       refModel: "RefundRequest",
       refId: rr._id,
+      receiptId,
       meta: {
         adminId: req.user._id,
         adminName: req.user?.name || req.user?.fullName || req.user?.username || "",
         adminPhone: req.user?.phone || "",
         adminNote: adminNote || "",
       },
+    });
+
+    // ✅ Send Receipt Email
+    sendReceiptEmail({
+      to: updatedUser.email,
+      userName: updatedUser.name,
+      receiptId,
+      amount: rr.amountIQD,
+      type: "WALLET_WITHDRAWAL",
+      date: new Date(),
+      details: adminNote || "تمت الموافقة على طلب استرجاع الرصيد"
     });
 
 
@@ -346,6 +374,32 @@ export const adminRefundLogs = async (req, res) => {
   } catch (e) {
     console.error("adminRefundLogs error:", e?.message || e);
     return res.status(500).json({ message: "Failed to load refund logs" });
+  }
+};
+
+// GET /api/users/me/financial-logs
+export const getMyFinancialLogs = async (req, res) => {
+  try {
+    const logs = await FinanceLog.find({ user: req.user._id })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    // Mapping to a user-friendly format
+    const out = logs.map(l => ({
+      _id: l._id,
+      type: l.type,
+      amount: l.amountIQD,
+      receiptId: l.receiptId,
+      createdAt: l.createdAt,
+      meta: l.meta,
+      isImmutable: l.isImmutable
+    }));
+
+    return res.json(out);
+  } catch (e) {
+    console.error("getMyFinancialLogs error:", e);
+    return res.status(500).json({ message: "Failed to load your financial history" });
   }
 };
 

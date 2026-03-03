@@ -11,31 +11,32 @@ interface LoginModalProps {
 type Step = "LOGIN" | "REGISTER";
 
 const GOVERNORATES = [
-  "بغداد","البصرة","نينوى","أربيل","السليمانية","دهوك","كركوك",
-  "الأنبار","ديالى","بابل","كربلاء","النجف","صلاح الدين","واسط",
-  "القادسية","ميسان","المثنى","ذي قار",
+  "بغداد", "البصرة", "نينوى", "أربيل", "السليمانية", "دهوك", "كركوك",
+  "الأنبار", "ديالى", "بابل", "كربلاء", "النجف", "صلاح الدين", "واسط",
+  "القادسية", "ميسان", "المثنى", "ذي قار",
 ];
 
 const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
   const { setUser } = useContext(AuthContext);
-const navigate = useNavigate();
+  const navigate = useNavigate();
 
   const [step, setStep] = useState<Step>("LOGIN");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
 
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [governorate, setGovernorate] = useState(GOVERNORATES[0]);
   const [address, setAddress] = useState("");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-const redirectByRole = (role?: string) => {
-  if (role === "courier_agent") return "/courier/agent";
-  if (role === "courier_staff") return "/courier/staff";
-  return "/";
-};
+  const redirectByRole = (role?: string) => {
+    if (role === "courier_agent") return "/courier/agent";
+    if (role === "courier_staff") return "/courier/staff";
+    return "/";
+  };
 
   /* ---------------- LOGIN ---------------- */
   const handleLogin = async (e: React.FormEvent) => {
@@ -66,13 +67,14 @@ const redirectByRole = (role?: string) => {
     }
 
     setError("");
-    
+
 
     setLoading(true);
 
     try {
       const user = await registerService({
         phone,
+        email,
         password,
         name,
         governorate,
@@ -166,6 +168,14 @@ const redirectByRole = (role?: string) => {
                 className="w-full px-4 py-3 border rounded-xl"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                required
+              />
+              <input
+                type="email"
+                placeholder="البريد الإلكتروني"
+                className="w-full px-4 py-3 border rounded-xl"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
               />
               <input

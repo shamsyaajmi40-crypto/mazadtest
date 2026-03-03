@@ -12,7 +12,8 @@ import {
   CheckCircle2,
   AlertCircle,
   TrendingUp,
-  CreditCard
+  CreditCard,
+  ShieldCheck
 } from "lucide-react";
 
 const formatCurrency = (n: any) => `${Number(n || 0).toLocaleString("en-US")} د.ع`;
@@ -30,6 +31,21 @@ export default function Wallet() {
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
 
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+
+  const loadLogs = async () => {
+    try {
+      setLoadingLogs(true);
+      const { data } = await api.get("/users/me/financial-logs");
+      setLogs(data);
+    } catch (e) {
+      console.error("loadLogs error:", e);
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
   useEffect(() => {
     refreshUser?.();
 
@@ -41,6 +57,7 @@ export default function Wallet() {
       setErr("فشلت عملية الدفع أو تم إلغاؤها");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadLogs();
   }, []);
 
   const startTopup = async () => {
@@ -271,6 +288,95 @@ export default function Wallet() {
       </div>
 
       {/* Message Notifications */}
+      {/* Transaction Ledger Section */}
+      <div className="mt-16 bg-white rounded-[3rem] border border-slate-200 shadow-xl overflow-hidden" dir="rtl">
+        <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-white shadow-lg">
+              <TrendingUp className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-slate-800 tracking-tight">سجل المعاملات والوصولات</h3>
+              <p className="text-xs font-bold text-slate-500">سجل عملياتك المالية موثق برقم وصل فريد وغير قابل للتعديل</p>
+            </div>
+          </div>
+          <button
+            onClick={() => loadLogs()}
+            className="p-2 hover:bg-slate-200 rounded-xl transition-colors text-slate-400"
+            title="تحديث السجل"
+          >
+            <Loader2 className={`w-5 h-5 ${loadingLogs ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+
+        <div className="overflow-x-auto text-right">
+          {loadingLogs ? (
+            <div className="p-20 text-center">
+              <Loader2 className="w-10 h-10 animate-spin mx-auto text-primary mb-4" />
+              <p className="text-sm font-bold text-slate-400">جاري تحميل سجل المعاملات...</p>
+            </div>
+          ) : logs.length === 0 ? (
+            <div className="p-20 text-center">
+              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle className="w-10 h-10 text-slate-200" />
+              </div>
+              <p className="text-slate-400 font-bold">لا توجد معاملات مسجلة حتى الآن</p>
+            </div>
+          ) : (
+            <table className="w-full text-right border-collapse">
+              <thead>
+                <tr className="bg-slate-50/50 text-slate-500 text-xs font-black uppercase tracking-wider">
+                  <th className="px-8 py-4 border-b border-slate-100">العملية</th>
+                  <th className="px-8 py-4 border-b border-slate-100">المبلغ</th>
+                  <th className="px-8 py-4 border-b border-slate-100">التاريخ</th>
+                  <th className="px-8 py-4 border-b border-slate-100">رقم الوصل (Verification ID)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {logs.map((log) => (
+                  <tr key={log._id} className="hover:bg-slate-50 transition-colors group">
+                    <td className="px-8 py-5">
+                      <div className="flex items-center gap-3">
+                        <span className={`w-2 h-2 rounded-full ${log.type.includes('TOPUP') || log.type.includes('REFUND') ? 'bg-emerald-500' : 'bg-rose-500'
+                          }`}></span>
+                        <span className="font-black text-slate-700 text-sm">
+                          {log.type === 'WALLET_TOPUP_PAID' ? 'تعبئة رصيد' :
+                            log.type === 'REFUND_REQUEST_APPROVED' ? 'استرجاع رصيد' :
+                              log.type === 'SUBSCRIPTION_ACTIVATED' ? 'اشتراك باقة' :
+                                log.type === 'SUBSCRIPTION_UPGRADED' ? 'ترقية باقة' : log.type}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-5">
+                      <span className={`font-black text-sm ${log.type.includes('TOPUP') || log.type.includes('REFUND') ? 'text-emerald-600' : 'text-rose-600'
+                        }`}>
+                        {log.type.includes('TOPUP') || log.type.includes('REFUND') ? '+' : '-'} {formatCurrency(log.amount)}
+                      </span>
+                    </td>
+                    <td className="px-8 py-5 text-xs font-bold text-slate-500">
+                      {new Date(log.createdAt).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    </td>
+                    <td className="px-8 py-5">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                        <code className="text-[10px] font-black bg-slate-100 px-2 py-1 rounded-lg text-slate-600 select-all">
+                          {log.receiptId || 'MZ-SYSTEM-GEN'}
+                        </code>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <div className="p-6 bg-slate-50/30 border-t border-slate-100">
+          <p className="text-[10px] font-bold text-slate-400 text-center">
+            جميع المعاملات المالية محمية بنظام التشفير والنزاهة المالية. رقم الوصل هو المرجع الوحيد المعتمد للمراجعة.
+          </p>
+        </div>
+      </div>
+
       <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-3 w-full max-w-sm px-4">
         {err && (
           <div className="bg-white border-2 border-rose-100 p-4 rounded-3xl shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-5 text-right" dir="rtl">

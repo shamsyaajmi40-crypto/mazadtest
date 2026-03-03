@@ -5,6 +5,9 @@ import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import { getIo } from "../utils/socket.js";
 import { uploadToR2 } from "../utils/r2.js";
+import { generateReceiptId } from "../utils/receipt.js";
+import { sendReceiptEmail } from "../utils/email.js";
+import FinanceLog from "../models/FinanceLog.js";
 
 const addOneMonth = (date) => {
   const d = new Date(date);
@@ -92,7 +95,7 @@ export const listRequests = async (req, res) => {
 // =======================
 export const approveRequest = async (req, res) => {
   try {
-    const request = await SubscriptionRequest.findById(req.params.id).populate("plan");
+    const request = await SubscriptionRequest.findById(req.params.id).populate("plan").populate("user");
     if (!request) return res.status(404).json({ message: "Request not found" });
 
     if (request.status !== "pending") {
@@ -139,7 +142,30 @@ export const approveRequest = async (req, res) => {
       message: `تمت الموافقة على طلبك لترقية الحساب إلى باقة "${request.plan.name}".`,
     });
     const io = getIo();
-    if (io) io.to(request.user.toString()).emit("new_notification", notif);
+    if (io) io.to(request.user._id.toString()).emit("new_notification", notif);
+
+    // ✅ Audit & Receipt
+    const receiptId = generateReceiptId();
+    await FinanceLog.create({
+      user: request.user._id,
+      type: "SUBSCRIPTION_ACTIVATED",
+      amountIQD: request.plan.priceIQD,
+      refModel: "SubscriptionRequest",
+      refId: request._id,
+      receiptId,
+      meta: { adminId: req.user._id, planCode: request.plan.code },
+    });
+
+    // ✅ Send Receipt Email
+    sendReceiptEmail({
+      to: request.user.email,
+      userName: request.user.name,
+      receiptId,
+      amount: request.plan.priceIQD,
+      type: "SUBSCRIPTION",
+      date: new Date(),
+      details: `تفعيل باقة "${request.plan.name}" (تحويل يدوي)`
+    });
 
     const populatedReq = await SubscriptionRequest.findById(request._id)
       .populate("user", "name phone role")

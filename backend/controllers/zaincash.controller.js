@@ -8,6 +8,8 @@ import { getIo } from "../utils/socket.js";
 
 import { createPayment, getPaymentStatus } from "../utils/zaincashV2.js";
 import { v4 as uuidv4 } from "uuid";
+import { generateReceiptId } from "../utils/receipt.js";
+import { sendReceiptEmail } from "../utils/email.js";
 
 const addOneMonth = (date) => {
   const d = new Date(date);
@@ -227,7 +229,7 @@ export const zaincashRedirect = async (req, res) => {
       return res.redirect(`${FRONTEND_FAIL_URL}&reason=missing_params`);
     }
 
-    const tx = await PaymentTransaction.findOne({ orderId }).populate("plan");
+    const tx = await PaymentTransaction.findOne({ orderId }).populate("plan").populate("user");
 
     if (!tx) {
       const failUrl = req.query.kind === 'wallet_topup' ? FRONTEND_WALLET_FAIL_URL : FRONTEND_FAIL_URL;
@@ -275,13 +277,26 @@ export const zaincashRedirect = async (req, res) => {
         { $set: { status: "paid" } }
       );
 
+      const receiptId = generateReceiptId();
       await FinanceLog.create({
-        user: tx.user,
+        user: tx.user._id,
         type: "WALLET_TOPUP_PAID",
         amountIQD: tx.amountIQD,
         refModel: "PaymentTransaction",
         refId: tx._id,
+        receiptId,
         meta: { orderId, provider: "zaincash", transactionId },
+      });
+
+      // ✅ Send Receipt Email
+      sendReceiptEmail({
+        to: tx.user.email,
+        userName: tx.user.name,
+        receiptId,
+        amount: tx.amountIQD,
+        type: "TOPUP",
+        date: new Date(),
+        details: `شحن محفظة عبر زين كاش (Order: ${orderId})`
       });
 
       // ✅ إشعار نجاح شحن المحفظة
@@ -337,20 +352,33 @@ export const zaincashRedirect = async (req, res) => {
       { $set: { status: "paid" } }
     );
 
+    const receiptId = generateReceiptId();
     await FinanceLog.create({
-      user: tx.user,
+      user: tx.user._id,
       type: subWasExisting
         ? "SUBSCRIPTION_UPGRADED"
         : "SUBSCRIPTION_ACTIVATED",
       amountIQD: tx.amountIQD,
       refModel: "PaymentTransaction",
       refId: tx._id,
+      receiptId,
       meta: {
         orderId,
         planCode: plan.code,
         provider: "zaincash",
         transactionId,
       },
+    });
+
+    // ✅ Send Receipt Email
+    sendReceiptEmail({
+      to: tx.user.email,
+      userName: tx.user.name,
+      receiptId,
+      amount: tx.amountIQD,
+      type: "SUBSCRIPTION",
+      date: new Date(),
+      details: `${subWasExisting ? 'ترقية' : 'تفعيل'} باقة "${plan.name}" عبر زين كاش`
     });
 
     // ✅ إشعار نجاح الاشتراك/الترقية

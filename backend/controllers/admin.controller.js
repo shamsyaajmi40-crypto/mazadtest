@@ -892,21 +892,27 @@ export const adminCreateCourierStaffForCompany = async (req, res) => {
     const { companyId } = req.params;
     const { name, phone, password } = req.body;
 
-    if (!name || !phone || !password) {
-      return res.status(400).json({ message: "name, phone, password required" });
+    if (!name || !phone || !email || !password) {
+      return res.status(400).json({ message: "الاسم، الهاتف، البريد الإلكتروني وكلمة المرور مطلوبة" });
     }
 
     const company = await CourierCompany.findById(companyId);
     if (!company) return res.status(404).json({ message: "Company not found" });
 
-    const exists = await User.findOne({ phone });
-    if (exists) return res.status(400).json({ message: "Phone already used" });
+    const exists = await User.findOne({
+      $or: [
+        { phone },
+        { email: email.toLowerCase().trim() }
+      ]
+    });
+    if (exists) return res.status(400).json({ message: "الهاتف أو البريد الإلكتروني مسجل مسبقاً" });
 
     const hashed = await bcrypt.hash(String(password), 10);
 
     const staff = await User.create({
       name,
       phone,
+      email: email.toLowerCase().trim(),
       password: hashed,
       role: "courier_staff",
       courierCompany: company._id,

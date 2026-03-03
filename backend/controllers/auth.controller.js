@@ -17,19 +17,33 @@ const generateToken = (id) => {
 
 export const register = async (req, res) => {
   try {
-    const { name, phone, password, governorate, address } = req.body;
+    const { name, phone, email, password, governorate, address } = req.body;
 
     // ✅ التحقق من صحة الاسم
     const nameVal = validateText(name, { min: 3, max: 50, name: "الاسم" });
     if (!nameVal.isValid) return res.status(400).json({ message: nameVal.message });
 
+    // ✅ التحقق من صحة البريد الإلكتروني
+    if (!email || !email.includes("@")) {
+      return res.status(400).json({ message: "يرجى إدخال بريد إلكتروني صحيح" });
+    }
+
     // ✅ التحقق من صحة رقم الهاتف
     const phoneVal = validatePhone(phone);
     if (!phoneVal.isValid) return res.status(400).json({ message: phoneVal.message });
 
-    const exists = await User.findOne({ phone: phoneVal.phone });
+    const exists = await User.findOne({
+      $or: [
+        { phone: phoneVal.phone },
+        { email: email.toLowerCase().trim() }
+      ]
+    });
+
     if (exists) {
-      return res.status(400).json({ message: "هذا الرقم مسجل مسبقاً" });
+      if (exists.phone === phoneVal.phone) {
+        return res.status(400).json({ message: "هذا الرقم مسجل مسبقاً" });
+      }
+      return res.status(400).json({ message: "هذا البريد الإلكتروني مسجل مسبقاً" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -37,6 +51,7 @@ export const register = async (req, res) => {
     const user = await User.create({
       name: nameVal.text,
       phone: phoneVal.phone,
+      email: email.toLowerCase().trim(),
       password: hashedPassword,
       governorate,
       address,

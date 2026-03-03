@@ -21,6 +21,9 @@ const FinanceLogSchema = new mongoose.Schema(
     refModel: { type: String, default: "" }, // "RefundRequest" | "PaymentTransaction" | ...
     refId: { type: mongoose.Schema.Types.ObjectId, default: null },
 
+    receiptId: { type: String, unique: true, sparse: true, index: true },
+    isImmutable: { type: Boolean, default: true },
+
     meta: { type: Object, default: {} },
   },
   { timestamps: true }

@@ -42,6 +42,7 @@ const auditLogSchema = new mongoose.Schema(
       type: String,
       default: "SYSTEM",
     },
+    receiptId: { type: String, unique: true, sparse: true, index: true },
     source: {
       type: String,
       enum: ["SELLER", "BUYER", "PLATFORM", "OTHER"],

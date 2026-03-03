@@ -5,7 +5,8 @@ import { getAuctionDetails, placeBid } from "../services/auction";
 import { AuthContext } from "../context/AuthContext";
 import {
   ArrowRight, Loader2, Gavel, FileText, AlertTriangle, History, Clock, ChevronLeft,
-  ChevronRight, Image, Star, Check, MessageSquare, Package, X, ChevronDown, Eye
+  ChevronRight, Image, Star, Check, MessageSquare, Package, X, ChevronDown, Eye,
+  Volume2, VolumeX
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -372,6 +373,7 @@ const AuctionDetails = () => {
       setBids((prev) => [optimisticBidEntry, ...prev]);
 
       await placeBid(auction._id, nextBid);
+      playSound('success');
       await refreshAuction();
     } catch (err: any) {
       setOptimisticBid(null);
@@ -464,6 +466,33 @@ const AuctionDetails = () => {
 
   //ويب سوكت 
   const socketRef = useRef<Socket | null>(null);
+
+  // --- نظام الأصوات ---
+  const [isMuted, setIsMuted] = useState(() => localStorage.getItem("mazad_muted") === "true");
+  const soundsRef = useRef<{ [key: string]: HTMLAudioElement }>({});
+
+  useEffect(() => {
+    soundsRef.current = {
+      bid: new Audio("https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"),
+      outbid: new Audio("https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3"),
+      success: new Audio("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"),
+    };
+    (Object.values(soundsRef.current) as HTMLAudioElement[]).forEach(s => { s.load(); s.volume = 0.5; });
+  }, []);
+
+  const playSound = (type: 'bid' | 'outbid' | 'success') => {
+    if (isMuted) return;
+    const s = soundsRef.current[type];
+    if (s) { s.currentTime = 0; s.play().catch(() => { }); }
+  };
+
+  const toggleMute = () => {
+    setIsMuted(prev => {
+      const next = !prev;
+      localStorage.setItem("mazad_muted", String(next));
+      return next;
+    });
+  };
   //ويب سوكيت
   useEffect(() => {
     if (!id) return;
@@ -503,6 +532,25 @@ const AuctionDetails = () => {
         });
         return;
       }
+
+      // تحديد إذا تم تجاوز المستخدم (Outbid)
+      const latestBid = data.bids?.[0];
+      const bidder = latestBid?.bidder;
+      if (!bidder) return;
+
+      const currentHighestBidderId = typeof bidder === 'object' ? (bidder as any)._id : bidder;
+
+      const prevWinner = auctionRef.current?.winner;
+      const prevWinnerId = typeof prevWinner === 'object' ? (prevWinner as any)._id : prevWinner;
+      const wasHighest = String(prevWinnerId) === String(user?._id);
+      const isNowHighest = String(currentHighestBidderId) === String(user?._id);
+
+      if (wasHighest && !isNowHighest) {
+        playSound('outbid');
+      } else if (!isNowHighest) {
+        playSound('bid');
+      }
+
       applyAuctionUpdate(data as any);
 
       // Flash the price
@@ -889,9 +937,18 @@ const AuctionDetails = () => {
                 )}
 
                 {isActive && (
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>{viewersCount} يشاهدون</span>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={toggleMute}
+                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg transition-colors"
+                      title={isMuted ? "تفعيل الصوت" : "كتم الصوت"}
+                    >
+                      {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                    </button>
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>{viewersCount} يشاهدون</span>
+                    </div>
                   </div>
                 )}
               </div>

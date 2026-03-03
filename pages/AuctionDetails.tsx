@@ -1062,7 +1062,7 @@ const AuctionDetails = () => {
                   <div>
                     <p className="font-black text-amber-900 text-sm mb-1">الطلب في طريقه إلى المشتري</p>
                     <p className="text-xs text-amber-700 leading-relaxed font-medium">
-                      راح يطلعلك هين رمز استلام الفلوس من شركة التوصيل، تروح للشركة تستلم فلوسك بالبداية بعدين تنطي الرقم.
+                      راح يطلعلك بعد ما يستلم االمشتري البضاعة رمز استلام الفلوس من شركة التوصيل، تروح للشركة تستلم فلوسك بالبداية بعدين تنطي الرقم.
                     </p>
                     <div className="mt-2 p-2 bg-rose-50 border border-rose-100 rounded-lg">
                       <p className="text-[11px] text-rose-600 font-black">

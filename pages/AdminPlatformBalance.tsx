@@ -604,20 +604,57 @@ export default function AdminPlatformBalance() {
               </button>
             </div>
 
+            {/* Print Styles */}
+            <style dangerouslySetInnerHTML={{
+              __html: `
+              @media print {
+                body * {
+                  visibility: hidden;
+                }
+                #printable-record, #printable-record * {
+                  visibility: visible;
+                }
+                #printable-record {
+                  position: fixed;
+                  left: 0;
+                  top: 0;
+                  width: 100%;
+                  padding: 20px;
+                  background: white !important;
+                }
+                @page {
+                  size: auto;
+                  margin: 10mm;
+                }
+                .fixed.inset-0 {
+                  position: static !important;
+                  background: none !important;
+                  backdrop-filter: none !important;
+                }
+                .fixed.inset-0 > div {
+                  box-shadow: none !important;
+                  border: none !important;
+                  margin: 0 !important;
+                  max-width: none !important;
+                  width: 100% !important;
+                }
+              }
+            `}} />
+
             {/* Modal Content / Printable Area */}
             <div id="printable-record" className="p-8 space-y-8">
-              <div className="flex justify-between items-start">
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المستخدم</p>
                   <p className="text-lg font-black text-slate-900">{selectedLog.user?.name}</p>
                   <p className="text-sm font-bold text-slate-500 font-mono">{selectedLog.user?.phone}</p>
                 </div>
-                <div className="text-left">
+                <div className="text-right sm:text-left">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المبلغ</p>
                   <p className={`text-2xl font-black ${selectedLog.type === 'PENALTY' ? 'text-rose-600' :
-                      selectedLog.status === 'FAILED' ? 'text-slate-400' :
-                        (selectedLog.type === 'DEPOSIT_REFUND' || selectedLog.type === 'WALLET_WITHDRAWAL') ? 'text-orange-600' :
-                          'text-emerald-600'
+                    selectedLog.status === 'FAILED' ? 'text-slate-400' :
+                      (selectedLog.type === 'DEPOSIT_REFUND' || selectedLog.type === 'WALLET_WITHDRAWAL') ? 'text-orange-600' :
+                        'text-emerald-600'
                     }`}>{formatMoney(selectedLog.amount)} د.ع</p>
                 </div>
               </div>
@@ -676,7 +713,7 @@ export default function AdminPlatformBalance() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center gap-3">
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <button
                 onClick={printRecord}
                 className="flex-1 bg-slate-900 text-white font-black py-4 rounded-2xl shadow-xl shadow-slate-900/20 hover:bg-slate-800 transition-all active:scale-95 flex items-center justify-center gap-2"

@@ -141,6 +141,11 @@ const AuctionDetails = () => {
   useEffect(() => {
     userRef.current = user;
   }, [user]);
+
+  const bidsRef = useRef(bids);
+  useEffect(() => {
+    bidsRef.current = bids;
+  }, [bids]);
   // حالة عرض الصورة النشطة
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -510,17 +515,18 @@ const AuctionDetails = () => {
   useEffect(() => {
     soundsRef.current = {
       bid: new Audio("https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"), // Click
-      outbid: new Audio("https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3"), // Buzzer/Alert
+      outbid: new Audio("https://www.soundjay.com/buttons/beep-01a.mp3"), // Stable Alert Sound
       success: new Audio("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"), // Chime
       tick: new Audio("https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3"), // Tick
       gavel: new Audio("https://assets.mixkit.co/active_storage/sfx/967/967-preview.mp3"), // Strike
       winner: new Audio("https://assets.mixkit.co/active_storage/sfx/2012/2012-preview.mp3"), // Fanfare
       fire: new Audio("https://assets.mixkit.co/active_storage/sfx/1483/1483-preview.mp3"), // Sizzle
+      competition: new Audio("https://assets.mixkit.co/active_storage/sfx/2573/2573-preview.mp3"), // Light Ping
     };
     (Object.values(soundsRef.current) as HTMLAudioElement[]).forEach(s => { s.load(); s.volume = 0.5; });
   }, []);
 
-  const playSound = (type: 'bid' | 'outbid' | 'success' | 'tick' | 'gavel' | 'winner' | 'fire') => {
+  const playSound = (type: 'bid' | 'outbid' | 'success' | 'tick' | 'gavel' | 'winner' | 'fire' | 'competition') => {
     if (isMuted) return;
     const s = soundsRef.current[type];
     if (s) { s.currentTime = 0; s.play().catch(() => { }); }
@@ -584,26 +590,31 @@ const AuctionDetails = () => {
       const currentHighestBidder = data.bids?.[0]?.bidder;
       if (!currentHighestBidder) return;
 
-      const currentHighestBidderId = typeof currentHighestBidder === 'object' ? (currentHighestBidder as any)._id : currentHighestBidder;
-
-      const prevWinner = auctionRef.current?.winner;
-      const prevWinnerId = typeof prevWinner === 'object' ? (prevWinner as any)._id : prevWinner;
-
       const myId = userRef.current?._id;
-
-      if (myId) {
-        const wasHighest = String(prevWinnerId) === String(myId);
-        const isNowHighest = String(currentHighestBidderId) === String(myId);
-
-        if (wasHighest && !isNowHighest) {
-          playSound('outbid');
-          triggerHaptic([60, 40, 60]);
-        } else if (!isNowHighest) {
-          playSound('bid');
-        }
-      } else {
-        // مستخدم غير مسجل، فقط صوت المزايدة العادي
+      if (!myId) {
         playSound('bid');
+        applyAuctionUpdate(data as any);
+        return;
+      }
+
+      const getSafeId = (val: any) => {
+        if (!val) return null;
+        if (typeof val === 'string') return val;
+        return val._id || val.id || String(val);
+      };
+
+      const currentHighestId = getSafeId(currentHighestBidder);
+      const prevWinnerId = getSafeId(auctionRef.current?.winner);
+      const prevTopBidderId = bidsRef.current.length > 0 ? getSafeId(bidsRef.current[0].bidder) : null;
+
+      const wasHighest = (String(prevWinnerId) === String(myId)) || (String(prevTopBidderId) === String(myId));
+      const isNowHighest = String(currentHighestId) === String(myId);
+
+      if (wasHighest && !isNowHighest) {
+        playSound('outbid');
+        triggerHaptic([60, 40, 60]);
+      } else if (!isNowHighest) {
+        playSound('competition'); // صوت خفيف لمزايدة الآخرين
       }
 
       // حساب الـ Hot Auction (3 مزايدات في 10 ثواني)

@@ -586,7 +586,7 @@ export default function AdminPlatformBalance() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
             {/* Modal Header */}
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 no-print">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center">
                   <Info className="w-5 h-5" />
@@ -608,112 +608,143 @@ export default function AdminPlatformBalance() {
             <style dangerouslySetInnerHTML={{
               __html: `
               @media print {
-                body * {
-                  visibility: hidden;
+                /* 1. Global Reset */
+                html, body {
+                  height: auto !important;
+                  overflow: visible !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background: white !important;
+                  -webkit-print-color-adjust: exact;
                 }
-                #printable-record, #printable-record * {
-                  visibility: visible;
+
+                /* 2. Hide everything by default (using visibility: hidden to maintain structure, 
+                   but we'll use height: 0 to fix the page count) */
+                body > * {
+                  display: none !important;
                 }
-                #printable-record {
-                  position: fixed;
-                  left: 0;
-                  top: 0;
-                  width: 100%;
-                  padding: 20px;
+
+                /* 3. Force the printable area to show */
+                #printable-record-wrapper {
+                  display: block !important;
+                  position: absolute !important;
+                  top: 0 !important;
+                  left: 0 !important;
+                  width: 100% !important;
+                  z-index: 9999 !important;
                   background: white !important;
                 }
-                @page {
-                  size: auto;
-                  margin: 10mm;
+
+                #printable-record, #printable-record * {
+                  visibility: visible !important;
+                  display: block !important;
                 }
-                .fixed.inset-0 {
-                  position: static !important;
-                  background: none !important;
-                  backdrop-filter: none !important;
+
+                /* Layout Fixes inside printable record */
+                #printable-record .flex { display: flex !important; }
+                #printable-record .grid { display: grid !important; }
+                #printable-record .grid-cols-2 { 
+                  display: grid !important; 
+                  grid-template-columns: repeat(2, 1fr) !important; 
                 }
-                .fixed.inset-0 > div {
-                  box-shadow: none !important;
-                  border: none !important;
+                #printable-record .justify-between { justify-content: space-between !important; }
+                #printable-record .items-start { align-items: flex-start !important; }
+                #printable-record .gap-4 { gap: 1rem !important; }
+                #printable-record .gap-8 { gap: 2rem !important; }
+                #printable-record .space-y-8 > * + * { margin-top: 2rem !important; }
+                #printable-record .py-6 { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
+                #printable-record .border-y { border-top-width: 1px !important; border-bottom-width: 1px !important; }
+
+                /* Hide non-printable modal parts */
+                .no-print, button, .modal-close-btn {
+                  display: none !important;
+                  height: 0 !important;
+                  padding: 0 !important;
                   margin: 0 !important;
-                  max-width: none !important;
-                  width: 100% !important;
+                }
+
+                @page {
+                  size: A4;
+                  margin: 15mm;
                 }
               }
             `}} />
 
-            {/* Modal Content / Printable Area */}
-            <div id="printable-record" className="p-8 space-y-8">
-              <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المستخدم</p>
-                  <p className="text-lg font-black text-slate-900">{selectedLog.user?.name}</p>
-                  <p className="text-sm font-bold text-slate-500 font-mono">{selectedLog.user?.phone}</p>
-                </div>
-                <div className="text-right sm:text-left">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المبلغ</p>
-                  <p className={`text-2xl font-black ${selectedLog.type === 'PENALTY' ? 'text-rose-600' :
-                    selectedLog.status === 'FAILED' ? 'text-slate-400' :
-                      (selectedLog.type === 'DEPOSIT_REFUND' || selectedLog.type === 'WALLET_WITHDRAWAL') ? 'text-orange-600' :
-                        'text-emerald-600'
-                    }`}>{formatMoney(selectedLog.amount)} د.ع</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-8 py-6 border-y border-slate-100">
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">نوع العملية</p>
-                  <p className="font-black text-slate-800">
-                    {selectedLog.type === 'SUBSCRIPTION' ? 'اشتراك باقة' :
-                      selectedLog.type === 'PENALTY' ? 'مصادرة رصيد' :
-                        selectedLog.type === 'DEPOSIT_REFUND' ? 'إرجاع عربون' :
-                          selectedLog.type === 'WALLET_WITHDRAWAL' ? 'سحب رصيد' : 'شحن رصيد'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">الحالة</p>
-                  <p className={`font-black ${selectedLog.status === 'FAILED' ? 'text-rose-500' : 'text-emerald-500'}`}>
-                    {selectedLog.status === 'FAILED' ? 'فاشلة' : 'ناجحة'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">التاريخ</p>
-                  <p className="font-bold text-slate-700">{new Date(selectedLog.createdAt).toLocaleString("ar-IQ", { dateStyle: 'full', timeStyle: 'short' })}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المصدر</p>
-                  <p className="font-bold text-slate-700">{selectedLog.source || 'النظام'}</p>
-                </div>
-              </div>
-
-              {(selectedLog as any).meta && (
-                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">بيانات إضافية</p>
-                  <div className="space-y-3">
-                    {Object.entries((selectedLog as any).meta).map(([key, value]) => {
-                      if (!value || typeof value === 'object') return null;
-                      return (
-                        <div key={key} className="flex justify-between items-center gap-4">
-                          <span className="text-xs font-bold text-slate-500 capitalize">{key}:</span>
-                          <span className="text-xs font-black text-slate-800 text-left">{String(value)}</span>
-                        </div>
-                      );
-                    })}
+            <div id="printable-record-wrapper">
+              {/* Modal Content / Printable Area */}
+              <div id="printable-record" className="p-8 space-y-8">
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المستخدم</p>
+                    <p className="text-lg font-black text-slate-900">{selectedLog.user?.name}</p>
+                    <p className="text-sm font-bold text-slate-500 font-mono">{selectedLog.user?.phone}</p>
+                  </div>
+                  <div className="text-right sm:text-left">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المبلغ</p>
+                    <p className={`text-2xl font-black ${selectedLog.type === 'PENALTY' ? 'text-rose-600' :
+                      selectedLog.status === 'FAILED' ? 'text-slate-400' :
+                        (selectedLog.type === 'DEPOSIT_REFUND' || selectedLog.type === 'WALLET_WITHDRAWAL') ? 'text-orange-600' :
+                          'text-emerald-600'
+                      }`}>{formatMoney(selectedLog.amount)} د.ع</p>
                   </div>
                 </div>
-              )}
 
-              {selectedLog.reason && (
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">ملاحظات / أسباب</p>
-                  <p className="text-sm font-bold text-slate-600 bg-amber-50/50 p-4 rounded-xl border border-amber-100 italic">
-                    {selectedLog.reason}
-                  </p>
+                <div className="grid grid-cols-2 gap-8 py-6 border-y border-slate-100">
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">نوع العملية</p>
+                    <p className="font-black text-slate-800">
+                      {selectedLog.type === 'SUBSCRIPTION' ? 'اشتراك باقة' :
+                        selectedLog.type === 'PENALTY' ? 'مصادرة رصيد' :
+                          selectedLog.type === 'DEPOSIT_REFUND' ? 'إرجاع عربون' :
+                            selectedLog.type === 'WALLET_WITHDRAWAL' ? 'سحب رصيد' : 'شحن رصيد'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">الحالة</p>
+                    <p className={`font-black ${selectedLog.status === 'FAILED' ? 'text-rose-500' : 'text-emerald-500'}`}>
+                      {selectedLog.status === 'FAILED' ? 'فاشلة' : 'ناجحة'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">التاريخ</p>
+                    <p className="font-bold text-slate-700">{new Date(selectedLog.createdAt).toLocaleString("ar-IQ", { dateStyle: 'full', timeStyle: 'short' })}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المصدر</p>
+                    <p className="font-bold text-slate-700">{selectedLog.source || 'النظام'}</p>
+                  </div>
                 </div>
-              )}
+
+                {(selectedLog as any).meta && (
+                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">بيانات إضافية</p>
+                    <div className="space-y-3">
+                      {Object.entries((selectedLog as any).meta).map(([key, value]) => {
+                        if (!value || typeof value === 'object') return null;
+                        return (
+                          <div key={key} className="flex justify-between items-center gap-4">
+                            <span className="text-xs font-bold text-slate-500 capitalize">{key}:</span>
+                            <span className="text-xs font-black text-slate-800 text-left">{String(value)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {selectedLog.reason && (
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">ملاحظات / أسباب</p>
+                    <p className="text-sm font-bold text-slate-600 bg-amber-50/50 p-4 rounded-xl border border-amber-100 italic">
+                      {selectedLog.reason}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="p-6 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 no-print">
               <button
                 onClick={printRecord}
                 className="flex-1 bg-slate-900 text-white font-black py-4 rounded-2xl shadow-xl shadow-slate-900/20 hover:bg-slate-800 transition-all active:scale-95 flex items-center justify-center gap-2"

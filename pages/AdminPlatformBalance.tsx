@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   ChevronRight,
@@ -582,7 +583,7 @@ export default function AdminPlatformBalance() {
       </div>
 
       {/* Details Modal */}
-      {selectedLog && (
+      {selectedLog && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-xl max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
             {/* Modal Header */}
@@ -608,78 +609,71 @@ export default function AdminPlatformBalance() {
             <style dangerouslySetInnerHTML={{
               __html: `
               @media print {
-                /* 1. Global Reset */
+                /* 1. Kill everything except the portal modal */
+                #root, .dashboard-nav, .sidebar, header, nav {
+                  display: none !important;
+                  height: 0 !important;
+                  overflow: hidden !important;
+                }
+
                 html, body {
+                  height: auto !important;
                   margin: 0 !important;
                   padding: 0 !important;
                   background: white !important;
-                  -webkit-print-color-adjust: exact;
-                  print-color-adjust: exact;
-                  height: auto !important;
                 }
 
-                /* 2. Hide everything by default */
-                body * {
-                  visibility: hidden !important;
-                }
-
-                /* 3. Show ONLY the printable wrapper and its children */
-                #printable-record-wrapper, 
-                #printable-record-wrapper * {
-                  visibility: visible !important;
-                }
-
-                /* 4. Position the printable area at the very top */
-                #printable-record-wrapper {
-                  position: absolute !important;
-                  left: 0 !important;
-                  top: 0 !important;
-                  width: 100% !important;
-                  margin: 0 !important;
+                /* 2. Style the modal for print */
+                body > .fixed.inset-0 {
+                  position: relative !important;
+                  display: block !important;
+                  z-index: 1 !important;
+                  background: white !important;
                   padding: 0 !important;
+                  margin: 0 !important;
+                }
+
+                .bg-white.w-full.max-w-xl {
+                  max-width: none !important;
+                  width: 100% !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                  border-radius: 0 !important;
+                  height: auto !important;
+                  overflow: visible !important;
+                }
+
+                #printable-record-wrapper {
                   display: block !important;
                   overflow: visible !important;
                   height: auto !important;
-                  z-index: 99999 !important;
-                  background: white !important;
                 }
 
-                /* 5. Clear all potential page-break issues */
                 #printable-record {
                   padding: 2.5rem !important;
                   width: 100% !important;
-                  height: auto !important;
-                  overflow: visible !important;
-                  page-break-after: avoid !important;
-                  page-break-before: avoid !important;
-                  page-break-inside: avoid !important;
+                  background: white !important;
                 }
 
-                /* 6. Layout Fixes for Print */
-                #printable-record .flex { display: flex !important; flex-wrap: wrap !important; }
-                #printable-record .grid { display: grid !important; }
-                #printable-record .grid-cols-2 { 
-                  display: grid !important; 
-                  grid-template-columns: repeat(2, 1fr) !important; 
-                }
-                #printable-record .justify-between { justify-content: space-between !important; }
-                #printable-record .items-start { align-items: flex-start !important; }
-                #printable-record .gap-4 { gap: 1rem !important; }
-                #printable-record .gap-8 { gap: 2rem !important; }
-                #printable-record .space-y-8 > * + * { margin-top: 2rem !important; }
-                #printable-record .py-6 { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
-                #printable-record .border-y { border-top-width: 1px !important; border-bottom-width: 1px !important; }
+                /* Layout Fixes */
+                .flex { display: flex !important; }
+                .grid { display: grid !important; }
+                .grid-cols-2 { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; }
+                .justify-between { justify-content: space-between !important; }
+                .items-center { align-items: center !important; }
+                .gap-4 { gap: 1rem !important; }
+                .gap-8 { gap: 2rem !important; }
+                .space-y-8 > * + * { margin-top: 2rem !important; }
+                .border-b-2 { border-bottom-width: 2px !important; }
+                .border-y { border-top-width: 1px !important; border-bottom-width: 1px !important; }
+                .pb-4 { padding-bottom: 1rem !important; }
+                .mb-4 { margin-bottom: 1rem !important; }
+
+                .no-print { display: none !important; }
 
                 @page {
                   size: A4;
                   margin: 10mm;
-                }
-
-                /* Force non-printable items to zero height */
-                .no-print, nav, header, aside, .fixed:not(#printable-record-wrapper-parent) {
-                  display: none !important;
-                  height: 0 !important;
-                  overflow: hidden !important;
                 }
               }
             `}} />
@@ -783,7 +777,8 @@ export default function AdminPlatformBalance() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

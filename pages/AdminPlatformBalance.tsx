@@ -31,6 +31,7 @@ import {
 type FinancialLog = {
   _id: string;
   type: "SUBSCRIPTION" | "TOPUP" | "PENALTY" | "REFUND";
+  status?: "SUCCESS" | "FAILED";
   amount: number;
   user?: { name: string; phone: string; _id: string };
   createdAt: string;
@@ -427,12 +428,12 @@ export default function AdminPlatformBalance() {
                         <div className="flex flex-col gap-1">
                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black ${log.type === 'SUBSCRIPTION' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
                             log.type === 'PENALTY' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
-                              log.type === 'REFUND' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                              log.type === 'REFUND' ? (log.status === 'FAILED' ? 'bg-slate-100 text-slate-500 border border-slate-200' : 'bg-amber-50 text-amber-600 border border-amber-100') :
                                 'bg-blue-50 text-blue-600 border border-blue-100'
                             }`}>
                             {log.type === 'SUBSCRIPTION' ? 'اشتراك' :
                               log.type === 'PENALTY' ? 'مصادرة' :
-                                log.type === 'REFUND' ? 'إرجاع' : 'شحن رصيد'}
+                                log.type === 'REFUND' ? (log.status === 'FAILED' ? 'فشل إرجاع' : 'إرجاع') : 'شحن رصيد'}
                           </span>
                           {log.source && log.source !== "OTHER" && (
                             <span className="text-[9px] font-black text-slate-400 px-2 py-0.5 bg-slate-100 w-fit rounded border border-slate-200">
@@ -455,11 +456,24 @@ export default function AdminPlatformBalance() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-1">
-                          {log.type === 'PENALTY' ? <ArrowDownRight className="w-3 h-3 text-rose-500" /> : <ArrowUpRight className="w-3 h-3 text-emerald-500" />}
-                          <span className={`text-sm font-black ${log.type === 'PENALTY' ? 'text-rose-600' : 'text-emerald-600'}`}>
-                            {formatMoney(log.amount)} د.ع
-                          </span>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            {log.type === 'PENALTY' || (log.type === 'REFUND' && log.status !== 'FAILED') ? (
+                              <ArrowDownRight className={`w-3 h-3 ${log.type === 'PENALTY' ? 'text-rose-500' : 'text-amber-500'}`} />
+                            ) : (
+                              <ArrowUpRight className={`w-3 h-3 ${log.status === 'FAILED' ? 'text-slate-400' : 'text-emerald-500'}`} />
+                            )}
+                            <span className={`text-sm font-black ${log.type === 'PENALTY' ? 'text-rose-600' :
+                                log.status === 'FAILED' ? 'text-slate-400 line-through opacity-70' :
+                                  log.type === 'REFUND' ? 'text-amber-600' :
+                                    'text-emerald-600'
+                              }`}>
+                              {formatMoney(log.amount)} د.ع
+                            </span>
+                          </div>
+                          {log.status === 'FAILED' && (
+                            <span className="text-[9px] font-black text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded w-fit">فاشلة</span>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 max-w-xs">
@@ -467,6 +481,15 @@ export default function AdminPlatformBalance() {
                           <div className="flex flex-col">
                             <span className="text-xs font-bold text-slate-600 truncate">{log.reason}</span>
                             {log.auction && <span className="text-[10px] font-medium text-indigo-500">مزاد: {log.auction.title}</span>}
+                          </div>
+                        ) : log.type === 'REFUND' ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-xs font-bold text-slate-600">{log.reason || 'إرجاع مالي'}</span>
+                            {log.status === 'FAILED' && (
+                              <span className="text-[10px] font-black text-rose-600 bg-rose-50/50 p-1 rounded border border-rose-100 mt-1 italic">
+                                سبب الرفض: {log.reason}
+                              </span>
+                            )}
                           </div>
                         ) : (
                           <div className="flex flex-col">

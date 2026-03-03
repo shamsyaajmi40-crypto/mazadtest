@@ -1,6 +1,7 @@
-import PaymentTransaction from "../models/PaymentTransaction.js";
 import AuditLog from "../models/AuditLog.js";
+import FinanceLog from "../models/FinanceLog.js";
 import User from "../models/User.js";
+import PaymentTransaction from "../models/PaymentTransaction.js";
 import mongoose from "mongoose";
 import ExcelJS from "exceljs";
 
@@ -179,6 +180,7 @@ export const getFinancialLogs = async (req, res) => {
                 return txs.map(t => ({
                     _id: t._id,
                     type: t.kind === "subscription" ? "SUBSCRIPTION" : "TOPUP",
+                    status: "SUCCESS",
                     amount: t.amountIQD,
                     user: t.user,
                     createdAt: t.createdAt,
@@ -211,6 +213,7 @@ export const getFinancialLogs = async (req, res) => {
                 return audits.map(p => ({
                     _id: p._id,
                     type: p.action === "CONFISCATE_OK" ? "PENALTY" : "REFUND",
+                    status: "SUCCESS",
                     amount: p.amount,
                     user: p.user,
                     createdAt: p.createdAt,
@@ -223,10 +226,42 @@ export const getFinancialLogs = async (req, res) => {
             return [];
         };
 
-        const [txLogs, auditLogs] = await Promise.all([getTxLogs(), getAuditLogs()]);
+        // Fetch from FinanceLog (Manual Refund Requests)
+        const getFinanceLogs = async () => {
+            if (type === "all" || type === "refund") {
+                const match = {
+                    type: { $in: ["REFUND_REQUEST_APPROVED", "REFUND_REQUEST_REJECTED"] },
+                    ...dateFilter
+                };
+                if (userMatchIds) {
+                    match.user = { $in: userMatchIds };
+                }
+
+                const finLogs = await FinanceLog.find(match)
+                    .sort({ createdAt: -1 })
+                    .limit(limitNum * 10)
+                    .populate("user", "name phone")
+                    .lean();
+
+                return finLogs.map(l => ({
+                    _id: l._id,
+                    type: "REFUND",
+                    status: l.type === "REFUND_REQUEST_APPROVED" ? "SUCCESS" : "FAILED",
+                    amount: l.amountIQD,
+                    user: l.user,
+                    createdAt: l.createdAt,
+                    reason: l.meta?.adminNote || l.meta?.reason || "طلب يدوي",
+                    source: "منصة (يدوي)",
+                    orderId: l.refId ? `REF-${l.refId.toString().slice(-6).toUpperCase()}` : "—"
+                }));
+            }
+            return [];
+        };
+
+        const [txLogs, auditLogs, finLogs] = await Promise.all([getTxLogs(), getAuditLogs(), getFinanceLogs()]);
 
         // Merge and sort
-        let merged = [...txLogs, ...auditLogs].sort((a, b) =>
+        let merged = [...txLogs, ...auditLogs, ...finLogs].sort((a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
 
@@ -295,6 +330,7 @@ export const exportFinancialsExcel = async (req, res) => {
         sheet.columns = [
             { header: "التاريخ", key: "date", width: 22 },
             { header: "النوع", key: "type", width: 15 },
+            { header: "الحالة", key: "status", width: 10 },
             { header: "المستخدم", key: "user", width: 20 },
             { header: "رقم الهاتف", key: "phone", width: 15 },
             { header: "المبلغ (IQD)", key: "amount", width: 15 },
@@ -305,7 +341,7 @@ export const exportFinancialsExcel = async (req, res) => {
 
         let logs = [];
 
-        // 1. Penalties & Refunds
+        // 1. Penalties & Refunds (AuditLog)
         if (type === "all" || type === "penalty" || type === "refund") {
             const actions = [];
             if (type === "all" || type === "penalty") actions.push("CONFISCATE_OK");
@@ -320,6 +356,7 @@ export const exportFinancialsExcel = async (req, res) => {
                 logs.push({
                     date: p.createdAt,
                     type: p.action === "CONFISCATE_OK" ? "مصادرة" : "إرجاع",
+                    status: "ناجحة",
                     user: p.user?.name || "—",
                     phone: p.user?.phone || "—",
                     amount: p.amount,
@@ -328,6 +365,30 @@ export const exportFinancialsExcel = async (req, res) => {
                     details: p.reason + (p.auction ? ` (مزاد: ${p.auction.title})` : "")
                 });
             });
+
+            // 1.1 Manual Refunds (FinanceLog)
+            if (type === "all" || type === "refund") {
+                const fMatch = {
+                    type: { $in: ["REFUND_REQUEST_APPROVED", "REFUND_REQUEST_REJECTED"] },
+                    ...dateFilter
+                };
+                if (userMatchIds) fMatch.user = { $in: userMatchIds };
+
+                const fLogs = await FinanceLog.find(fMatch).populate("user", "name phone").lean();
+                fLogs.forEach(l => {
+                    logs.push({
+                        date: l.createdAt,
+                        type: "إرجاع",
+                        status: l.type === "REFUND_REQUEST_APPROVED" ? "ناجحة" : "فاشلة",
+                        user: l.user?.name || "—",
+                        phone: l.user?.phone || "—",
+                        amount: l.amountIQD,
+                        orderId: l.refId ? `REF-${l.refId.toString().slice(-6).toUpperCase()}` : "—",
+                        source: "منصة (يدوي)",
+                        details: (l.type === "REFUND_REQUEST_APPROVED" ? "موافقة" : "رفض") + ": " + (l.meta?.adminNote || l.meta?.reason || "—")
+                    });
+                });
+            }
         }
 
         // 2. Subscriptions & Topups
@@ -343,6 +404,7 @@ export const exportFinancialsExcel = async (req, res) => {
                 logs.push({
                     date: s.createdAt,
                     type: s.kind === "subscription" ? "اشتراك" : "شحن رصيد",
+                    status: "ناجحة",
                     user: s.user?.name || "—",
                     phone: s.user?.phone || "—",
                     amount: s.amountIQD,
@@ -370,6 +432,7 @@ export const exportFinancialsExcel = async (req, res) => {
             sheet.addRow({
                 date: new Date(l.date).toLocaleString("ar-IQ"),
                 type: l.type,
+                status: l.status,
                 user: l.user,
                 phone: l.phone,
                 amount: l.amount,

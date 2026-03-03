@@ -6,8 +6,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Try multiple .env locations
-dotenv.config(); // default
-dotenv.config({ path: path.join(__dirname, "../../.env") });
-dotenv.config({ path: path.join(__dirname, "../.env") });
+const paths = [
+    path.join(__dirname, "../.env"),
+    path.join(__dirname, "../../.env"),
+    "/root/mazadtest/backend/.env"
+];
 
-console.log("✅ Environment Variables Loaded");
+paths.forEach(p => {
+    const result = dotenv.config({ path: p });
+    if (result.error) {
+        console.log(`❌ Failed to load env from: ${p}`);
+    } else {
+        console.log(`✅ Loaded env from: ${p}`);
+    }
+});
+
+console.log("✅ Environment Variables Loading Sequence Finished");

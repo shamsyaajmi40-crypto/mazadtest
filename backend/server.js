@@ -1,5 +1,6 @@
 import "./config/env.js";
 import dns from "dns";
+import fs from "fs";
 import { activateScheduledAuctions } from "./cron/activateScheduledAuctions.js";
 import express from "express";
 import cors from "cors";
@@ -28,10 +29,8 @@ const __dirname = path.dirname(__filename);
 
 console.log("START FILE:", process.cwd(), __filename);
 console.log("ZC loaded:", {
-  msisdn: !!process.env.ZAINCASH_MSISDN,
-  merchant: !!process.env.ZAINCASH_MERCHANT_ID,
-  secret: !!process.env.ZAINCASH_SECRET,
-  redirect: !!process.env.ZAINCASH_REDIRECT_URL,
+  msisdn: process.env.ZAINCASH_MSISDN ? "YES" : "NO",
+  merchant: process.env.ZAINCASH_MERCHANT_ID ? "YES" : "NO",
 });
 dns.setDefaultResultOrder("ipv4first");
 dns.setServers(["1.1.1.1", "8.8.8.8"]);

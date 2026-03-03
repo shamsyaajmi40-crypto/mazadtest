@@ -6,7 +6,7 @@ import { AuthContext } from "../context/AuthContext";
 import {
   ArrowRight, Loader2, Gavel, FileText, AlertTriangle, History, Clock, ChevronLeft,
   ChevronRight, Image, Star, Check, MessageSquare, Package, X, ChevronDown, Eye,
-  Volume2, VolumeX
+  Volume2, VolumeX, XCircle, CheckCircle, Settings
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -21,6 +21,7 @@ import { io, Socket } from "socket.io-client";
 import TermsModal from "../components/TermsModal";
 import { canUserRate } from "../utils/canUserRate";
 import confetti from "canvas-confetti";
+import { approveAuction, rejectAuction } from "../services/admin";
 
 const RatingStars = ({ value }: { value: number }) => {
   const clampedValue = Math.max(0, Math.min(5, value));
@@ -121,6 +122,54 @@ const AuctionDetails = () => {
   const lastBidTimesRef = useRef<number[]>([]);
   const hasCelebratedRef = useRef(false);
   const [viewersCount, setViewersCount] = useState(() => Math.floor(Math.random() * 8) + 3);
+
+  // --- Admin Review Actions ---
+  const isAdmin = user?.role === "admin" || user?.role === "superAdmin";
+  const [adminActionLoading, setAdminActionLoading] = useState(false);
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [rejectionReasons, setRejectionReasons] = useState<string[]>([]);
+  const [rejectionNote, setRejectionNote] = useState("");
+
+  const handleApprove = async () => {
+    if (!id || adminActionLoading) return;
+    if (!window.confirm("هل أنت متأكد من الموافقة على هذا المزاد ونشره؟")) return;
+
+    try {
+      setAdminActionLoading(true);
+      await approveAuction(id);
+      toast.success("تمت الموافقة على المزاد بنجاح");
+      // تحديث حالة المزاد محلياً أو إعادة التحميل
+      window.location.reload();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "فشل قبول المزاد");
+    } finally {
+      setAdminActionLoading(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!id || adminActionLoading) return;
+    if (rejectionReasons.length === 0 && !rejectionNote.trim()) {
+      toast.error("يرجى اختيار سبب واحد على الأقل للرفض");
+      return;
+    }
+
+    try {
+      setAdminActionLoading(true);
+      await rejectAuction(id, {
+        rejectionReasons,
+        rejectionNote,
+      });
+      toast.success("تم رفض المزاد وإعادة العربون للبائع");
+      setRejectModalOpen(false);
+      // توجيه للخلف أو تحديث
+      navigate("/admin/dashboard");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "فشل رفض المزاد");
+    } finally {
+      setAdminActionLoading(false);
+    }
+  };
   const loadCourierCompanies = async () => {
     try {
       const res = await api.get("/courier/companies");
@@ -1166,6 +1215,38 @@ const AuctionDetails = () => {
                 </div>
               )}
 
+              {/* Admin Actions Panel (Floating or Static) */}
+              {isPending && isAdmin && (
+                <div className="mt-6 p-6 bg-slate-900 rounded-3xl border border-slate-800 shadow-2xl relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-2xl group-hover:bg-primary/20 transition-all"></div>
+
+                  <div className="relative z-10">
+                    <h3 className="text-white font-black text-sm mb-4 flex items-center gap-2">
+                      <Settings className="w-4 h-4 text-primary" /> لوحة تحكم الإدارة
+                    </h3>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={handleApprove}
+                        disabled={adminActionLoading}
+                        className="flex items-center justify-center gap-2 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all disabled:opacity-50"
+                      >
+                        {adminActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                        قبول ونشر
+                      </button>
+                      <button
+                        onClick={() => setRejectModalOpen(true)}
+                        disabled={adminActionLoading}
+                        className="flex items-center justify-center gap-2 py-3.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-2xl font-black text-xs active:scale-95 transition-all disabled:opacity-50"
+                      >
+                        <XCircle className="w-4 h-4 text-rose-400" />
+                        رفض المزاد
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Deposit Info Footer - Only show if user hasn't bid or is not logged in */}
               {!isEnded && (!user || !uniqueBids.some(b => b.bidderId === getUserId(user))) && (
                 <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-100">
@@ -2027,6 +2108,78 @@ const AuctionDetails = () => {
             executeBid();
           }}
         />
+      )}
+      {/* Rejection Modal for Admins */}
+      {rejectModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg border border-slate-100 flex flex-col max-h-[90vh]">
+            <div className="p-8 overflow-y-auto custom-scrollbar">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center border border-rose-100">
+                  <XCircle className="w-6 h-6 text-rose-500" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-900">تحديد أسباب الرفض</h3>
+                  <p className="text-sm font-medium text-slate-500">سيتم إبلاغ البائع وإعادة العربون له</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-8">
+                {[
+                  "المزاد لا يصلح للنشر",
+                  "الصور غير واضحة أو غير كافية",
+                  "تفاصيل المزاد غير كاملة",
+                  "سعر المزاد غير منطقي",
+                  "محتوى مخالف للشروط والأحكام"
+                ].map((reason) => (
+                  <label key={reason} className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+                    <input
+                      type="checkbox"
+                      className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary"
+                      checked={rejectionReasons.includes(reason)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setRejectionReasons([...rejectionReasons, reason]);
+                        } else {
+                          setRejectionReasons(rejectionReasons.filter(r => r !== reason));
+                        }
+                      }}
+                    />
+                    <span className="font-bold text-slate-700">{reason}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="space-y-2 mb-8">
+                <label className="text-xs font-black text-slate-500 uppercase tracking-widest">ملاحظة إضافية (اختياري)</label>
+                <textarea
+                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all font-bold text-slate-700 h-24 resize-none"
+                  placeholder="اكتب ملاحظات إضافية للبائع هنا..."
+                  value={rejectionNote}
+                  onChange={(e) => setRejectionNote(e.target.value)}
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleReject}
+                  disabled={adminActionLoading || (rejectionReasons.length === 0 && !rejectionNote.trim())}
+                  className="flex-1 py-4 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-black shadow-lg shadow-rose-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {adminActionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                  تأكيد الرفض وإعادة العربون
+                </button>
+                <button
+                  onClick={() => setRejectModalOpen(false)}
+                  disabled={adminActionLoading}
+                  className="px-6 py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-black transition-all active:scale-95 disabled:opacity-50"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

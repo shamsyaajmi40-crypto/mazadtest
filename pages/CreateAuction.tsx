@@ -9,7 +9,8 @@ import {
   Upload, Loader2, PlusCircle, X, Info,
   Type, LayoutGrid, Tag, TrendingUp, Clock,
   CalendarClock, MapPin, AlignRight, Image as ImageIcon,
-  CheckCircle2
+  CalendarClock, MapPin, AlignRight, Image as ImageIcon,
+  CheckCircle2, ShieldCheck
 } from "lucide-react";
 import TermsModal from "../components/TermsModal";
 import { compressImage } from "../utils/imageCompression";
@@ -359,20 +360,55 @@ const CreateAuction = () => {
               </div>
             </div>
 
-            <div className="md:col-span-2 rounded-2xl border border-amber-200/70 bg-amber-50 p-4">
-              <div className="text-sm font-black text-amber-900">
-                {depositLoading
-                  ? "جاري حساب عربون النشر..."
-                  : sellerDeposit === null
-                    ? "أدخل السعر الابتدائي لعرض عربون النشر."
-                    : `عربون النشر المطلوب: ${(Number(sellerDeposit || 0)).toLocaleString()} د.ع`}
+            <div className={`md:col-span-2 rounded-[2rem] border-2 transition-all duration-500 overflow-hidden relative ${sellerDeposit === null ? 'bg-slate-50 border-slate-100 p-6' : 'bg-gradient-to-br from-indigo-50 via-white to-indigo-50/30 border-indigo-100 shadow-xl shadow-indigo-500/5 p-8'}`}>
+              {sellerDeposit !== null && (
+                <div className="absolute -top-12 -right-12 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl"></div>
+              )}
+
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                <div className="flex items-start gap-4">
+                  <div className={`p-3 rounded-2xl transition-colors ${sellerDeposit === null ? 'bg-slate-200/50 text-slate-400' : 'bg-indigo-100 text-indigo-600'}`}>
+                    {depositLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <ShieldCheck className="w-6 h-6" />}
+                  </div>
+                  <div>
+                    <h4 className={`text-sm font-black uppercase tracking-wider mb-1 ${sellerDeposit === null ? 'text-slate-400' : 'text-indigo-900'}`}>
+                      عربون دخول المزاد
+                    </h4>
+                    <p className={`text-xs font-bold leading-relaxed max-w-sm ${sellerDeposit === null ? 'text-slate-400' : 'text-indigo-700/80'}`}>
+                      {sellerDeposit === null
+                        ? "أنتظر إدخال السعر الابتدائي لحساب قيمة التأمين المطلوبة."
+                        : "هذا المبلغ يتم حجزه مؤقتاً لضمان جدية المزاد، ويُعاد لمحفظتك فور إتمامك عملية البيع بنجاح."}
+                    </p>
+                  </div>
+                </div>
+
+                {sellerDeposit !== null && (
+                  <div className="flex flex-col items-center md:items-end gap-1 shrink-0">
+                    <div className="bg-indigo-600 text-white px-6 py-3 rounded-2xl shadow-lg shadow-indigo-200 flex items-baseline gap-2 group hover:scale-105 transition-transform duration-300">
+                      <span className="text-2xl font-black">{(Number(sellerDeposit || 0)).toLocaleString()}</span>
+                      <span className="text-[10px] font-bold opacity-80">د.ع</span>
+                    </div>
+                    <span className="text-[10px] font-black text-emerald-600 flex items-center gap-1 mt-1">
+                      <CheckCircle2 className="w-3 h-3" /> مسترد بالكامل
+                    </span>
+                  </div>
+                )}
+
+                {depositLoading && sellerDeposit === null && (
+                  <div className="flex items-center gap-2 text-indigo-600 text-xs font-black animate-pulse">
+                    <span>جاري الحساب...</span>
+                  </div>
+                )}
               </div>
-              <div className="mt-1 text-xs font-bold text-amber-800">
-                يجب أن تحتوي المحفظة على هذا المبلغ حتى يتم نشر المزاد.
-              </div>
-              <div className="mt-1 text-xs font-medium text-emerald-700">
-                سيتم إرجاع العربون لك عند الالتزام بالقوانين وعدم وجود مخالفة.
-              </div>
+
+              {sellerDeposit !== null && (user?.balance || 0) < Number(sellerDeposit) && (
+                <div className="mt-6 p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 animate-bounce">
+                  <Info className="w-5 h-5 text-rose-500 shrink-0" />
+                  <p className="text-xs font-black text-rose-700">
+                    عذراً، رصيدك الحالي غير كافٍ. تحتاج لشحن محفظتك بـ {(Number(sellerDeposit) - (user?.balance || 0)).toLocaleString()} د.ع إضافية.
+                  </p>
+                </div>
+              )}
             </div>
 
           </div>

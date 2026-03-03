@@ -1,28 +1,31 @@
 import "./config/env.js";
 import dns from "dns";
 import fs from "fs";
-import { activateScheduledAuctions } from "./cron/activateScheduledAuctions.js";
+import http from "http";
+import path from "path";
+import { fileURLToPath } from "url";
 import express from "express";
 import cors from "cors";
-import balanceRoutes from "./routes/balance.routes.js";
-import userRoutes from "./routes/user.routes.js";
-import closeAuctions from "./cron/auctionCloser.js";
+import { Server } from "socket.io";
 import connectDB from "./config/db.js";
+import { initIo } from "./utils/socket.js";
+import { seedPlansIfEmpty } from "./utils/seedPlans.js";
+import { startSubscriptionCron } from "./cron/subscription.cron.js";
+import { activateScheduledAuctions } from "./cron/activateScheduledAuctions.js";
+import closeAuctions from "./cron/auctionCloser.js";
+import startAuctionCleanupCron from "./cron/auctionCleanup.js";
+
 import authRoutes from "./routes/auth.routes.js";
 import auctionRoutes from "./routes/auction.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
+import balanceRoutes from "./routes/balance.routes.js";
+import userRoutes from "./routes/user.routes.js";
 import ratingRoutes from "./routes/rating.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
-import { Server } from "socket.io";
-import { seedPlansIfEmpty } from "./utils/seedPlans.js";
-import { startSubscriptionCron } from "./cron/subscription.cron.js";
 import billingRoutes from "./routes/billing.routes.js";
 import paymentsRoutes from "./routes/payments.routes.js";
 import walletRoutes from "./routes/wallet.routes.js";
 import courierRoutes from "./routes/courier.routes.js";
-import startAuctionCleanupCron from "./cron/auctionCleanup.js";
-import { fileURLToPath } from "url";
-import path from "path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,11 +35,11 @@ console.log("ZC loaded:", {
   msisdn: process.env.ZAINCASH_MSISDN ? "YES" : "NO",
   merchant: process.env.ZAINCASH_MERCHANT_ID ? "YES" : "NO",
 });
+
 dns.setDefaultResultOrder("ipv4first");
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
-const app = express();
-import http from "http";
 
+const app = express();
 const httpServer = http.createServer(app);
 
 // soket.io دالة 
@@ -46,11 +49,10 @@ const io = new Server(httpServer, {
   },
 });
 
-import { initIo } from "./utils/socket.js";
 initIo(io);
+
 // تأكد من وجود مجلد uploads
 const uploadDir = path.join(process.cwd(), "uploads");
-
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
   console.log("📁 uploads folder created");

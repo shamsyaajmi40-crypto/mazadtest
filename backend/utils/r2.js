@@ -39,7 +39,7 @@ export const uploadToR2 = async (file) => {
     ContentType: "image/webp",
   });
 
-  await s3.send(command);
+  await getS3().send(command);
 
   return `${process.env.R2_PUBLIC_URL}/${fileName}`;
 };

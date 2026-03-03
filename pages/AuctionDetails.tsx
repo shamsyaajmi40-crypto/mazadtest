@@ -898,41 +898,40 @@ const AuctionDetails = () => {
 
               {/* Price & Time Row */}
               <div className="grid grid-cols-2 gap-3 mb-5">
-                {/* Price Box (Informational - Neutral) */}
-                {/* Price Box (Informational - Neutral) */}
-                <div className={`flex flex-col justify-center bg-slate-50 border border-slate-200 rounded-2xl p-2.5 sm:p-3.5 relative overflow-hidden transition-all duration-300 ${priceFlash ? 'bg-emerald-50 border-emerald-300 shadow-inner scale-105' : ''}`}>
-                  {priceFlash && <div className="absolute inset-0 bg-emerald-400/10 blur-xl"></div>}
+                {/* Price Box (Premium Indigo) */}
+                <div className={`flex flex-col justify-center bg-indigo-50/50 border border-indigo-100 rounded-2xl p-2.5 sm:p-3.5 relative overflow-hidden transition-all duration-300 ${priceFlash ? 'bg-indigo-100 border-indigo-300 shadow-inner scale-105' : ''}`}>
+                  {priceFlash && <div className="absolute inset-0 bg-indigo-400/10 blur-xl"></div>}
 
                   <div className="flex justify-between items-start mb-1 relative z-10">
-                    <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                      {isEnded ? "السعر الأخير" : "السعر المباشر"}
+                    <span className="text-[9px] sm:text-[10px] font-black text-indigo-700/60 uppercase tracking-widest">
+                      {isEnded ? "السعر النهائي" : "أعلى عرض حالي"}
                     </span>
                     {!isEnded && (
-                      <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                      <span className="text-[9px] font-black text-indigo-600 bg-white px-1.5 py-0.5 rounded border border-indigo-100 shadow-sm">
                         +{auction.increment.toLocaleString()}
                       </span>
                     )}
                   </div>
 
                   <div className="flex items-baseline gap-1 relative z-10">
-                    <span className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight leading-none truncate">{displayedPrice.toLocaleString()}</span>
-                    <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 shrink-0">د.ع</span>
+                    <span className="text-xl sm:text-2xl font-black text-indigo-900 tracking-tight leading-none truncate">{displayedPrice.toLocaleString()}</span>
+                    <span className="text-[9px] sm:text-[10px] font-bold text-indigo-400 shrink-0">د.ع</span>
                   </div>
 
                   {!isEnded && (
-                    <div className="mt-1 text-[8px] font-bold text-slate-400 relative z-10">الزيادة: {auction.increment.toLocaleString()} د.ع</div>
+                    <div className="mt-1 text-[8px] font-bold text-indigo-400/70 relative z-10 italic">الحد الأدنى للمزايدة القادمة</div>
                   )}
                 </div>
 
-                {/* Time Box (Prevent wrapping) */}
+                {/* Time Box (Urgency Red/Orange Gradient) */}
                 {!isDealResolved && auction.status !== "ENDED" ? (
-                  <div className={`flex flex-col justify-center rounded-2xl p-2.5 sm:p-3.5 relative overflow-hidden transition-all ${isLastMinutes ? 'bg-rose-50 border border-rose-200' : 'bg-slate-900 border border-slate-800'}`}>
-                    <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-1 relative z-10 ${isLastMinutes ? 'text-rose-500' : 'text-slate-400'}`}>
-                      {isLastMinutes ? "اللحظات الأخيرة!" : "الوقت المتبقي"}
+                  <div className={`flex flex-col justify-center rounded-2xl p-2.5 sm:p-3.5 relative overflow-hidden transition-all shadow-sm ${isLastMinutes ? 'bg-gradient-to-br from-orange-500 to-red-600 border-none shadow-orange-500/20' : 'bg-slate-900 border border-slate-800'}`}>
+                    <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-1 relative z-10 ${isLastMinutes ? 'text-white/80' : 'text-slate-400'}`}>
+                      {isLastMinutes ? "فرصة أخيرة!" : "الوقت المتبقي"}
                     </span>
                     <div
                       ref={timeRef}
-                      className={`text-[1.05rem] sm:text-[1.2rem] font-black tabular-nums tracking-tight leading-none relative z-10 whitespace-nowrap min-w-0 ${isLastMinutes ? 'text-rose-600 animate-pulse' : 'text-white'}`}
+                      className={`text-[1.1rem] sm:text-[1.25rem] font-black tabular-nums tracking-tight leading-none relative z-10 whitespace-nowrap min-w-0 ${isLastMinutes ? 'text-white drop-shadow-md animate-pulse' : 'text-emerald-400'}`}
                       style={{ fontVariantNumeric: "tabular-nums" }}
                     ></div>
                   </div>
@@ -944,23 +943,27 @@ const AuctionDetails = () => {
                 )}
               </div>
 
-              {/* Action Button (The Action - Prominent) */}
+              {/* Action Button (The "Winning" Action - High Contrast) */}
               {!isEnded && !isOwner && (
                 <button
                   onClick={handlePlaceBid}
                   disabled={isUpcoming || bidLoading || bidCooldown > 0}
-                  className="w-full py-4 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-0.5
-                    shadow-xl shadow-emerald-500/30 hover:shadow-emerald-500/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-300
-                    disabled:bg-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed border-transparent disabled:border-slate-200 border"
+                  className="w-full py-4.5 bg-gradient-to-r from-emerald-600 via-emerald-500 to-cyan-600 text-white rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-1
+                    shadow-[0_10px_25px_-5px_rgba(16,185,129,0.4)] hover:shadow-[0_15px_30px_-5px_rgba(16,185,129,0.5)] hover:-translate-y-1 active:scale-[0.97] transition-all duration-300
+                    disabled:bg-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed border-transparent disabled:border-slate-200 border group"
                 >
                   {bidLoading ? (
-                    <Loader2 className="animate-spin w-5 h-5" />
+                    <Loader2 className="animate-spin w-6 h-6" />
                   ) : (
                     <>
-                      {!isUpcoming && bidCooldown <= 0 && <span className="text-[10px] font-bold opacity-80 uppercase tracking-widest mb-0.5">اضغط هنا للمزايدة فورا</span>}
-                      <div className="flex items-center gap-2">
-                        <Gavel className="w-4 h-4" />
-                        <span className="text-base">
+                      {!isUpcoming && bidCooldown <= 0 && (
+                        <span className="text-[10px] font-black opacity-90 uppercase tracking-[0.2em] mb-0.5 group-hover:scale-110 transition-transform">
+                          زايد الآن واربح! 🚀
+                        </span>
+                      )}
+                      <div className="flex items-center gap-2.5">
+                        <Gavel className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                        <span className="text-lg sm:text-xl tracking-wide">
                           {isUpcoming
                             ? "لم يبدأ بعد"
                             : bidCooldown > 0

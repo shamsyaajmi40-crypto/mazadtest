@@ -776,7 +776,10 @@ const AuctionDetails = () => {
 
 
   const isLastMinutes =
-    diff > 0 && diff <= 5 * 60 * 1000; // آخر 5 دقائق فقط)();
+    diff > 0 && diff <= 5 * 60 * 1000;
+
+  const isExtensionWindow =
+    diff > 0 && diff <= 2 * 60 * 1000;
   const displayedPrice =
     optimisticBid !== null
       ? optimisticBid
@@ -1070,14 +1073,28 @@ const AuctionDetails = () => {
                 {/* Time Box (Urgency Red/Orange Gradient) */}
                 {!isDealResolved && auction.status !== "ENDED" ? (
                   <div className={`flex flex-col justify-center rounded-2xl p-2.5 sm:p-3.5 relative overflow-hidden transition-all shadow-sm ${isLastMinutes ? 'bg-gradient-to-br from-orange-500 to-red-600 border-none shadow-orange-500/20' : 'bg-slate-900 border border-slate-800'}`}>
-                    <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-1 relative z-10 ${isLastMinutes ? 'text-white/80' : 'text-slate-400'}`}>
-                      {isLastMinutes ? "فرصة أخيرة!" : "الوقت المتبقي"}
-                    </span>
+                    <div className="flex justify-between items-start mb-1 relative z-10">
+                      <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest ${isLastMinutes ? 'text-white/80' : 'text-slate-400'}`}>
+                        {isLastMinutes ? "فرصة أخيرة!" : "الوقت المتبقي"}
+                      </span>
+                      {isExtensionWindow && (
+                        <span className="text-[8px] font-black bg-white/20 text-white px-1 rounded animate-pulse">
+                          تمديد تلقائي 🔄
+                        </span>
+                      )}
+                    </div>
+
                     <div
                       ref={timeRef}
                       className={`text-[1.1rem] sm:text-[1.25rem] font-black tabular-nums tracking-tight leading-none relative z-10 whitespace-nowrap min-w-0 ${isLastMinutes ? 'text-white drop-shadow-md animate-pulse' : 'text-emerald-400'}`}
                       style={{ fontVariantNumeric: "tabular-nums" }}
                     ></div>
+
+                    {isExtensionWindow && (
+                      <div className="mt-1.5 text-[7px] sm:text-[8px] font-bold text-white/90 relative z-10 leading-tight">
+                        المزايدة الآن ستضيف +2 دقيقة للوقت
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="flex flex-col justify-center bg-slate-50 border border-slate-100 rounded-2xl p-2.5 sm:p-3.5">

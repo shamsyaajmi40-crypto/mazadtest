@@ -16,6 +16,7 @@ const PaymentTransactionSchema = new mongoose.Schema(
     transactionId: { type: String, default: null },
 
     status: { type: String, enum: ["initiated", "paid", "failed"], default: "initiated" },
+    receiptId: { type: String, unique: true, sparse: true, index: true },
 
     rawInitResponse: { type: Object, default: null },
     rawStatusResponse: { type: Object, default: null },

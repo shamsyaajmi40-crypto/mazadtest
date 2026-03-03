@@ -272,12 +272,12 @@ export const zaincashRedirect = async (req, res) => {
         { $inc: { balance: tx.amountIQD } }
       );
 
+      const receiptId = generateReceiptId();
       await PaymentTransaction.updateOne(
         { orderId },
-        { $set: { status: "paid" } }
+        { $set: { status: "paid", receiptId } }
       );
 
-      const receiptId = generateReceiptId();
       await FinanceLog.create({
         user: tx.user._id,
         type: "WALLET_TOPUP_PAID",
@@ -347,12 +347,12 @@ export const zaincashRedirect = async (req, res) => {
       { $set: { accountType: plan.audience } }
     );
 
+    const receiptId = generateReceiptId();
     await PaymentTransaction.updateOne(
       { orderId },
-      { $set: { status: "paid" } }
+      { $set: { status: "paid", receiptId } }
     );
 
-    const receiptId = generateReceiptId();
     await FinanceLog.create({
       user: tx.user._id,
       type: subWasExisting

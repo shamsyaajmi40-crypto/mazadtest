@@ -5,6 +5,8 @@ import Rating from "../models/Rating.js";
 import AuditLog from "../models/AuditLog.js";
 import DeliveryOrder from "../models/DeliveryOrder.js";
 import { getIo } from "../utils/socket.js";
+import { generateReceiptId } from "../utils/receipt.js";
+import { sendReceiptEmail } from "../utils/email.js";
 /**
  * حركة مالية آمنة:
  * - REFUND: يرجع heldBalance إلى balance (ذرّي)
@@ -50,13 +52,37 @@ async function transferHeldToBalance({ userId, amount, reason, auctionId, source
       action: "REFUND_FAILED",
       auction: auctionId,
       user: userId,
-      auctionId: String(auctionId),
-      userId: String(userId),
       amount: amt,
       reason: reason || "refund_failed_insufficient_held",
       by: "SYSTEM",
       source: source || "OTHER",
     });
+  } else {
+    // ✅ Success Refund: Generate receipt and send email
+    const receiptId = generateReceiptId();
+    await AuditLog.create({
+      action: "REFUND",
+      auction: auctionId,
+      user: userId,
+      amount: amt,
+      receiptId,
+      reason: reason || "refund_from_held",
+      by: "SYSTEM",
+      source: source || "OTHER",
+    });
+
+    const user = await User.findById(userId).select("name email");
+    if (user && user.email) {
+      sendReceiptEmail({
+        to: user.email,
+        userName: user.name,
+        receiptId,
+        amount: amt,
+        type: "DEPOSIT_REFUND",
+        date: new Date(),
+        details: reason || "تم إرجاع العربون المحجوز"
+      });
+    }
   }
 }
 
@@ -115,13 +141,13 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
     );
   }
 
+  const receiptId = generateReceiptId();
   await AuditLog.create({
     action: "CONFISCATE_OK",
     auction: auctionId,
     user: userId,
-    auctionId: String(auctionId),
-    userId: String(userId),
     amount: confiscatedAmount,
+    receiptId,
     reason: reason || "confiscated",
     by: "SYSTEM",
     source: source || "OTHER",
@@ -133,6 +159,20 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
       previousConfiscations30d: previousConfiscations,
     },
   });
+
+  // ✅ Send Email for Confiscation
+  const user = await User.findById(userId).select("name email");
+  if (user && user.email) {
+    sendReceiptEmail({
+      to: user.email,
+      userName: user.name,
+      receiptId,
+      amount: confiscatedAmount,
+      type: "PENALTY",
+      date: new Date(),
+      details: reason || "مصادرة عربون بسبب مخالفة القوانين"
+    });
+  }
 
   return { ok: true, amount: confiscatedAmount, rate: confiscationRate };
 }

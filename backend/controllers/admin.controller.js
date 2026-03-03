@@ -56,13 +56,14 @@ export const rejectAuction = async (req, res) => {
       );
 
       // ✅ سجل AuditLog باستخدام action موجود عندك: REFUND
-      // لاحظ: auction + reason مطلوبين في schema
+      const receiptId = generateReceiptId();
       try {
         await AuditLog.create({
           action: updated.modifiedCount > 0 ? "REFUND" : "REFUND_FAILED",
           auction: auction._id,
           user: auction.owner,
           amount: deposit,
+          receiptId: updated.modifiedCount > 0 ? receiptId : undefined,
           reason:
             updated.modifiedCount > 0
               ? "Auction rejected - refund seller deposit"
@@ -70,6 +71,22 @@ export const rejectAuction = async (req, res) => {
           by: "ADMIN",
           source: "SELLER",
         });
+
+        // ✅ إرسال بريد إلكتروني بالوصل المالي في حال النجاح
+        if (updated.modifiedCount > 0) {
+          const user = await User.findById(auction.owner).select("name email");
+          if (user && user.email) {
+            sendReceiptEmail({
+              to: user.email,
+              userName: user.name,
+              receiptId,
+              amount: deposit,
+              type: "DEPOSIT_REFUND",
+              date: new Date(),
+              details: `إرجاع عربون المزاد المرفوض: ${auction.title}`
+            });
+          }
+        }
       } catch (logErr) {
         // لا نكسر العملية بسبب AuditLog
         console.error("AuditLog create failed in rejectAuction:", logErr);
@@ -1046,15 +1063,31 @@ export const resolveDispute = async (req, res) => {
           { $inc: { heldBalance: -depositToReturn, balance: depositToReturn } }
         );
 
+        const receiptId = generateReceiptId();
         await AuditLog.create({
           action: "REFUND",
           auction: auction._id,
           user: blamedUserId,
           amount: depositToReturn,
+          receiptId,
           reason: "إعادة عربون بعد قبول الاعتراض على نتيجة التوصيل",
           by: "ADMIN",
           source: isSellersBlame ? "SELLER" : "BUYER",
         });
+
+        // ✅ إرسال بريد إلكتروني بالوصل المالي في حال قبول الاعتراض بنجاح
+        const user = await User.findById(blamedUserId).select("name email");
+        if (user && user.email) {
+          sendReceiptEmail({
+            to: user.email,
+            userName: user.name,
+            receiptId,
+            amount: depositToReturn,
+            type: "DEPOSIT_REFUND",
+            date: new Date(),
+            details: `إعادة العربون بعد قبول الاعتراض على المزاد: ${auction.title}`
+          });
+        }
       }
 
       // ✅ FIX 3: تحديث حالة المزاد بشكل صحيح

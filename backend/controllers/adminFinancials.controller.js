@@ -184,7 +184,7 @@ export const getFinancialLogs = async (req, res) => {
                     amount: t.amountIQD,
                     user: t.user,
                     createdAt: t.createdAt,
-                    orderId: t.orderId || "—",
+                    orderId: t.receiptId || t.orderId || "—",
                     provider: t.provider
                 }));
             }
@@ -220,7 +220,7 @@ export const getFinancialLogs = async (req, res) => {
                     auction: p.auction,
                     reason: p.reason,
                     source: p.source || "OTHER",
-                    orderId: p.auction ? `AUC-${p.auction._id.toString().slice(-6).toUpperCase()}` : "—",
+                    orderId: p.receiptId || (p.auction ? `AUC-${p.auction._id.toString().slice(-6).toUpperCase()}` : "—"),
                     meta: {
                         reason: p.reason,
                         auctionTitle: p.auction?.title,
@@ -260,7 +260,7 @@ export const getFinancialLogs = async (req, res) => {
                     createdAt: l.createdAt,
                     reason: l.meta?.adminNote || l.meta?.reason || l.meta?.note || (l.type === "WALLET_TOPUP_PAID" ? "شحن يدوي" : "سحب رصيد"),
                     source: "منصة (يدوي)",
-                    orderId: l.refId ? (l.type === "WALLET_TOPUP_PAID" ? `BAL-${l.refId.toString().slice(-6).toUpperCase()}` : `WDR-${l.refId.toString().slice(-6).toUpperCase()}`) : "—",
+                    orderId: l.receiptId || (l.refId ? (l.type === "WALLET_TOPUP_PAID" ? `BAL-${l.refId.toString().slice(-6).toUpperCase()}` : `WDR-${l.refId.toString().slice(-6).toUpperCase()}`) : "—"),
                     meta: l.meta,
                     refId: l.refId
                 }));
@@ -370,7 +370,7 @@ export const exportFinancialsExcel = async (req, res) => {
                     user: p.user?.name || "—",
                     phone: p.user?.phone || "—",
                     amount: p.amount,
-                    orderId: p.auction ? `AUC-${p.auction._id.toString().slice(-6).toUpperCase()}` : "—",
+                    orderId: p.receiptId || (p.auction ? `AUC-${p.auction._id.toString().slice(-6).toUpperCase()}` : "—"),
                     source: p.source === "SELLER" ? "بائع" : (p.source === "BUYER" ? "مشتري" : (p.source === "PLATFORM" ? "منصة" : "—")),
                     details: p.reason + (p.auction ? ` (مزاد: ${p.auction.title})` : "")
                 });
@@ -393,7 +393,7 @@ export const exportFinancialsExcel = async (req, res) => {
                         user: l.user?.name || "—",
                         phone: l.user?.phone || "—",
                         amount: l.amountIQD,
-                        orderId: l.refId ? `WDR-${l.refId.toString().slice(-6).toUpperCase()}` : "—",
+                        orderId: l.receiptId || (l.refId ? `WDR-${l.refId.toString().slice(-6).toUpperCase()}` : "—"),
                         source: "منصة (يدوي)",
                         details: (l.type === "REFUND_REQUEST_APPROVED" ? "موافقة" : "رفض") + ": " + (l.meta?.adminNote || l.meta?.reason || "—")
                     });
@@ -418,7 +418,7 @@ export const exportFinancialsExcel = async (req, res) => {
                     user: s.user?.name || "—",
                     phone: s.user?.phone || "—",
                     amount: s.amountIQD,
-                    orderId: s.orderId || "—",
+                    orderId: s.receiptId || s.orderId || "—",
                     source: "منصة",
                     details: s.kind === "subscription" ? "اشتراك باقة" : "إيداع محفظة"
                 });
@@ -441,7 +441,7 @@ export const exportFinancialsExcel = async (req, res) => {
                         user: l.user?.name || "—",
                         phone: l.user?.phone || "—",
                         amount: l.amountIQD,
-                        orderId: l.refId ? `BAL-${l.refId.toString().slice(-6).toUpperCase()}` : "—",
+                        orderId: l.receiptId || (l.refId ? `BAL-${l.refId.toString().slice(-6).toUpperCase()}` : "—"),
                         source: "منصة (يدوي)",
                         details: l.meta?.note || "شحن يدوي"
                     });

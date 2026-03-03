@@ -1,11 +1,6 @@
-
-
+import "./config/env.js";
 import dns from "dns";
 import { activateScheduledAuctions } from "./cron/activateScheduledAuctions.js";
-import dotenv from "dotenv";
-dotenv.config({
-  path: "/root/mazadtest/backend/.env",
-});
 import express from "express";
 import cors from "cors";
 import balanceRoutes from "./routes/balance.routes.js";
@@ -25,9 +20,8 @@ import paymentsRoutes from "./routes/payments.routes.js";
 import walletRoutes from "./routes/wallet.routes.js";
 import courierRoutes from "./routes/courier.routes.js";
 import startAuctionCleanupCron from "./cron/auctionCleanup.js";
-import fs from "fs";
-import path from "path";
 import { fileURLToPath } from "url";
+import path from "path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

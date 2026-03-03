@@ -1,15 +1,25 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import sharp from "sharp";
 
-const s3 = new S3Client({
-  region: "auto",
-  endpoint: process.env.R2_ENDPOINT,
-  forcePathStyle: true,   // ⭐⭐⭐ مهم جداً مع Cloudflare R2
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY,
-    secretAccessKey: process.env.R2_SECRET_KEY,
-  },
-});
+let s3Instance = null;
+const getS3 = () => {
+  if (s3Instance) return s3Instance;
+
+  if (!process.env.R2_ACCESS_KEY || !process.env.R2_SECRET_KEY || !process.env.R2_ENDPOINT) {
+    console.warn("⚠️ Warning: R2 Credentials or Endpoint missing in process.env");
+  }
+
+  s3Instance = new S3Client({
+    region: "auto",
+    endpoint: process.env.R2_ENDPOINT,
+    forcePathStyle: true,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY,
+      secretAccessKey: process.env.R2_SECRET_KEY,
+    },
+  });
+  return s3Instance;
+};
 
 export const uploadToR2 = async (file) => {
   // 📁 توليد اسم ملف بصيغة webp
@@ -47,7 +57,7 @@ export const deleteFromR2 = async (fileUrl) => {
       Key: key,
     });
 
-    await s3.send(command);
+    await getS3().send(command);
     console.log(`✅ Deleted from R2: ${key}`);
   } catch (error) {
     console.error(`❌ Failed to delete from R2: ${fileUrl}`, error);

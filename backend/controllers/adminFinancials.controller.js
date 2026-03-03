@@ -488,8 +488,6 @@ export const exportFinancialsExcel = async (req, res) => {
         return res.status(500).json({ message: "Server error" });
     }
 };
-    }
-};
 
 /**
  * Delete a manual financial log entry (from FinanceLog)

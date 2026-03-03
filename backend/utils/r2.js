@@ -13,19 +13,24 @@ const getS3 = () => {
   // 2. إزالة أي بروتوكول موجود مسبقاً للبدء من جديد
   cleaned = cleaned.replace(/^https?:\/\//i, "");
 
+  if (!cleaned) {
+    console.error("❌ R2_ENDPOINT is missing or invalid! Current value:", rawEndpoint);
+    // نرجع null أو نتركها لتفشل بشكل أوضح لاحقاً
+    return null;
+  }
+
   // 3. بناء الرابط النهائي بشكل نظيف
   let endpoint = `https://${cleaned}`;
 
   console.log("🛠️ R2 Client Init - Final Sanitized Endpoint:", endpoint);
-  console.log("🛠️ R2 Client Init - Endpoint:", endpoint || "MISSING!");
 
   s3Instance = new S3Client({
     region: "auto",
     endpoint: endpoint,
     forcePathStyle: true,
     credentials: {
-      accessKeyId: process.env.R2_ACCESS_KEY,
-      secretAccessKey: process.env.R2_SECRET_KEY,
+      accessKeyId: (process.env.R2_ACCESS_KEY || "").trim(),
+      secretAccessKey: (process.env.R2_SECRET_KEY || "").trim(),
     }
   });
   return s3Instance;
@@ -50,7 +55,11 @@ export const uploadToR2 = async (file) => {
     CacheControl: "public, max-age=31536000, immutable",
   });
 
-  await getS3().send(command);
+  const s3 = getS3();
+  if (!s3) {
+    throw new Error("S3 storage client is not initialized. Please check R2_ENDPOINT environment variable.");
+  }
+  await s3.send(command);
 
   return `${process.env.R2_PUBLIC_URL}/${fileName}`;
 };
@@ -68,7 +77,11 @@ export const deleteFromR2 = async (fileUrl) => {
       Key: key,
     });
 
-    await getS3().send(command);
+    const s3 = getS3();
+    if (!s3) {
+      throw new Error("S3 storage client is not initialized for deletion.");
+    }
+    await s3.send(command);
     console.log(`✅ Deleted from R2: ${key}`);
   } catch (error) {
     console.error(`❌ Failed to delete from R2: ${fileUrl}`, error);

@@ -860,6 +860,7 @@ export const placeBid = async (req, res) => {
       const latestBids = await Bid.find({ auction: updatedAuction._id })
         .sort({ createdAt: -1 })
         .limit(20)
+        .populate("bidder", "name")
         .lean();
 
       io.to(updatedAuction._id.toString()).emit("bid:new", {

@@ -899,15 +899,29 @@ const AuctionDetails = () => {
               {/* Price & Time Row */}
               <div className="grid grid-cols-2 gap-3 mb-5">
                 {/* Price Box (Informational - Neutral) */}
+                {/* Price Box (Informational - Neutral) */}
                 <div className={`flex flex-col justify-center bg-slate-50 border border-slate-200 rounded-2xl p-2.5 sm:p-3.5 relative overflow-hidden transition-all duration-300 ${priceFlash ? 'bg-emerald-50 border-emerald-300 shadow-inner scale-105' : ''}`}>
                   {priceFlash && <div className="absolute inset-0 bg-emerald-400/10 blur-xl"></div>}
-                  <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 relative z-10">
-                    {isEnded ? "السعر الأخير" : "السعر المباشر"}
-                  </span>
+
+                  <div className="flex justify-between items-start mb-1 relative z-10">
+                    <span className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                      {isEnded ? "السعر الأخير" : "السعر المباشر"}
+                    </span>
+                    {!isEnded && (
+                      <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                        +{auction.increment.toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+
                   <div className="flex items-baseline gap-1 relative z-10">
                     <span className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight leading-none truncate">{displayedPrice.toLocaleString()}</span>
                     <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 shrink-0">د.ع</span>
                   </div>
+
+                  {!isEnded && (
+                    <div className="mt-1 text-[8px] font-bold text-slate-400 relative z-10">الزيادة: {auction.increment.toLocaleString()} د.ع</div>
+                  )}
                 </div>
 
                 {/* Time Box (Prevent wrapping) */}

@@ -114,9 +114,9 @@ const AdminDashboard = () => {
   useEffect(() => {
     const loadPlatformBalance = async () => {
       try {
-        const res = await api.get("/admin/platform/balance");
-        setPlatformBalance(res.data.balance ?? 0);
-        setPlatformUpdatedAt(res.data.updatedAt ?? "");
+        const res = await api.get("/admin/financials/stats");
+        setPlatformBalance(res.data.totalPlatformRevenue ?? 0);
+        setPlatformUpdatedAt(new Date().toISOString());
       } catch (e: any) {
         console.log("platform balance error:", e?.response?.status, e?.response?.data || e?.message);
         setPlatformBalance(0);

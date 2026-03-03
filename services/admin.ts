@@ -126,3 +126,14 @@ export const updateDepositPolicy = async (policy: any) => {
   const res = await api.patch("/admin/deposit-policy", { policy });
   return res.data;
 };
+
+/* =========================
+   Financial Reports
+ ========================= */
+export const getFinancialStats = () => api.get("/admin/financials/stats");
+
+export const getFinancialLogs = (params: {
+  page?: number;
+  limit?: number;
+  type?: "all" | "subscription" | "topup" | "penalty";
+}) => api.get("/admin/financials/logs", { params });

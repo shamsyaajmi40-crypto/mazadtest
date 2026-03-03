@@ -14,6 +14,7 @@ import {
   adminRefundLogs,
 } from "../controllers/balance.controller.js";
 import { getAdminAuctionArchive } from "../controllers/adminAuctionArchive.controller.js";
+import * as adminFinancials from "../controllers/adminFinancials.controller.js";
 
 const router = express.Router();
 router.get(
@@ -278,6 +279,23 @@ router.post(
   protect,
   requireRole("admin", "superAdmin"),
   adminController.resolveDispute
+);
+
+// ===========================
+// Financial Reports
+// ===========================
+router.get(
+  "/financials/stats",
+  protect,
+  requireRole("admin", "superAdmin"),
+  adminFinancials.getFinancialStats
+);
+
+router.get(
+  "/financials/logs",
+  protect,
+  requireRole("admin", "superAdmin"),
+  adminFinancials.getFinancialLogs
 );
 
 export default router;

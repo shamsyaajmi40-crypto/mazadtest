@@ -16,18 +16,21 @@ import { sendReceiptEmail } from "../utils/email.js";
 
 //
 const DEPOSIT_POLICY_KEY = "deposit_policy";
+import RefundRequest from "../models/RefundRequest.js";
 
 // جلب أعداد المراجعة للمسؤول
 export const getAdminCounters = async (req, res) => {
   try {
-    const [pendingAuctions, pendingDisputes] = await Promise.all([
+    const [pendingAuctions, pendingDisputes, pendingRefundRequests] = await Promise.all([
       Auction.countDocuments({ status: "pending" }),
       Auction.countDocuments({ isDisputed: true }),
+      RefundRequest.countDocuments({ status: "pending" }),
     ]);
 
     res.json({
       pendingAuctions,
       pendingDisputes,
+      pendingRefundRequests,
     });
   } catch (error) {
     console.error("Admin counters error:", error);
@@ -213,7 +216,8 @@ export const getPendingAuctions = async (req, res) => {
     const limit = Number(req.query.limit) || 5;
     const skip = (page - 1) * limit;
 
-    const filter = { status: "pending" };
+    const status = req.query.status || "pending";
+    const filter = { status };
 
     const total = await Auction.countDocuments(filter);
 

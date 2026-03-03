@@ -296,6 +296,9 @@ export const adminApproveRefundRequest = async (req, res) => {
 
 
 
+    const io = getIo();
+    if (io) io.to("admin_room").emit("admin_refresh");
+
     return res.json({ message: "Approved and balance deducted", refundRequest: rr });
   } catch (e) {
     console.error("adminApproveRefundRequest error:", e?.message || e);
@@ -337,6 +340,9 @@ export const adminRejectRefundRequest = async (req, res) => {
     });
 
 
+
+    const io = getIo();
+    if (io) io.to("admin_room").emit("admin_refresh");
 
     return res.json({ message: "Rejected", refundRequest: rr });
   } catch (e) {

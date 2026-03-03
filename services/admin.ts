@@ -15,13 +15,14 @@ import {
 /* =========================
    Dashboard (Admin)
  ========================= */
-// المزادات المعلقة
+// المزادات (المعلقة أو المرفوضة) للمراجعة
 export const getPendingAuctions = async (
   page = 1,
-  limit = 5
+  limit = 5,
+  status = "pending"
 ) => {
   const res = await api.get(
-    `/admin/auctions/pending?page=${page}&limit=${limit}`
+    `/admin/auctions/pending?page=${page}&limit=${limit}&status=${status}`
   );
   return res.data;
 };
@@ -34,6 +35,10 @@ export const approveAuction = (id: string) => {
 // رفض مزاد
 export const rejectAuction = (id: string, data?: { rejectionReasons?: string[], rejectionNote?: string }) =>
   api.patch(`/admin/auctions/${id}/reject`, data);
+
+// التراجع عن رفض المزاد
+export const undoRejectAuction = (id: string) =>
+  api.patch(`/admin/auctions/${id}/undo-reject`);
 
 // إحصائيات
 export const getStats = () => {

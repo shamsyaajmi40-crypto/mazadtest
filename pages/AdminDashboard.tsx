@@ -36,6 +36,21 @@ type Auction = {
   createdAt: string;
 };
 
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700 p-4 rounded-2xl shadow-2xl text-white animate-in zoom-in-95 duration-200">
+        <p className="text-[10px] uppercase tracking-wider font-black text-indigo-300 mb-1">{label}</p>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)]"></div>
+          <p className="text-xl font-black">{payload[0].value} <span className="text-xs font-bold text-slate-400">مزاد</span></p>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState<"STATS" | "PENDING">("STATS");
   const [stats, setStats] = useState<any>(null);
@@ -294,18 +309,35 @@ const AdminDashboard = () => {
                     <AreaChart data={monthlyStats} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#0066FF" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#0066FF" stopOpacity={0} />
+                          <stop offset="5%" stopColor="#6366F1" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#6366F1" stopOpacity={0} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" opacity={0.5} />
-                      <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#64748B', fontSize: 12, fontWeight: 700 }} dy={10} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748B', fontSize: 12, fontWeight: 700 }} allowDecimals={false} />
-                      <Tooltip
-                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)', fontWeight: 'bold' }}
-                        itemStyle={{ color: '#0F172A' }}
+                      <CartesianGrid strokeDasharray="6 6" vertical={false} stroke="#E2E8F0" opacity={0.3} />
+                      <XAxis
+                        dataKey="label"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#64748B', fontSize: 11, fontWeight: 700 }}
+                        dy={15}
                       />
-                      <Area type="monotone" dataKey="value" stroke="#0066FF" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#64748B', fontSize: 11, fontWeight: 700 }}
+                        allowDecimals={false}
+                      />
+                      <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#6366F1', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                      <Area
+                        type="monotone"
+                        dataKey="value"
+                        stroke="#6366F1"
+                        strokeWidth={4}
+                        fillOpacity={1}
+                        fill="url(#colorValue)"
+                        animationDuration={1500}
+                        activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2, fill: '#6366F1', shadow: '0 0 10px rgba(99,102,241,0.5)' }}
+                      />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>

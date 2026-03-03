@@ -93,7 +93,7 @@ export default function AdminRefundRequests() {
     setLoading(true);
     setErr("");
     try {
-      const res = await api.get("/admin/refund-requests");
+      const res = await api.get("/admin/refund-requests?status=pending");
       setItems(res.data || []);
     } catch (e: any) {
       setErr(e?.response?.data?.message || e?.message || "فشل تحميل طلبات الاسترجاع");

@@ -587,34 +587,32 @@ const AuctionDetails = () => {
       }
 
       // تحديد إذا تم تجاوز المستخدم (Outbid)
-      const currentHighestBidder = data.bids?.[0]?.bidder;
-      if (!currentHighestBidder) return;
-
-      const myId = userRef.current?._id;
-      if (!myId) {
-        playSound('bid');
-        applyAuctionUpdate(data as any);
-        return;
-      }
-
       const getSafeId = (val: any) => {
         if (!val) return null;
         if (typeof val === 'string') return val;
-        return val._id || val.id || String(val);
+        return val._id || val.id || (val.toString?.() !== "[object Object]" ? val.toString() : null);
       };
 
-      const currentHighestId = getSafeId(currentHighestBidder);
+      const myId = getSafeId(userRef.current);
+      const currentHighestId = getSafeId(data.bids?.[0]?.bidder);
       const prevWinnerId = getSafeId(auctionRef.current?.winner);
       const prevTopBidderId = bidsRef.current.length > 0 ? getSafeId(bidsRef.current[0].bidder) : null;
 
-      const wasHighest = (String(prevWinnerId) === String(myId)) || (String(prevTopBidderId) === String(myId));
-      const isNowHighest = String(currentHighestId) === String(myId);
+      const isMeNow = myId && currentHighestId && String(myId) === String(currentHighestId);
+      const wasMePrev = myId && (String(prevWinnerId) === String(myId) || String(prevTopBidderId) === String(myId));
 
-      if (wasHighest && !isNowHighest) {
+      if (wasMePrev && !isMeNow) {
+        // شخص آخر سحب منك الصدارة
         playSound('outbid');
         triggerHaptic([60, 40, 60]);
-      } else if (!isNowHighest) {
-        playSound('competition'); // صوت خفيف لمزايدة الآخرين
+      } else if (isMeNow) {
+        // المزايدة لي (ربما من نافذة أخرى)
+        if (optimisticBidRef.current === null) {
+          playSound('success');
+        }
+      } else {
+        // مزايدة بين طرفين غريبين
+        playSound('competition');
       }
 
       // حساب الـ Hot Auction (3 مزايدات في 10 ثواني)

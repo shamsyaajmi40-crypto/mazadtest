@@ -128,27 +128,51 @@ export const getFinancialStats = async (req, res) => {
 };
 
 /**
- * Get unified financial logs
+ * Get unified financial logs with advanced filters
  */
 export const getFinancialLogs = async (req, res) => {
     try {
-        const { page = 1, limit = 20, type = "all" } = req.query;
+        const { page = 1, limit = 20, type = "all", startDate, endDate, search } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const limitNum = parseInt(limit);
 
-        let logs = [];
-        let totalCount = 0;
+        let dateFilter = {};
+        if (startDate || endDate) {
+            dateFilter.createdAt = {};
+            if (startDate) dateFilter.createdAt.$gte = new Date(startDate);
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                dateFilter.createdAt.$lte = end;
+            }
+        }
+
+        let userMatchIds = null;
+        if (search && search.trim()) {
+            const searchRegex = new RegExp(search.trim(), "i");
+            const matchingUsers = await User.find({
+                $or: [
+                    { name: searchRegex },
+                    { phone: searchRegex }
+                ]
+            }).select("_id");
+            userMatchIds = matchingUsers.map(u => u._id);
+        }
 
         // Fetch from PaymentTransaction (Subscriptions, Topups)
         const getTxLogs = async () => {
-            const match = { status: "paid" };
+            const match = { status: "paid", ...dateFilter };
             if (type === "subscription") match.kind = "subscription";
             if (type === "topup") match.kind = "wallet_topup";
+
+            if (userMatchIds) {
+                match.user = { $in: userMatchIds };
+            }
 
             if (type !== "penalty" && type !== "refund") {
                 const txs = await PaymentTransaction.find(match)
                     .sort({ createdAt: -1 })
-                    .limit(limitNum + skip)
+                    .limit(limitNum * 10) // Broad fetch for local merging
                     .populate("user", "name phone")
                     .lean();
 
@@ -158,7 +182,7 @@ export const getFinancialLogs = async (req, res) => {
                     amount: t.amountIQD,
                     user: t.user,
                     createdAt: t.createdAt,
-                    orderId: t.orderId,
+                    orderId: t.orderId || "—",
                     provider: t.provider
                 }));
             }
@@ -172,9 +196,14 @@ export const getFinancialLogs = async (req, res) => {
             if (type === "all" || type === "refund") actions.push("REFUND");
 
             if (actions.length > 0) {
-                const audits = await AuditLog.find({ action: { $in: actions } })
+                const match = { action: { $in: actions }, ...dateFilter };
+                if (userMatchIds) {
+                    match.user = { $in: userMatchIds };
+                }
+
+                const audits = await AuditLog.find(match)
                     .sort({ createdAt: -1 })
-                    .limit(limitNum + skip)
+                    .limit(limitNum * 10) // Broad fetch for local merging
                     .populate("user", "name phone")
                     .populate("auction", "title")
                     .lean();
@@ -187,7 +216,8 @@ export const getFinancialLogs = async (req, res) => {
                     createdAt: p.createdAt,
                     auction: p.auction,
                     reason: p.reason,
-                    source: p.source || "OTHER"
+                    source: p.source || "OTHER",
+                    orderId: p.auction ? `AUC-${p.auction._id.toString().slice(-6).toUpperCase()}` : "—"
                 }));
             }
             return [];
@@ -196,27 +226,22 @@ export const getFinancialLogs = async (req, res) => {
         const [txLogs, auditLogs] = await Promise.all([getTxLogs(), getAuditLogs()]);
 
         // Merge and sort
-        const merged = [...txLogs, ...auditLogs].sort((a, b) =>
+        let merged = [...txLogs, ...auditLogs].sort((a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
 
-        // Calculate total counts for approximate pagination
-        const txCount = (type === "penalty" || type === "refund") ? 0 :
-            await PaymentTransaction.countDocuments({
-                status: "paid",
-                ...(type === "subscription" ? { kind: "subscription" } : {}),
-                ...(type === "topup" ? { kind: "wallet_topup" } : {})
-            });
+        // Refined local search for non-user fields (OrderId, Auction Title)
+        if (search && search.trim()) {
+            const s = search.trim().toUpperCase();
+            merged = merged.filter(l =>
+                (l.orderId && l.orderId.toUpperCase().includes(s)) ||
+                (l.user?.name && l.user.name.includes(search)) ||
+                (l.user?.phone && l.user.phone.includes(search)) ||
+                (l.auction?.title && l.auction.title.toUpperCase().includes(s))
+            );
+        }
 
-        const auditCount = (type === "subscription" || type === "topup") ? 0 :
-            await AuditLog.countDocuments({
-                action: {
-                    $in: type === "all" ? ["CONFISCATE_OK", "REFUND"] :
-                        (type === "penalty" ? ["CONFISCATE_OK"] : ["REFUND"])
-                }
-            });
-
-        totalCount = txCount + auditCount;
+        const totalCount = merged.length;
 
         return res.json({
             logs: merged.slice(skip, skip + limitNum),
@@ -233,17 +258,35 @@ export const getFinancialLogs = async (req, res) => {
 };
 
 /**
- * Export financial logs to Excel
+ * Export financial logs to Excel with advanced filters
  */
 export const exportFinancialsExcel = async (req, res) => {
     try {
-        const { type = "all", period = "month" } = req.query;
+        const { type = "all", period = "month", startDate, endDate, search } = req.query;
 
-        let startDate = new Date();
-        if (period === "week") {
-            startDate.setDate(startDate.getDate() - 7);
+        let dateFilter = {};
+        if (startDate || endDate) {
+            dateFilter.createdAt = {};
+            if (startDate) dateFilter.createdAt.$gte = new Date(startDate);
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                dateFilter.createdAt.$lte = end;
+            }
         } else {
-            startDate.setMonth(startDate.getMonth() - 1);
+            let start = new Date();
+            if (period === "week") start.setDate(start.getDate() - 7);
+            else start.setMonth(start.getMonth() - 1);
+            dateFilter.createdAt = { $gte: start };
+        }
+
+        let userMatchIds = null;
+        if (search && search.trim()) {
+            const searchRegex = new RegExp(search.trim(), "i");
+            const matchingUsers = await User.find({
+                $or: [{ name: searchRegex }, { phone: searchRegex }]
+            }).select("_id");
+            userMatchIds = matchingUsers.map(u => u._id);
         }
 
         const workbook = new ExcelJS.Workbook();
@@ -255,11 +298,11 @@ export const exportFinancialsExcel = async (req, res) => {
             { header: "المستخدم", key: "user", width: 20 },
             { header: "رقم الهاتف", key: "phone", width: 15 },
             { header: "المبلغ (IQD)", key: "amount", width: 15 },
+            { header: "رقم الطلب / المرجع", key: "orderId", width: 20 },
             { header: "المصدر", key: "source", width: 15 },
             { header: "التفاصيل / السبب", key: "details", width: 40 },
         ];
 
-        // Fetch Data
         let logs = [];
 
         // 1. Penalties & Refunds
@@ -268,10 +311,10 @@ export const exportFinancialsExcel = async (req, res) => {
             if (type === "all" || type === "penalty") actions.push("CONFISCATE_OK");
             if (type === "all" || type === "refund") actions.push("REFUND");
 
-            const audits = await AuditLog.find({
-                action: { $in: actions },
-                createdAt: { $gte: startDate }
-            }).populate("user", "name phone").populate("auction", "title").lean();
+            const match = { action: { $in: actions }, ...dateFilter };
+            if (userMatchIds) match.user = { $in: userMatchIds };
+
+            const audits = await AuditLog.find(match).populate("user", "name phone").populate("auction", "title").lean();
 
             audits.forEach(p => {
                 logs.push({
@@ -280,37 +323,49 @@ export const exportFinancialsExcel = async (req, res) => {
                     user: p.user?.name || "—",
                     phone: p.user?.phone || "—",
                     amount: p.amount,
+                    orderId: p.auction ? `AUC-${p.auction._id.toString().slice(-6).toUpperCase()}` : "—",
                     source: p.source === "SELLER" ? "بائع" : (p.source === "BUYER" ? "مشتري" : (p.source === "PLATFORM" ? "منصة" : "—")),
                     details: p.reason + (p.auction ? ` (مزاد: ${p.auction.title})` : "")
                 });
             });
         }
 
-        // 2. Subscriptions
-        if (type === "all" || type === "subscription") {
-            const subs = await PaymentTransaction.find({
-                kind: "subscription",
-                status: "paid",
-                createdAt: { $gte: startDate }
-            }).populate("user", "name phone").lean();
+        // 2. Subscriptions & Topups
+        if (type === "all" || type === "subscription" || type === "topup") {
+            const match = { status: "paid", ...dateFilter };
+            if (type === "subscription") match.kind = "subscription";
+            if (type === "topup") match.kind = "wallet_topup";
+            if (userMatchIds) match.user = { $in: userMatchIds };
 
-            subs.forEach(s => {
+            const txs = await PaymentTransaction.find(match).populate("user", "name phone").lean();
+
+            txs.forEach(s => {
                 logs.push({
                     date: s.createdAt,
-                    type: "اشتراك",
+                    type: s.kind === "subscription" ? "اشتراك" : "شحن رصيد",
                     user: s.user?.name || "—",
                     phone: s.user?.phone || "—",
                     amount: s.amountIQD,
+                    orderId: s.orderId || "—",
                     source: "منصة",
-                    details: `اشتراك رقم طلب: ${s.orderId || "—"}`
+                    details: s.kind === "subscription" ? "اشتراك باقة" : "إيداع محفظة"
                 });
             });
         }
 
-        // Sort by date desc
+        // Search in local identifiers if search active
+        if (search && search.trim()) {
+            const s = search.trim().toUpperCase();
+            logs = logs.filter(l =>
+                l.orderId.toUpperCase().includes(s) ||
+                l.user.includes(search) ||
+                l.phone.includes(search) ||
+                l.details.toUpperCase().includes(s)
+            );
+        }
+
         logs.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-        // Add to sheet
         logs.forEach(l => {
             sheet.addRow({
                 date: new Date(l.date).toLocaleString("ar-IQ"),
@@ -318,28 +373,17 @@ export const exportFinancialsExcel = async (req, res) => {
                 user: l.user,
                 phone: l.phone,
                 amount: l.amount,
+                orderId: l.orderId,
                 source: l.source,
                 details: l.details
             });
         });
 
-        // Styling
         sheet.getRow(1).font = { bold: true };
-        sheet.getRow(1).fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFE0E0E0' }
-        };
+        sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
 
-        res.setHeader(
-            "Content-Type",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        );
-        res.setHeader(
-            "Content-Disposition",
-            `attachment; filename=financial-report-${period}.xlsx`
-        );
-
+        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        res.setHeader("Content-Disposition", `attachment; filename=financial-report.xlsx`);
         await workbook.xlsx.write(res);
         res.end();
     } catch (err) {

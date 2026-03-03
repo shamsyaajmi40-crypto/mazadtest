@@ -135,10 +135,16 @@ export const getFinancialStats = () => api.get("/admin/financials/stats");
 export const getFinancialLogs = (params: {
   page?: number;
   limit?: number;
-  type?: "all" | "subscription" | "topup" | "penalty";
+  type?: "all" | "subscription" | "topup" | "penalty" | "refund";
+  startDate?: string;
+  endDate?: string;
+  search?: string;
 }) => api.get("/admin/financials/logs", { params });
 
 export const downloadFinancialsExcel = (params: {
   type?: string;
   period?: "week" | "month";
+  startDate?: string;
+  endDate?: string;
+  search?: string;
 }) => api.get("/admin/financials/export", { params, responseType: 'blob' });

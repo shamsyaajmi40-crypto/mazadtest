@@ -30,7 +30,7 @@ import {
 
 type FinancialLog = {
   _id: string;
-  type: "SUBSCRIPTION" | "TOPUP" | "PENALTY";
+  type: "SUBSCRIPTION" | "TOPUP" | "PENALTY" | "REFUND";
   amount: number;
   user?: { name: string; phone: string; _id: string };
   createdAt: string;
@@ -70,6 +70,9 @@ export default function AdminPlatformBalance() {
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [totalLogs, setTotalLogs] = useState(0);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     loadStats();
@@ -77,7 +80,15 @@ export default function AdminPlatformBalance() {
 
   useEffect(() => {
     loadLogs();
-  }, [page, typeFilter]);
+  }, [page, typeFilter, startDate, endDate]);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadLogs();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const loadStats = async () => {
     try {
@@ -91,7 +102,12 @@ export default function AdminPlatformBalance() {
   const loadLogs = async () => {
     setLoading(true);
     try {
-      const res = await getFinancialLogs({ page, limit: 10, type: typeFilter });
+      const params: any = { page, limit: 10, type: typeFilter };
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+      if (search) params.search = search;
+
+      const res = await getFinancialLogs(params);
       setLogs(res.data.logs);
       setPages(res.data.pagination.pages);
       setTotalLogs(res.data.pagination.total);
@@ -104,7 +120,12 @@ export default function AdminPlatformBalance() {
 
   const handleExport = async (period: "week" | "month") => {
     try {
-      const res = await downloadFinancialsExcel({ type: typeFilter, period });
+      const params: any = { type: typeFilter, period };
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+      if (search) params.search = search;
+
+      const res = await downloadFinancialsExcel(params);
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -300,6 +321,49 @@ export default function AdminPlatformBalance() {
 
       {/* Unified Logs Section */}
       <div className="space-y-6">
+        <div className="flex flex-col md:flex-row gap-4 items-end bg-white/50 backdrop-blur-md p-6 rounded-3xl border border-slate-200/60 shadow-sm transition-all hover:shadow-md">
+          <div className="flex-1 w-full space-y-2">
+            <label className="text-[10px] font-black uppercase text-slate-400 mr-2 tracking-widest">البحث في السجلات</label>
+            <div className="relative group">
+              <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+              <input
+                type="text"
+                placeholder="بحث باسم المستخدم، الهاتف، رقم الطلب..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full h-12 pr-11 pl-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="w-full md:w-auto space-y-2">
+            <label className="text-[10px] font-black uppercase text-slate-400 mr-2 tracking-widest">من تاريخ</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+              className="h-12 px-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none"
+            />
+          </div>
+
+          <div className="w-full md:w-auto space-y-2">
+            <label className="text-[10px] font-black uppercase text-slate-400 mr-2 tracking-widest">إلى تاريخ</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+              className="h-12 px-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none"
+            />
+          </div>
+
+          <button
+            onClick={() => { setStartDate(""); setEndDate(""); setSearch(""); setTypeFilter("all"); setPage(1); }}
+            className="h-12 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap"
+          >
+            <Filter className="w-4 h-4" /> إعادة ضبط
+          </button>
+        </div>
+
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
             <Calendar className="w-5 h-5 text-indigo-500" /> سجل العمليات الموحد
@@ -350,6 +414,7 @@ export default function AdminPlatformBalance() {
                   <tr>
                     <th className="px-6 py-4 text-[10px] uppercase font-black text-slate-500 tracking-widest">نوع العملية</th>
                     <th className="px-6 py-4 text-[10px] uppercase font-black text-slate-500 tracking-widest">المستخدم</th>
+                    <th className="px-6 py-4 text-[10px] uppercase font-black text-slate-500 tracking-widest">المرجع</th>
                     <th className="px-6 py-4 text-[10px] uppercase font-black text-slate-500 tracking-widest">المبلغ</th>
                     <th className="px-6 py-4 text-[10px] uppercase font-black text-slate-500 tracking-widest">التفاصيل</th>
                     <th className="px-6 py-4 text-[10px] uppercase font-black text-slate-500 tracking-widest text-left">التاريخ</th>
@@ -361,9 +426,9 @@ export default function AdminPlatformBalance() {
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-1">
                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black ${log.type === 'SUBSCRIPTION' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                              log.type === 'PENALTY' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
-                                log.type === 'REFUND' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                                  'bg-blue-50 text-blue-600 border border-blue-100'
+                            log.type === 'PENALTY' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
+                              log.type === 'REFUND' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                                'bg-blue-50 text-blue-600 border border-blue-100'
                             }`}>
                             {log.type === 'SUBSCRIPTION' ? 'اشتراك' :
                               log.type === 'PENALTY' ? 'مصادرة' :
@@ -380,6 +445,13 @@ export default function AdminPlatformBalance() {
                         <div className="flex flex-col">
                           <span className="text-sm font-black text-slate-800">{log.user?.name || 'مستخدم غير متوفر'}</span>
                           <span className="text-[10px] font-bold text-slate-400 font-mono">{log.user?.phone}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-black text-slate-700 font-mono tracking-tighter">
+                            {log.orderId || '—'}
+                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-4">

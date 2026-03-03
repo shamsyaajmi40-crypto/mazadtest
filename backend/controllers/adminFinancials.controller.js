@@ -212,7 +212,7 @@ export const getFinancialLogs = async (req, res) => {
 
                 return audits.map(p => ({
                     _id: p._id,
-                    type: p.action === "CONFISCATE_OK" ? "PENALTY" : "REFUND",
+                    type: p.action === "CONFISCATE_OK" ? "PENALTY" : "DEPOSIT_REFUND",
                     status: "SUCCESS",
                     amount: p.amount,
                     user: p.user,
@@ -248,14 +248,14 @@ export const getFinancialLogs = async (req, res) => {
 
                 return finLogs.map(l => ({
                     _id: l._id,
-                    type: l.type === "WALLET_TOPUP_PAID" ? "TOPUP" : "REFUND",
+                    type: l.type === "WALLET_TOPUP_PAID" ? "TOPUP" : "WALLET_WITHDRAWAL",
                     status: l.type === "REFUND_REQUEST_REJECTED" ? "FAILED" : "SUCCESS",
                     amount: l.amountIQD,
                     user: l.user,
                     createdAt: l.createdAt,
-                    reason: l.meta?.adminNote || l.meta?.reason || l.meta?.note || (l.type === "WALLET_TOPUP_PAID" ? "شحن يدوي" : "طلب إرجاع"),
+                    reason: l.meta?.adminNote || l.meta?.reason || l.meta?.note || (l.type === "WALLET_TOPUP_PAID" ? "شحن يدوي" : "سحب رصيد"),
                     source: "منصة (يدوي)",
-                    orderId: l.refId ? (l.type === "WALLET_TOPUP_PAID" ? `BAL-${l.refId.toString().slice(-6).toUpperCase()}` : `REF-${l.refId.toString().slice(-6).toUpperCase()}`) : "—"
+                    orderId: l.refId ? (l.type === "WALLET_TOPUP_PAID" ? `BAL-${l.refId.toString().slice(-6).toUpperCase()}` : `WDR-${l.refId.toString().slice(-6).toUpperCase()}`) : "—"
                 }));
             }
             return [];
@@ -358,7 +358,7 @@ export const exportFinancialsExcel = async (req, res) => {
             audits.forEach(p => {
                 logs.push({
                     date: p.createdAt,
-                    type: p.action === "CONFISCATE_OK" ? "مصادرة" : "إرجاع",
+                    type: p.action === "CONFISCATE_OK" ? "مصادرة" : "إرجاع عربون",
                     status: "ناجحة",
                     user: p.user?.name || "—",
                     phone: p.user?.phone || "—",
@@ -381,12 +381,12 @@ export const exportFinancialsExcel = async (req, res) => {
                 fLogs.forEach(l => {
                     logs.push({
                         date: l.createdAt,
-                        type: "إرجاع",
+                        type: "سحب رصيد",
                         status: l.type === "REFUND_REQUEST_APPROVED" ? "ناجحة" : "فاشلة",
                         user: l.user?.name || "—",
                         phone: l.user?.phone || "—",
                         amount: l.amountIQD,
-                        orderId: l.refId ? `REF-${l.refId.toString().slice(-6).toUpperCase()}` : "—",
+                        orderId: l.refId ? `WDR-${l.refId.toString().slice(-6).toUpperCase()}` : "—",
                         source: "منصة (يدوي)",
                         details: (l.type === "REFUND_REQUEST_APPROVED" ? "موافقة" : "رفض") + ": " + (l.meta?.adminNote || l.meta?.reason || "—")
                     });

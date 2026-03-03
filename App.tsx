@@ -105,6 +105,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         user: res.data,
       })
     );
+    return res.data;
   };
 
 

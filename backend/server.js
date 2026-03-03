@@ -3,8 +3,10 @@
 import dns from "dns";
 import { activateScheduledAuctions } from "./cron/activateScheduledAuctions.js";
 import dotenv from "dotenv";
+dotenv.config({
+  path: "/root/mazadtest/backend/.env",
+});
 import express from "express";
-import startAuctionCleanupCron from "./cron/auctionCleanup.js";
 import cors from "cors";
 import balanceRoutes from "./routes/balance.routes.js";
 import userRoutes from "./routes/user.routes.js";
@@ -22,7 +24,14 @@ import billingRoutes from "./routes/billing.routes.js";
 import paymentsRoutes from "./routes/payments.routes.js";
 import walletRoutes from "./routes/wallet.routes.js";
 import courierRoutes from "./routes/courier.routes.js";
-dotenv.config();
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+console.log("START FILE:", process.cwd(), __filename);
 console.log("ZC loaded:", {
   msisdn: !!process.env.ZAINCASH_MSISDN,
   merchant: !!process.env.ZAINCASH_MERCHANT_ID,
@@ -45,7 +54,13 @@ const io = new Server(httpServer, {
 
 import { initIo } from "./utils/socket.js";
 initIo(io);
+// تأكد من وجود مجلد uploads
+const uploadDir = path.join(process.cwd(), "uploads");
 
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+  console.log("📁 uploads folder created");
+}
 // Skeleton فقط
 io.on("connection", (socket) => {
   socket.on("auction:join", (auctionId) => {
@@ -67,9 +82,9 @@ io.on("connection", (socket) => {
    Middlewares
 ====================== */
 app.use(cors());
-app.use(express.json({ limit: "20mb" }));
+app.use(express.json());
 app.use("/uploads", express.static("uploads"));
-app.use(express.urlencoded({ extended: true, limit: "20mb" }));
+app.use(express.urlencoded({ extended: true }));
 /* ======================
    Routes
 ====================== */
@@ -109,7 +124,6 @@ const startServer = async () => {
     // // ⬅️ Cron jobs
     closeAuctions();
     startSubscriptionCron();
-    startAuctionCleanupCron();
     await activateScheduledAuctions();
     // كل 30 ثانية
     setInterval(async () => {
@@ -131,15 +145,5 @@ const startServer = async () => {
   }
 };
 
-
-// Error handling middleware (to ensure CORS headers on errors)
-app.use((err, req, res, next) => {
-  console.error("Global Error Handler:", err);
-  res.header("Access-Control-Allow-Origin", "*"); // Ensure CORS even on error
-  res.status(err.status || 500).json({
-    message: err.message || "Internal Server Error",
-    error: process.env.NODE_ENV === "development" ? err : {},
-  });
-});
 
 startServer();

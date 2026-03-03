@@ -15,7 +15,6 @@ import maskUsername from "@/utils/maskUsername.ts";
 import { RATING_REASONS } from "../utils/ratingReasons";
 import { rateAuctionUser, getAuctionRatings } from "../services/rating";
 import { getRemainingTime } from "../utils/helpers";
-import { formatNumber } from "../utils/numberFormat";
 import api from "../services/api";
 import { io, Socket } from "socket.io-client";
 import TermsModal from "../components/TermsModal";
@@ -512,7 +511,7 @@ const AuctionDetails = () => {
 
       // Toast for bids from others
       if (optimisticBidRef.current === null && data.auction?.currentPrice) {
-        toast(`⚡ ${formatNumber(data.auction.currentPrice)} د.ع`, {
+        toast(`⚡ ${data.auction.currentPrice.toLocaleString()} د.ع`, {
           duration: 3000,
           style: { fontWeight: 'bold', direction: 'rtl' },
         });

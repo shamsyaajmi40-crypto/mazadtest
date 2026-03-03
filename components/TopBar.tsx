@@ -77,7 +77,7 @@ export default function TopBar() {
     let refreshHandler = () => fetchCounters();
 
     import("socket.io-client").then(({ io }) => {
-      socket = io(import.meta.env.VITE_API_URL || "http://localhost:5000");
+      socket = io(import.meta.env.VITE_API_URL);
       socket.emit("admin:join");
       socket.on("admin_refresh", refreshHandler);
     });
@@ -113,7 +113,7 @@ export default function TopBar() {
     let refreshDealsHandler = () => fetchOpenDeals();
 
     import("socket.io-client").then(({ io }) => {
-      socket = io(import.meta.env.VITE_API_URL || "http://localhost:5000");
+      socket = io(import.meta.env.VITE_API_URL);
       socket.emit("user:join", user._id);
       socket.on("user_refresh", refreshDealsHandler);
     });

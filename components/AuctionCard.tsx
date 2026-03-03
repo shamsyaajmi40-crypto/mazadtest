@@ -5,7 +5,6 @@ import { Auction } from '../types';
 import { Clock, Tag, Image as ImageIcon } from 'lucide-react';
 import { AUCTION_STATUS } from "../types";
 import { getImageUrl } from "@/utils/getImageUrl";
-import { formatNumber } from "../utils/numberFormat";
 import api from "../services/api";
 
 
@@ -365,7 +364,7 @@ const AuctionCard: React.FC<{ auction: Auction; archived?: boolean; compact?: bo
           <div className="flex justify-between items-center text-sm gap-2">
             <span className="text-slate-500 flex items-center gap-1.5 font-bold"><Tag className="w-4 h-4 text-primary" /> السعر الحالي</span>
 
-            <span className="font-black text-emerald-600 text-base tracking-tight">{formatNumber(auction.currentPrice)} <span className="text-[10px] text-emerald-600/70">د.ع</span></span>
+            <span className="font-black text-emerald-600 text-base tracking-tight">{auction.currentPrice.toLocaleString()} <span className="text-[10px] text-emerald-600/70">د.ع</span></span>
           </div>
           {/* Progress bar */}
           {!compact && !isEnded && !isScheduled && (

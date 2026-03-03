@@ -2,6 +2,9 @@ import Plan from "../models/Plan.js";
 import Subscription from "../models/Subscription.js";
 import SubscriptionRequest from "../models/SubscriptionRequest.js";
 import User from "../models/User.js";
+import Notification from "../models/Notification.js";
+import { getIo } from "../utils/socket.js";
+import { uploadToR2 } from "../utils/r2.js";
 
 const addOneMonth = (date) => {
   const d = new Date(date);
@@ -23,7 +26,15 @@ export const createUpgradeRequest = async (req, res) => {
     if (!plan) return res.status(404).json({ message: "الباقة غير موجودة" });
 
     // لازم صورة وصل
-    const receipt = req.file ? `/uploads/${req.file.filename}` : null;
+    let receipt = null;
+    if (req.file) {
+      try {
+        receipt = await uploadToR2(req.file);
+      } catch (err) {
+        console.error("Failed to upload receipt to R2:", err);
+        return res.status(500).json({ message: "Failed to upload receipt image" });
+      }
+    }
     if (!receipt) return res.status(400).json({ message: "صورة الوصل مطلوبة" });
 
     // منع وجود طلب pending سابق
@@ -119,6 +130,17 @@ export const approveRequest = async (req, res) => {
     request.reviewedAt = now;
     await request.save();
 
+    // ✅ إشعار الموافقة على طلب الترقية
+    const notif = await Notification.create({
+      user: request.user,
+      type: "SYSTEM",
+      event: "SUBSCRIPTION_REQUEST_APPROVED",
+      title: "تهانينا! تمت ترقية حسابك ✅",
+      message: `تمت الموافقة على طلبك لترقية الحساب إلى باقة "${request.plan.name}".`,
+    });
+    const io = getIo();
+    if (io) io.to(request.user.toString()).emit("new_notification", notif);
+
     const populatedReq = await SubscriptionRequest.findById(request._id)
       .populate("user", "name phone role")
       .populate("plan", "code name priceIQD audience");
@@ -151,6 +173,17 @@ export const rejectRequest = async (req, res) => {
     request.reviewedBy = req.user._id;
     request.reviewedAt = new Date();
     await request.save();
+
+    // ✅ إشعار رفض طلب الترقية
+    const notif = await Notification.create({
+      user: request.user,
+      type: "SYSTEM",
+      event: "SUBSCRIPTION_REQUEST_REJECTED",
+      title: "تم رفض طلب الترقية ❌",
+      message: `نعتذر، تم رفض طلب ترقية الحساب الخاص بك. ${note ? `السبب: ${note}` : ''}`,
+    });
+    const io = getIo();
+    if (io) io.to(request.user.toString()).emit("new_notification", notif);
 
     return res.json({ message: "Rejected" });
   } catch (err) {

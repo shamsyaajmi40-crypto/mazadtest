@@ -7,9 +7,8 @@ interface CountdownProps {
 
 const Countdown = ({
   endTime,
-  showBeforeMinutes = Infinity,
+  showBeforeMinutes = 60, // الافتراضي 60 دقيقة
 }: CountdownProps) => {
-
   const getRemaining = () => {
     const diff = new Date(endTime).getTime() - Date.now();
     return diff > 0 ? diff : 0;
@@ -26,7 +25,11 @@ const Countdown = ({
   }, [endTime]);
 
   const remainingMinutes = remaining / 60000;
-  const shouldShow = remainingMinutes <= showBeforeMinutes;
+
+  // ❌ لا نعرض العدّاد إذا الوقت بعيد
+  if (remainingMinutes > showBeforeMinutes) {
+    return null;
+  }
 
   if (remaining <= 0) {
     return (
@@ -35,8 +38,6 @@ const Countdown = ({
       </span>
     );
   }
-
-  if (!shouldShow) return null;
 
   const totalSeconds = Math.floor(remaining / 1000);
   const minutes = Math.floor(totalSeconds / 60);

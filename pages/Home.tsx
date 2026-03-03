@@ -13,7 +13,6 @@ import { Link } from "react-router-dom";
 import { AUCTION_STATUS } from "../types";
 import { useSearchParams } from "react-router-dom";
 import { set } from 'mongoose';
-import { formatNumber, cleanNumber } from "../utils/numberFormat";
 
 //تحديث الصفحة 
 const HOME_POLL_INTERVAL = 60000; // 60 ثانية
@@ -54,9 +53,9 @@ const HomeData = () => {
         minPrice: filters.minPrice,
         maxPrice: filters.maxPrice,
         searchTerm: filters.searchTerm,
-        status: filters.status === "ALL" ? undefined : filters.status,
+       status: filters.status === "ALL" ? undefined : filters.status,
       });
-
+      
       setPagination(res.data.pagination);
       setAuctions(
         res.data.auctions.map((a: any) => ({
@@ -79,7 +78,7 @@ const HomeData = () => {
         minPrice: filters.minPrice,
         maxPrice: filters.maxPrice,
         searchTerm: filters.searchTerm,
-        status: filters.status === "ALL" ? undefined : filters.status,
+          status: filters.status === "ALL" ? undefined : filters.status,
       });
 
       setAuctions((prev) =>
@@ -117,11 +116,11 @@ const HomeData = () => {
 
   // تحميل كامل عند تغيير الفلاتر فقط
   useEffect(() => {
-    loadAuctions();
-  }, [filters, page]);
-  useEffect(() => {
-    setPage(1);
-  }, [filters]);
+  loadAuctions();
+}, [filters, page]);
+useEffect(() => {
+  setPage(1);
+}, [filters]);
 
   // تحديث صامت كل 15 ثانية
   useEffect(() => {
@@ -306,28 +305,18 @@ const HomeData = () => {
                 </label>
                 <div className="flex items-center gap-2">
                   <input
-                    type="text"
+                    type="number"
                     placeholder="من"
                     className="w-1/2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary font-bold text-sm"
-                    value={formatNumber(filters.minPrice)}
-                    onChange={(e) => {
-                      const clean = cleanNumber(e.target.value);
-                      if (clean === "" || /^\d+$/.test(clean)) {
-                        setFilters({ ...filters, minPrice: clean });
-                      }
-                    }}
+                    value={filters.minPrice}
+                    onChange={(e) => setFilters({ ...filters, minPrice: e.target.value })}
                   />
                   <input
-                    type="text"
+                    type="number"
                     placeholder="إلى"
                     className="w-1/2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary font-bold text-sm"
-                    value={formatNumber(filters.maxPrice)}
-                    onChange={(e) => {
-                      const clean = cleanNumber(e.target.value);
-                      if (clean === "" || /^\d+$/.test(clean)) {
-                        setFilters({ ...filters, maxPrice: clean });
-                      }
-                    }}
+                    value={filters.maxPrice}
+                    onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })}
                   />
                 </div>
               </div>
@@ -452,7 +441,7 @@ const HomeData = () => {
                   className="bg-white rounded-[2rem] h-[340px] animate-pulse border border-slate-100"
                 />
               ))}
-
+              
             </div>
           ) : displayedAuctions.length === 0 ? (
             <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-slate-200">
@@ -467,44 +456,45 @@ const HomeData = () => {
             </div>
           )}
           {pagination && pagination.totalPages > 1 && (
-            <div className="flex flex-wrap justify-center items-center gap-2 mt-8 sm:mt-10">
+  <div className="flex flex-wrap justify-center items-center gap-2 mt-8 sm:mt-10">
 
-              <button
-                disabled={!pagination.hasPrev}
-                onClick={() => setPage((p) => p - 1)}
-                className="px-3 sm:px-4 py-2 rounded-lg border font-bold text-sm sm:text-base disabled:opacity-40"
-              >
-                السابق
-              </button>
+    <button
+      disabled={!pagination.hasPrev}
+      onClick={() => setPage((p) => p - 1)}
+      className="px-3 sm:px-4 py-2 rounded-lg border font-bold text-sm sm:text-base disabled:opacity-40"
+    >
+      السابق
+    </button>
 
-              {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
-                .slice(
-                  Math.max(0, pagination.page - 3),
-                  pagination.page + 2
-                )
-                .map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setPage(p)}
-                    className={`px-3 sm:px-4 py-2 rounded-lg font-bold border text-sm sm:text-base ${p === pagination.page
-                      ? "bg-primary text-white"
-                      : "bg-white"
-                      }`}
-                  >
-                    {p}
-                  </button>
-                ))}
+    {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
+      .slice(
+        Math.max(0, pagination.page - 3),
+        pagination.page + 2
+      )
+      .map((p) => (
+        <button
+          key={p}
+          onClick={() => setPage(p)}
+          className={`px-3 sm:px-4 py-2 rounded-lg font-bold border text-sm sm:text-base ${
+            p === pagination.page
+              ? "bg-primary text-white"
+              : "bg-white"
+          }`}
+        >
+          {p}
+        </button>
+      ))}
 
-              <button
-                disabled={!pagination.hasNext}
-                onClick={() => setPage((p) => p + 1)}
-                className="px-3 sm:px-4 py-2 rounded-lg border font-bold text-sm sm:text-base disabled:opacity-40"
-              >
-                التالي
-              </button>
+    <button
+      disabled={!pagination.hasNext}
+      onClick={() => setPage((p) => p + 1)}
+      className="px-3 sm:px-4 py-2 rounded-lg border font-bold text-sm sm:text-base disabled:opacity-40"
+    >
+      التالي
+    </button>
 
-            </div>
-          )}
+  </div>
+)}
         </div>
 
         {/* ===== Sidebar ===== */}

@@ -3,6 +3,8 @@ import Subscription from "../models/Subscription.js";
 import User from "../models/User.js";
 import PaymentTransaction from "../models/PaymentTransaction.js";
 import FinanceLog from "../models/FinanceLog.js";
+import Notification from "../models/Notification.js";
+import { getIo } from "../utils/socket.js";
 
 import { createPayment, getPaymentStatus } from "../utils/zaincashV2.js";
 import { v4 as uuidv4 } from "uuid";
@@ -218,6 +220,8 @@ export const zaincashRedirect = async (req, res) => {
 
     const FRONTEND_SUCCESS_URL = process.env.FRONTEND_SUCCESS_URL || "/";
     const FRONTEND_FAIL_URL = process.env.FRONTEND_FAIL_URL || "/";
+    const FRONTEND_WALLET_SUCCESS_URL = process.env.FRONTEND_WALLET_SUCCESS_URL || "/#/wallet?paid=1";
+    const FRONTEND_WALLET_FAIL_URL = process.env.FRONTEND_WALLET_FAIL_URL || "/#/wallet?paid=0";
 
     if (!transactionId || !orderId) {
       return res.redirect(`${FRONTEND_FAIL_URL}&reason=missing_params`);
@@ -226,7 +230,8 @@ export const zaincashRedirect = async (req, res) => {
     const tx = await PaymentTransaction.findOne({ orderId }).populate("plan");
 
     if (!tx) {
-      return res.redirect(`${FRONTEND_FAIL_URL}&reason=tx_not_found`);
+      const failUrl = req.query.kind === 'wallet_topup' ? FRONTEND_WALLET_FAIL_URL : FRONTEND_FAIL_URL;
+      return res.redirect(`${failUrl}&reason=tx_not_found`);
     }
 
     let isPaid = true;
@@ -254,7 +259,8 @@ export const zaincashRedirect = async (req, res) => {
         { $set: { status: "failed" } }
       );
 
-      return res.redirect(`${FRONTEND_FAIL_URL}&reason=not_paid`);
+      const failUrl = tx.kind === 'wallet_topup' ? FRONTEND_WALLET_FAIL_URL : FRONTEND_FAIL_URL;
+      return res.redirect(`${failUrl}&reason=not_paid`);
     }
 
     // ================= WALLET =================
@@ -278,8 +284,19 @@ export const zaincashRedirect = async (req, res) => {
         meta: { orderId, provider: "zaincash", transactionId },
       });
 
+      // ✅ إشعار نجاح شحن المحفظة
+      const notif = await Notification.create({
+        user: tx.user,
+        type: "SYSTEM",
+        event: "WALLET_TOPUP_PAID",
+        title: "تم شحن المحفظة بنجاح 💰",
+        message: `تم استلام مبلغ ${Number(tx.amountIQD).toLocaleString()} د.ع عبر زين كاش وإضافته لمتجرك.`,
+      });
+      const io = getIo();
+      if (io) io.to(tx.user.toString()).emit("new_notification", notif);
+
       return res.redirect(
-        `${FRONTEND_SUCCESS_URL}&topup=1&orderId=${encodeURIComponent(orderId)}`
+        `${FRONTEND_WALLET_SUCCESS_URL}&topup=1&orderId=${encodeURIComponent(orderId)}`
       );
     }
 
@@ -335,6 +352,17 @@ export const zaincashRedirect = async (req, res) => {
         transactionId,
       },
     });
+
+    // ✅ إشعار نجاح الاشتراك/الترقية
+    const notif = await Notification.create({
+      user: tx.user,
+      type: "SYSTEM",
+      event: subWasExisting ? "SUBSCRIPTION_UPGRADED" : "SUBSCRIPTION_ACTIVATED",
+      title: subWasExisting ? "تمت ترقية اشتراكك! 🚀" : "تم تفعيل الاشتراك بنجاح! 🎉",
+      message: `تم تفعيل باقة "${plan.name}" لحسابك بنجاح. استمتع بمميزات المنصة.`,
+    });
+    const io = getIo();
+    if (io) io.to(tx.user.toString()).emit("new_notification", notif);
 
     return res.redirect(
       `${FRONTEND_SUCCESS_URL}&orderId=${encodeURIComponent(orderId)}`

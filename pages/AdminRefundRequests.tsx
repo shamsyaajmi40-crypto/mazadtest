@@ -2,9 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import api from "@/services/api";
 import { Search, RefreshCw, CheckCircle, XCircle, CreditCard, Activity, Calendar, FileText, User, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { formatNumber } from "../utils/numberFormat";
 
-const money = (n: any) => `${formatNumber(n)} د.ع`;
+const money = (n: any) => `${Number(n || 0).toLocaleString("en-US")} د.ع`;
 const metaSummary = (meta: any) => {
   if (!meta) return "—";
   const parts: string[] = [];

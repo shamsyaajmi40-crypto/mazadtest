@@ -1,7 +1,7 @@
 import { Bell, Trophy, XCircle, CheckCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import api from "../services/api";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { io, Socket } from "socket.io-client";
@@ -12,6 +12,7 @@ const NotificationManager = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const fetchNotifications = async () => {
 
     try {
@@ -30,6 +31,14 @@ const NotificationManager = () => {
     let socket: Socket | null = null;
     let handleNotification = (notification: any) => {
       setNotifications((prev) => [notification, ...prev]);
+
+      // ✅ منع ظهور التوست إذا كنا داخل نفس المزاد (لتجنب التكرار مع توست المزايدة المحلي)
+      if (notification.event === "OUTBID" && notification.auction) {
+        const auctionId = typeof notification.auction === "string" ? notification.auction : notification.auction._id;
+        if (location.pathname === `/auction/${auctionId}`) {
+          return; // أضفناه للقائمة للقراءة لاحقاً، لكن لا تظهر التوست الآن
+        }
+      }
 
       // ✅ إظهار إشعار مرئي على الشاشة
       toast.custom(
@@ -69,7 +78,7 @@ const NotificationManager = () => {
 
     if (user) {
       // Initialize Socket connection
-      socket = io(import.meta.env.VITE_API_URL || "http://localhost:5000");
+      socket = io(import.meta.env.VITE_API_URL);
 
       // Join the user's specific room
       socket.emit("user:join", user._id);

@@ -6,7 +6,7 @@ import { calculateSellerDeposit } from "../utils/depositCalculator"; // Added im
 import type { AuctionCategory } from "../types";
 import { AUCTION_CATEGORIES } from "../types";
 import {
-  Upload, Loader2, PlusCircle, X, Info, AlertTriangle,
+  Upload, Loader2, PlusCircle, X, Info,
   Type, LayoutGrid, Tag, TrendingUp, Clock,
   CalendarClock, MapPin, AlignRight, Image as ImageIcon,
   CheckCircle2
@@ -359,47 +359,19 @@ const CreateAuction = () => {
               </div>
             </div>
 
-            <div className="md:col-span-2 relative group mt-2 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-primary/5 rounded-[2rem] -z-10 transition-colors duration-500 group-hover:from-amber-500/10 group-hover:to-primary/10"></div>
-              <div className="relative bg-white/40 backdrop-blur-sm border-2 border-amber-100 rounded-[2rem] p-6 shadow-xl shadow-amber-900/5 flex flex-col md:flex-row gap-6 items-center">
-                <div className="w-16 h-16 shrink-0 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600 shadow-inner">
-                  <AlertTriangle className="w-8 h-8 animate-pulse" />
-                </div>
-
-                <div className="flex-1 space-y-2 text-center md:text-right">
-                  <div className="flex flex-col md:flex-row md:items-center gap-2 justify-center md:justify-start">
-                    <span className="text-sm font-black text-slate-500 uppercase tracking-wider">مبلغ الضمان المطلوب:</span>
-                    <span className="text-2xl font-black text-amber-600 tabular-nums">
-                      {depositLoading
-                        ? "..."
-                        : sellerDeposit === null
-                          ? "—"
-                          : `${formatNumber(sellerDeposit)} د.ع`}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-bold text-slate-700 leading-relaxed">
-                      {sellerDeposit === null
-                        ? "يرجى إدخال السعر الابتدائي لمعرفة مبلغ العربون."
-                        : "يجب توفر هذا المبلغ في محفظتك ليتم تفعيل المزاد ونشره للعامة."}
-                    </p>
-                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-1">
-                      <span className="flex items-center gap-1.5 text-xs font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> مسترد بالكامل
-                      </span>
-                      <span className="flex items-center gap-1.5 text-xs font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
-                        <Info className="w-3.5 h-3.5" /> ضمان الالتزام
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="hidden lg:block w-px h-16 bg-slate-100 mx-2"></div>
-
-                <div className="text-[10px] leading-relaxed text-slate-400 font-bold max-w-[200px] text-center md:text-right">
-                  يُحجز هذا المبلغ مؤقتاً لضمان جدية النشر ويتم فك الحجز فور اكتمال عملية البيع بنجاح.
-                </div>
+            <div className="md:col-span-2 rounded-2xl border border-amber-200/70 bg-amber-50 p-4">
+              <div className="text-sm font-black text-amber-900">
+                {depositLoading
+                  ? "جاري حساب عربون النشر..."
+                  : sellerDeposit === null
+                    ? "أدخل السعر الابتدائي لعرض عربون النشر."
+                    : `عربون النشر المطلوب: ${(Number(sellerDeposit || 0)).toLocaleString()} د.ع`}
+              </div>
+              <div className="mt-1 text-xs font-bold text-amber-800">
+                يجب أن تحتوي المحفظة على هذا المبلغ حتى يتم نشر المزاد.
+              </div>
+              <div className="mt-1 text-xs font-medium text-emerald-700">
+                سيتم إرجاع العربون لك عند الالتزام بالقوانين وعدم وجود مخالفة.
               </div>
             </div>
 

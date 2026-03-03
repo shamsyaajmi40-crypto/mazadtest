@@ -2,6 +2,7 @@ import Plan from "../models/Plan.js";
 import Subscription from "../models/Subscription.js";
 import User from "../models/User.js";
 import SubscriptionRequest from "../models/SubscriptionRequest.js";
+import { uploadToR2 } from "../utils/r2.js";
 
 export const createUpgradeRequest = async (req, res) => {
   try {
@@ -12,7 +13,15 @@ export const createUpgradeRequest = async (req, res) => {
     if (!plan) return res.status(404).json({ message: "الباقة غير موجودة" });
 
     // لازم صورة
-    const receipt = req.file ? `/uploads/${req.file.filename}` : null;
+    let receipt = null;
+    if (req.file) {
+      try {
+        receipt = await uploadToR2(req.file);
+      } catch (err) {
+        console.error("Failed to upload receipt to R2:", err);
+        return res.status(500).json({ message: "Failed to upload receipt image" });
+      }
+    }
     if (!receipt) return res.status(400).json({ message: "صورة الوصل مطلوبة" });
 
     // منع تكرار طلبات pending لنفس المستخدم

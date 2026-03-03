@@ -4,7 +4,7 @@ import type { Dispatch, SetStateAction } from "react";
 export type AuthContextType = {
   user: User | null;
   setUser: Dispatch<SetStateAction<User | null>>;
-refreshUser: () => Promise<void>;
+  refreshUser: () => Promise<User | null>;
   loading: boolean;
   logout: () => void;
 };

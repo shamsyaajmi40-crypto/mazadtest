@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getAdminUserDetails, toggleUserBan } from "../services/admin";
 import { ArrowRight } from "lucide-react";
-import { formatNumber } from "../utils/numberFormat";
 
 const AdminUserDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -87,12 +86,12 @@ const AdminUserDetails = () => {
 
         <div>
           <p className="text-sm text-gray-500">الرصيد</p>
-          <p className="font-bold">{formatNumber(user.balance)}</p>
+          <p className="font-bold">{user.balance}</p>
         </div>
 
         <div>
           <p className="text-sm text-gray-500">الرصيد المعلّق</p>
-          <p className="font-bold">{formatNumber(user.heldBalance)}</p>
+          <p className="font-bold">{user.heldBalance}</p>
         </div>
       </div>
 

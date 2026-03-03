@@ -5,13 +5,18 @@ let s3Instance = null;
 const getS3 = () => {
   if (s3Instance) return s3Instance;
 
-  let endpoint = process.env.R2_ENDPOINT || "";
-  if (endpoint && !endpoint.startsWith("http")) {
-    endpoint = `https://${endpoint}`;
-  }
+  let rawEndpoint = (process.env.R2_ENDPOINT || "").trim();
 
-  // تنظيف الرابط من أي مسافات أو رموز غريبة
-  endpoint = endpoint.trim();
+  // 1. إزالة أي مسافات من داخل النص (مهم جداً!)
+  let cleaned = rawEndpoint.replace(/\s+/g, "");
+
+  // 2. إزالة أي بروتوكول موجود مسبقاً للبدء من جديد
+  cleaned = cleaned.replace(/^https?:\/\//i, "");
+
+  // 3. بناء الرابط النهائي بشكل نظيف
+  let endpoint = `https://${cleaned}`;
+
+  console.log("🛠️ R2 Client Init - Final Sanitized Endpoint:", endpoint);
   console.log("🛠️ R2 Client Init - Endpoint:", endpoint || "MISSING!");
 
   s3Instance = new S3Client({

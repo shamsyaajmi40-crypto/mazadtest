@@ -668,13 +668,16 @@ const AuctionDetails = () => {
   const startTime = new Date(auction.startTime || auction.createdAt).getTime();
   const endTime = new Date(auction.endTime).getTime();
 
-  const isUpcoming = now < startTime;
-  const isActive = now >= startTime && now < endTime;
   const normalizedStatus = String(auction.status || "").toLowerCase();
+  const isPending = normalizedStatus === "pending";
+  const isRejected = normalizedStatus === "rejected";
+
+  const isUpcoming = now < startTime && !isPending && !isRejected;
+  const isActive = now >= startTime && now < endTime && normalizedStatus === "active";
   const isDealSuccess = normalizedStatus === "completed";
   const isDealFailed = ["cancelled_by_winner", "cancelled_by_seller", "cancelled_by_both"].includes(normalizedStatus);
   const isDealResolved = isDealSuccess || isDealFailed;
-  const isEnded = now >= endTime || normalizedStatus === "ended" || isDealResolved;
+  const isEnded = (now >= endTime || normalizedStatus === "ended" || isDealResolved) && !isPending && !isRejected;
 
   const isWinner =
     String(auction.winner?._id || auction.winner) ===
@@ -1002,8 +1005,18 @@ const AuctionDetails = () => {
             <div className="mt-4 bg-white border border-slate-200/60 rounded-3xl p-5 shadow-lg shadow-slate-200/40 relative overflow-hidden">
               {/* LIVE Indicator & Viewers */}
               <div className="flex items-center justify-between mb-5">
-                {!isEnded ? (
-                  <div className="flex items-center gap-2 bg-red-50 px-2.5 py-1 rounded-lg border border-red-100/50">
+                {isPending ? (
+                  <div className="flex items-center gap-2 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100">
+                    <Clock className="w-3.5 h-3.5 text-amber-500" />
+                    <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">تحت المراجعة</span>
+                  </div>
+                ) : isRejected ? (
+                  <div className="flex items-center gap-2 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-100">
+                    <X className="w-3.5 h-3.5 text-rose-500" />
+                    <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">تم الرفض</span>
+                  </div>
+                ) : !isEnded ? (
+                  <div className="flex items-center gap-2 bg-red-50 px-3 py-1 rounded-lg border border-red-100/50">
                     <div className="relative flex items-center justify-center w-2 h-2">
                       {isActive && <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping"></span>}
                       <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${isActive ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]' : 'bg-slate-300'}`}></span>
@@ -1013,7 +1026,7 @@ const AuctionDetails = () => {
                     </span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
+                  <div className="flex items-center gap-2 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">
                     <span className="text-[10px] font-black text-slate-500">منتهي</span>
                   </div>
                 )}
@@ -1071,7 +1084,14 @@ const AuctionDetails = () => {
                 </div>
 
                 {/* Time Box (Urgency Red/Orange Gradient) */}
-                {!isDealResolved && auction.status !== "ENDED" ? (
+                {isPending || isRejected ? (
+                  <div className={`flex flex-col justify-center rounded-2xl p-2.5 sm:p-3.5 border ${isPending ? 'bg-amber-50 border-amber-100' : 'bg-rose-50 border-rose-100'}`}>
+                    <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-1 ${isPending ? 'text-amber-600' : 'text-rose-600'}`}>حالة المراجعة</span>
+                    <span className={`text-xs sm:text-sm font-black ${isPending ? 'text-amber-900' : 'text-rose-900'}`}>
+                      {isPending ? "في انتظار الموافقة" : "تم رفض المزاد"}
+                    </span>
+                  </div>
+                ) : !isDealResolved && auction.status !== "ENDED" ? (
                   <div className={`flex flex-col justify-center rounded-2xl p-2.5 sm:p-3.5 relative overflow-hidden transition-all shadow-sm ${isLastMinutes ? 'bg-gradient-to-br from-orange-500 to-red-600 border-none shadow-orange-500/20' : 'bg-slate-900 border border-slate-800'}`}>
                     <div className="flex justify-between items-start mb-1 relative z-10">
                       <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest ${isLastMinutes ? 'text-white/80' : 'text-slate-400'}`}>
@@ -1108,7 +1128,7 @@ const AuctionDetails = () => {
               {!isEnded && !isOwner && (
                 <button
                   onClick={handlePlaceBid}
-                  disabled={isUpcoming || bidLoading || bidCooldown > 0}
+                  disabled={isUpcoming || isPending || isRejected || bidLoading || bidCooldown > 0}
                   className="w-full py-4.5 bg-gradient-to-r from-emerald-600 via-emerald-500 to-cyan-600 text-white rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-1
                     shadow-[0_10px_25px_-5px_rgba(16,185,129,0.4)] hover:shadow-[0_15px_30px_-5px_rgba(16,185,129,0.5)] hover:-translate-y-1 active:scale-[0.97] transition-all duration-300
                     disabled:bg-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed border-transparent disabled:border-slate-200 border group"
@@ -1117,7 +1137,7 @@ const AuctionDetails = () => {
                     <Loader2 className="animate-spin w-6 h-6" />
                   ) : (
                     <>
-                      {!isUpcoming && bidCooldown <= 0 && (
+                      {!isUpcoming && !isPending && !isRejected && bidCooldown <= 0 && (
                         <span className="text-[10px] font-black opacity-90 uppercase tracking-[0.2em] mb-0.5 group-hover:scale-110 transition-transform">
                           زايد الآن واربح! 🚀
                         </span>
@@ -1125,11 +1145,15 @@ const AuctionDetails = () => {
                       <div className="flex items-center gap-2.5">
                         <Gavel className="w-5 h-5 group-hover:rotate-12 transition-transform" />
                         <span className="text-lg sm:text-xl tracking-wide">
-                          {isUpcoming
-                            ? "لم يبدأ بعد"
-                            : bidCooldown > 0
-                              ? `انتظر ${bidCooldown}ث`
-                              : `${(displayedPrice + auction.increment).toLocaleString()} د.ع`}
+                          {isPending
+                            ? "في انتظار المراجعة"
+                            : isRejected
+                              ? "مرفوض"
+                              : isUpcoming
+                                ? "لم يبدأ بعد"
+                                : bidCooldown > 0
+                                  ? `انتظر ${bidCooldown}ث`
+                                  : `${(displayedPrice + auction.increment).toLocaleString()} د.ع`}
                         </span>
                       </div>
                     </>

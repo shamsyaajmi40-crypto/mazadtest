@@ -608,69 +608,60 @@ export default function AdminPlatformBalance() {
             <style dangerouslySetInnerHTML={{
               __html: `
               @media print {
-                /* 1. Kill the Height of everything else */
+                /* 1. Hide everything by default but collapse height */
                 html, body {
-                  height: auto !important;
-                  height: min-content !important;
-                  overflow: visible !important;
+                  background: white !important;
                   margin: 0 !important;
                   padding: 0 !important;
-                  background: white !important;
                 }
 
-                /* Hide all direct children of body/root except the modal/printable wrapper */
-                body > *:not(#root),
-                #root > *:not(.fixed),
-                .fixed.inset-0 > *:not(.max-w-xl) {
-                  display: none !important;
+                body {
+                  visibility: hidden !important;
+                  overflow: hidden !important;
                   height: 0 !important;
-                  margin: 0 !important;
-                  padding: 0 !important;
+                  width: 0 !important;
                 }
 
-                /* Reset the modal container to take up NO space except for its content */
-                .fixed.inset-0 {
-                  position: static !important;
-                  display: block !important;
-                  background: white !important;
-                  padding: 0 !important;
-                  margin: 0 !important;
-                  box-shadow: none !important;
-                  backdrop-filter: none !important;
-                }
-
-                .bg-white.w-full.max-w-xl {
-                  max-width: none !important;
-                  width: 100% !important;
-                  box-shadow: none !important;
-                  border: none !important;
-                  border-radius: 0 !important;
-                  margin: 0 !important;
-                  height: auto !important;
+                /* 2. Show the printable wrapper and force it to the top */
+                #printable-record-wrapper, #printable-record-wrapper * {
+                  visibility: visible !important;
                 }
 
                 #printable-record-wrapper {
-                  display: block !important;
-                  overflow: visible !important;
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 100vw !important;
                   height: auto !important;
+                  visibility: visible !important;
+                  display: block !important;
+                  background: white !important;
+                  z-index: 9999 !important;
+                  overflow: visible !important;
                 }
 
                 #printable-record {
-                  visibility: visible !important;
-                  display: block !important;
-                  padding: 2.5rem !important;
+                  padding: 40px !important;
                   margin: 0 !important;
                   width: 100% !important;
+                  background: white !important;
                 }
 
-                /* 2. Remove all display flow for hidden items */
-                .no-print, button, .modal-close-btn, nav, header, aside, .dashboard-nav, [role="navigation"] {
+                /* 3. Helper classes for layout during print */
+                .no-print {
                   display: none !important;
                   height: 0 !important;
+                  width: 0 !important;
+                  margin: 0 !important;
                   padding: 0 !important;
                 }
 
-                /* 3. Layout Fixes for Printable Area */
+                @page {
+                  size: A4;
+                  margin: 10mm;
+                }
+
+                /* Ensure flex/grid work in print */
                 #printable-record .flex { display: flex !important; }
                 #printable-record .grid { display: grid !important; }
                 #printable-record .grid-cols-2 { 
@@ -682,17 +673,23 @@ export default function AdminPlatformBalance() {
                 #printable-record .gap-4 { gap: 1rem !important; }
                 #printable-record .gap-8 { gap: 2rem !important; }
                 #printable-record .space-y-8 > * + * { margin-top: 2rem !important; }
-
-                @page {
-                  size: A4;
-                  margin: 0mm;
-                }
+                #printable-record .py-6 { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
+                #printable-record .border-y { border-top-width: 1px !important; border-bottom-width: 1px !important; }
               }
             `}} />
 
-            <div id="printable-record-wrapper" className="flex-1 overflow-y-auto">
+            <div id="printable-record-wrapper">
               {/* Modal Content / Printable Area */}
               <div id="printable-record" className="p-8 space-y-8">
+                {/* Branding */}
+                <div className="flex justify-between items-center border-b-2 border-slate-900 pb-4 mb-4">
+                  <h1 className="text-3xl font-black text-slate-900 tracking-tighter">MAZAD</h1>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">وصل مالي رسمي</p>
+                    <p className="text-sm font-bold text-slate-900">{new Date().toLocaleDateString('ar-IQ')}</p>
+                  </div>
+                </div>
+
                 <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المستخدم / رقم الوصل</p>

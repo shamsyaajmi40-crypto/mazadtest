@@ -5,18 +5,22 @@ let s3Instance = null;
 const getS3 = () => {
   if (s3Instance) return s3Instance;
 
-  if (!process.env.R2_ACCESS_KEY || !process.env.R2_SECRET_KEY || !process.env.R2_ENDPOINT) {
-    console.warn("⚠️ Warning: R2 Credentials or Endpoint missing in process.env");
+  let endpoint = process.env.R2_ENDPOINT || "";
+  if (endpoint && !endpoint.startsWith("http")) {
+    endpoint = `https://${endpoint}`;
   }
+
+  // تنظيف الرابط من أي مسافات أو رموز غريبة
+  endpoint = endpoint.trim();
 
   s3Instance = new S3Client({
     region: "auto",
-    endpoint: process.env.R2_ENDPOINT,
+    endpoint: endpoint,
     forcePathStyle: true,
     credentials: {
       accessKeyId: process.env.R2_ACCESS_KEY,
       secretAccessKey: process.env.R2_SECRET_KEY,
-    },
+    }
   });
   return s3Instance;
 };

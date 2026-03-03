@@ -923,14 +923,29 @@ export const releaseDepositsForLosers = async (auctionId) => {
   ];
 
   for (const userId of loserIds) {
-    const user = await User.findById(userId);
-    if (!user) continue;
+    // ✅ تحديث ذري (Atomic Update) لمنع تضارب العمليات
+    const res = await User.updateOne(
+      { _id: userId, heldBalance: { $gte: deposit } },
+      { $inc: { heldBalance: -deposit, balance: deposit } }
+    );
 
-    // تأكد أن لديه رصيد محجوز
-    if (user.heldBalance >= deposit) {
-      user.heldBalance -= deposit;
-      user.balance += deposit;
-      await user.save();
+    if (res.modifiedCount > 0) {
+      // ✅ تسجيل العملية في سجل التدقيق المالي (Audit Log)
+      try {
+        await AuditLog.create({
+          action: "REFUND",
+          auction: auction._id,
+          user: userId,
+          amount: deposit,
+          reason: "إعادة عربون المزايدة بعد خسارة المزاد",
+          by: "SYSTEM",
+          source: "BUYER"
+        });
+      } catch (logErr) {
+        console.error("AuditLog creation failed in releaseDepositsForLosers:", logErr);
+      }
+    } else {
+      console.warn(`[RELEASE_DEPOSIT_FAIL] User ${userId} may not have enough heldBalance for auction ${auctionId}`);
     }
   }
 };

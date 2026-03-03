@@ -66,9 +66,16 @@ export const approveBalanceRequest = async (req, res) => {
       return res.status(400).json({ message: "Invalid request" });
     }
 
-    const user = await User.findById(request.user);
-    user.balance += request.amount;
-    await user.save();
+    // ✅ تحديث الرصيد بشكل ذري (Atomic)
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: request.user },
+      { $inc: { balance: request.amount } },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     request.status = "approved";
     await request.save();

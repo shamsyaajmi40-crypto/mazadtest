@@ -11,8 +11,14 @@ import {
   ArrowDownRight,
   Calendar,
   Search,
-  Download
+  Download,
+  Eye,
+  Trash2,
+  Printer,
+  X,
+  Info
 } from "lucide-react";
+import api from "@/services/api";
 import {
   getFinancialStats,
   getFinancialLogs,
@@ -74,6 +80,8 @@ export default function AdminPlatformBalance() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [search, setSearch] = useState("");
+  const [selectedLog, setSelectedLog] = useState<FinancialLog | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     loadStats();
@@ -118,7 +126,6 @@ export default function AdminPlatformBalance() {
       setLoading(false);
     }
   };
-
   const handleExport = async (period: "week" | "month") => {
     try {
       const params: any = { type: typeFilter, period };
@@ -138,6 +145,25 @@ export default function AdminPlatformBalance() {
       console.error("Export error:", e);
       alert("فشل تحميل التقرير");
     }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("هل أنت متأكد من حذف هذا السجل؟ هذه العملية لا يمكن التراجع عنها.")) return;
+    setDeletingId(id);
+    try {
+      await api.delete(`/admin/financials/logs/${id}`);
+      loadLogs();
+      loadStats();
+    } catch (e) {
+      console.error("Delete error:", e);
+      alert("فشل حذف السجل");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const printRecord = () => {
+    window.print();
   };
 
   const formatMoney = (n: number) => new Intl.NumberFormat("ar-IQ").format(n);
@@ -417,8 +443,8 @@ export default function AdminPlatformBalance() {
                     <th className="px-6 py-4 text-[10px] uppercase font-black text-slate-500 tracking-widest">المستخدم</th>
                     <th className="px-6 py-4 text-[10px] uppercase font-black text-slate-500 tracking-widest">المرجع</th>
                     <th className="px-6 py-4 text-[10px] uppercase font-black text-slate-500 tracking-widest">المبلغ</th>
-                    <th className="px-6 py-4 text-[10px] uppercase font-black text-slate-500 tracking-widest">التفاصيل</th>
-                    <th className="px-6 py-4 text-[10px] uppercase font-black text-slate-500 tracking-widest text-left">التاريخ</th>
+                    <th className="px-6 py-4 text-[10px] uppercase font-black text-slate-500 tracking-widest text-center">التاريخ</th>
+                    <th className="px-6 py-4 text-[10px] uppercase font-black text-slate-500 tracking-widest text-left">إجراءات</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -501,10 +527,31 @@ export default function AdminPlatformBalance() {
                           </div>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-left">
+                      <td className="px-6 py-4 text-center">
                         <span className="text-xs font-bold text-slate-500 font-mono">
                           {new Date(log.createdAt).toLocaleString("ar-IQ", { dateStyle: 'short', timeStyle: 'short' })}
                         </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => setSelectedLog(log)}
+                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-all"
+                            title="عرض التفاصيل"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          {log.source === "منصة (يدوي)" && (
+                            <button
+                              onClick={() => handleDelete(log._id)}
+                              disabled={deletingId === log._id}
+                              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-slate-100 rounded-lg transition-all"
+                              title="حذف السجل"
+                            >
+                              <Trash2 className={`w-4 h-4 ${deletingId === log._id ? 'animate-spin' : ''}`} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -533,6 +580,119 @@ export default function AdminPlatformBalance() {
           )}
         </div>
       </div>
-    </div >
+
+      {/* Details Modal */}
+      {selectedLog && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center">
+                  <Info className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900">تفاصيل العملية</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{selectedLog.orderId}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedLog(null)}
+                className="p-2 text-slate-400 hover:text-slate-900 hover:bg-white rounded-xl transition-all shadow-sm border border-transparent hover:border-slate-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content / Printable Area */}
+            <div id="printable-record" className="p-8 space-y-8">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المستخدم</p>
+                  <p className="text-lg font-black text-slate-900">{selectedLog.user?.name}</p>
+                  <p className="text-sm font-bold text-slate-500 font-mono">{selectedLog.user?.phone}</p>
+                </div>
+                <div className="text-left">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المبلغ</p>
+                  <p className={`text-2xl font-black ${selectedLog.type === 'PENALTY' ? 'text-rose-600' :
+                      selectedLog.status === 'FAILED' ? 'text-slate-400' :
+                        (selectedLog.type === 'DEPOSIT_REFUND' || selectedLog.type === 'WALLET_WITHDRAWAL') ? 'text-orange-600' :
+                          'text-emerald-600'
+                    }`}>{formatMoney(selectedLog.amount)} د.ع</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-8 py-6 border-y border-slate-100">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">نوع العملية</p>
+                  <p className="font-black text-slate-800">
+                    {selectedLog.type === 'SUBSCRIPTION' ? 'اشتراك باقة' :
+                      selectedLog.type === 'PENALTY' ? 'مصادرة رصيد' :
+                        selectedLog.type === 'DEPOSIT_REFUND' ? 'إرجاع عربون' :
+                          selectedLog.type === 'WALLET_WITHDRAWAL' ? 'سحب رصيد' : 'شحن رصيد'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">الحالة</p>
+                  <p className={`font-black ${selectedLog.status === 'FAILED' ? 'text-rose-500' : 'text-emerald-500'}`}>
+                    {selectedLog.status === 'FAILED' ? 'فاشلة' : 'ناجحة'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">التاريخ</p>
+                  <p className="font-bold text-slate-700">{new Date(selectedLog.createdAt).toLocaleString("ar-IQ", { dateStyle: 'full', timeStyle: 'short' })}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المصدر</p>
+                  <p className="font-bold text-slate-700">{selectedLog.source || 'النظام'}</p>
+                </div>
+              </div>
+
+              {(selectedLog as any).meta && (
+                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">بيانات إضافية</p>
+                  <div className="space-y-3">
+                    {Object.entries((selectedLog as any).meta).map(([key, value]) => {
+                      if (!value || typeof value === 'object') return null;
+                      return (
+                        <div key={key} className="flex justify-between items-center gap-4">
+                          <span className="text-xs font-bold text-slate-500 capitalize">{key}:</span>
+                          <span className="text-xs font-black text-slate-800 text-left">{String(value)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {selectedLog.reason && (
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">ملاحظات / أسباب</p>
+                  <p className="text-sm font-bold text-slate-600 bg-amber-50/50 p-4 rounded-xl border border-amber-100 italic">
+                    {selectedLog.reason}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center gap-3">
+              <button
+                onClick={printRecord}
+                className="flex-1 bg-slate-900 text-white font-black py-4 rounded-2xl shadow-xl shadow-slate-900/20 hover:bg-slate-800 transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <Printer className="w-5 h-5" /> طباعة الوصل
+              </button>
+              <button
+                onClick={() => setSelectedLog(null)}
+                className="px-8 bg-white border border-slate-200 text-slate-600 font-black py-4 rounded-2xl hover:bg-slate-50 transition-all"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

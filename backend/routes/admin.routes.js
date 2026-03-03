@@ -305,4 +305,11 @@ router.get(
   adminFinancials.exportFinancialsExcel
 );
 
+router.delete(
+  "/financials/logs/:id",
+  protect,
+  requireRole("superAdmin"),
+  adminFinancials.deleteFinancialLog
+);
+
 export default router;

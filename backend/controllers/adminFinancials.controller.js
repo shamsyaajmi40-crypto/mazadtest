@@ -220,7 +220,12 @@ export const getFinancialLogs = async (req, res) => {
                     auction: p.auction,
                     reason: p.reason,
                     source: p.source || "OTHER",
-                    orderId: p.auction ? `AUC-${p.auction._id.toString().slice(-6).toUpperCase()}` : "—"
+                    orderId: p.auction ? `AUC-${p.auction._id.toString().slice(-6).toUpperCase()}` : "—",
+                    meta: {
+                        reason: p.reason,
+                        auctionTitle: p.auction?.title,
+                        source: p.source
+                    }
                 }));
             }
             return [];
@@ -255,7 +260,9 @@ export const getFinancialLogs = async (req, res) => {
                     createdAt: l.createdAt,
                     reason: l.meta?.adminNote || l.meta?.reason || l.meta?.note || (l.type === "WALLET_TOPUP_PAID" ? "شحن يدوي" : "سحب رصيد"),
                     source: "منصة (يدوي)",
-                    orderId: l.refId ? (l.type === "WALLET_TOPUP_PAID" ? `BAL-${l.refId.toString().slice(-6).toUpperCase()}` : `WDR-${l.refId.toString().slice(-6).toUpperCase()}`) : "—"
+                    orderId: l.refId ? (l.type === "WALLET_TOPUP_PAID" ? `BAL-${l.refId.toString().slice(-6).toUpperCase()}` : `WDR-${l.refId.toString().slice(-6).toUpperCase()}`) : "—",
+                    meta: l.meta,
+                    refId: l.refId
                 }));
             }
             return [];
@@ -479,5 +486,29 @@ export const exportFinancialsExcel = async (req, res) => {
     } catch (err) {
         console.error("exportFinancialsExcel error:", err);
         return res.status(500).json({ message: "Server error" });
+    }
+};
+    }
+};
+
+/**
+ * Delete a manual financial log entry (from FinanceLog)
+ */
+export const deleteFinancialLog = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const log = await FinanceLog.findById(id);
+
+        if (!log) {
+            return res.status(404).json({ message: "السجل غير موجود" });
+        }
+
+        // We only allow deleting manual entries for now (to avoid breaking automated audit trails)
+        await FinanceLog.findByIdAndDelete(id);
+
+        res.json({ message: "تم حذف السجل بنجاح" });
+    } catch (e) {
+        console.error("deleteFinancialLog error:", e);
+        res.status(500).json({ message: "فشل حذف السجل" });
     }
 };

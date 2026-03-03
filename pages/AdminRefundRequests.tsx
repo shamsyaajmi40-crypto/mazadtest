@@ -80,6 +80,15 @@ export default function AdminRefundRequests() {
   const [logsErr, setLogsErr] = useState("");
   const [q, setQ] = useState("");
 
+  const REJECTION_REASONS = [
+    "رقم زين كاش غير صحيح أو لا يستقبل دفعات",
+    "الرصيد المتاح غير كافٍ لإتمام العملية",
+    "تكرار الطلب أو وجود طلب قيد التنفيذ",
+    "مخالفة شروط المنصة",
+    "بيانات التحويل ناقصة",
+    "أخرى (يرجى الكتابة في الملاحظات)"
+  ];
+
   const load = async () => {
     setLoading(true);
     setErr("");
@@ -130,11 +139,11 @@ export default function AdminRefundRequests() {
     }
   };
 
-  const reject = async (id: string) => {
+  const reject = async (id: string, reason?: string) => {
     try {
       setBusyId(id);
       await api.post(`/admin/refund-requests/${id}/reject`, {
-        adminNote: adminNote[id] || "",
+        adminNote: reason || adminNote[id] || "",
       });
       await load();
       if (tab === "logs") await loadLogs();
@@ -324,16 +333,41 @@ export default function AdminRefundRequests() {
                             <CheckCircle className="w-4 h-4" /> موافقة على الطلب
                           </button>
 
-                          <button
-                            onClick={() => reject(r._id)}
-                            disabled={r.status !== "pending" || isBusy}
-                            className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-[1rem] font-black text-sm transition-all shadow-sm ${r.status !== "pending" || isBusy
-                              ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
-                              : "bg-white border-2 border-rose-100 text-rose-500 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 active:scale-95"
-                              }`}
-                          >
-                            <XCircle className="w-4 h-4" /> رفض الطلب
-                          </button>
+                          <div className="group relative">
+                            <button
+                              disabled={r.status !== "pending" || isBusy}
+                              className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-[1rem] font-black text-sm transition-all shadow-sm ${r.status !== "pending" || isBusy
+                                ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+                                : "bg-white border-2 border-rose-100 text-rose-500 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 active:scale-95"
+                                }`}
+                            >
+                              <XCircle className="w-4 h-4" /> رفض الطلب
+                            </button>
+
+                            {r.status === "pending" && !isBusy && (
+                              <div className="absolute bottom-full mb-2 left-0 w-full bg-white border border-slate-200 rounded-2xl shadow-xl p-2 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all translate-y-2 group-hover:translate-y-0 z-50">
+                                <p className="text-[10px] font-black text-slate-400 mb-2 px-2 uppercase tracking-widest text-right">اختر سبب الرفض السريع</p>
+                                <div className="flex flex-col gap-1 max-h-[200px] overflow-y-auto custom-scrollbar">
+                                  {REJECTION_REASONS.map((res) => (
+                                    <button
+                                      key={res}
+                                      onClick={() => reject(r._id, res)}
+                                      className="text-right px-3 py-2 text-xs font-bold text-slate-600 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-colors"
+                                    >
+                                      {res}
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="h-px bg-slate-100 my-1"></div>
+                                <button
+                                  onClick={() => reject(r._id)}
+                                  className="w-full text-right px-3 py-2 text-xs font-black text-slate-400 hover:bg-slate-50 hover:text-slate-900 rounded-lg transition-colors"
+                                >
+                                  رفض بالملاحظة المكتوبة أعلاه
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         <div className="text-[10px] font-bold text-slate-400 text-center mt-3">

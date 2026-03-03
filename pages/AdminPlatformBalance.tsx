@@ -584,7 +584,7 @@ export default function AdminPlatformBalance() {
       {/* Details Modal */}
       {selectedLog && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+          <div className="bg-white w-full max-w-xl max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
             {/* Modal Header */}
             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 no-print">
               <div className="flex items-center gap-3">
@@ -608,39 +608,37 @@ export default function AdminPlatformBalance() {
             <style dangerouslySetInnerHTML={{
               __html: `
               @media print {
-                /* 1. Global Reset */
-                html, body {
-                  height: auto !important;
-                  overflow: visible !important;
-                  margin: 0 !important;
-                  padding: 0 !important;
-                  background: white !important;
-                  -webkit-print-color-adjust: exact;
-                }
-
-                /* 2. Hide everything by default (using visibility: hidden to maintain structure, 
-                   but we'll use height: 0 to fix the page count) */
-                body > * {
-                  display: none !important;
-                }
-
-                /* 3. Force the printable area to show */
-                #printable-record-wrapper {
-                  display: block !important;
-                  position: absolute !important;
-                  top: 0 !important;
-                  left: 0 !important;
-                  width: 100% !important;
-                  z-index: 9999 !important;
+                /* 1. Standard Visibility Isolation */
+                body {
+                  visibility: hidden !important;
                   background: white !important;
                 }
-
-                #printable-record, #printable-record * {
+                
+                #printable-record-wrapper, #printable-record-wrapper * {
                   visibility: visible !important;
-                  display: block !important;
                 }
 
-                /* Layout Fixes inside printable record */
+                #printable-record-wrapper {
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 100% !important;
+                  padding: 0 !important;
+                  margin: 0 !important;
+                }
+
+                /* 2. Remove all display flow for hidden items to prevent extra pages */
+                .no-print, button, .modal-close-btn, nav, header, aside, .dashboard-nav {
+                  display: none !important;
+                  height: 0 !important;
+                  overflow: hidden !important;
+                }
+
+                /* 3. Layout Fixes for Printable Area */
+                #printable-record {
+                  padding: 2rem !important;
+                  background: white !important;
+                }
                 #printable-record .flex { display: flex !important; }
                 #printable-record .grid { display: grid !important; }
                 #printable-record .grid-cols-2 { 
@@ -652,25 +650,21 @@ export default function AdminPlatformBalance() {
                 #printable-record .gap-4 { gap: 1rem !important; }
                 #printable-record .gap-8 { gap: 2rem !important; }
                 #printable-record .space-y-8 > * + * { margin-top: 2rem !important; }
-                #printable-record .py-6 { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
-                #printable-record .border-y { border-top-width: 1px !important; border-bottom-width: 1px !important; }
-
-                /* Hide non-printable modal parts */
-                .no-print, button, .modal-close-btn {
-                  display: none !important;
-                  height: 0 !important;
-                  padding: 0 !important;
-                  margin: 0 !important;
-                }
 
                 @page {
                   size: A4;
-                  margin: 15mm;
+                  margin: 10mm;
+                }
+                
+                /* Reset containers that might have max-height or overflow */
+                html, body, #root, #root > div {
+                  height: auto !important;
+                  overflow: visible !important;
                 }
               }
             `}} />
 
-            <div id="printable-record-wrapper">
+            <div id="printable-record-wrapper" className="flex-1 overflow-y-auto">
               {/* Modal Content / Printable Area */}
               <div id="printable-record" className="p-8 space-y-8">
                 <div className="flex flex-col sm:flex-row justify-between items-start gap-4">

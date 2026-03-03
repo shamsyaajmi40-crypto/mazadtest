@@ -1136,3 +1136,65 @@ export const resolveDispute = async (req, res) => {
     return res.status(500).json({ message: "Failed to resolve dispute" });
   }
 };
+
+// التراجع عن رفض المزاد
+export const undoRejectAuction = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const auction = await Auction.findById(id);
+
+    if (!auction) {
+      return res.status(404).json({ message: "المزاد غير موجود" });
+    }
+
+    if (auction.status !== "rejected") {
+      return res.status(400).json({ message: "المزاد ليس في حالة المرفوض" });
+    }
+
+    // التحقق من وجود صور قبل التراجع (لأن الكرون يحذف الصور بعد 12 ساعة)
+    if (!auction.images || auction.images.length === 0) {
+      return res.status(400).json({ message: "لا يمكن التراجع عن الرفض لأن الصور قد تم حذفها بالفعل عبر نظام التنظيف التلقائي" });
+    }
+
+    // إعادة حجز العربون
+    const deposit = Number(auction.sellerDeposit || 0);
+    if (deposit > 0) {
+      const updated = await User.updateOne(
+        { _id: auction.owner, balance: { $gte: deposit } },
+        { $inc: { balance: -deposit, heldBalance: deposit } }
+      );
+
+      if (updated.modifiedCount === 0) {
+        return res.status(400).json({ message: "عذرًا، المستخدم لا يملك رصيدًا كافيًا في محفظته لإعادة تفعيل المزاد (تم استهلاك مبلغ التأمين المسترد)" });
+      }
+
+      // سجل العملية
+      await AuditLog.create({
+        action: "UNDO_REJECT",
+        auction: auction._id,
+        user: auction.owner,
+        amount: deposit,
+        reason: "التراجع عن رفض المزاد وإعادة حجز العربون",
+        by: "ADMIN",
+        source: "SELLER"
+      });
+    }
+
+    // تحديث الحالة
+    auction.status = "pending";
+    auction.rejectedAt = undefined;
+    auction.rejectionReasons = [];
+    auction.rejectionNote = "";
+    await auction.save();
+
+    const io = getIo();
+    if (io) {
+      io.to("admin_room").emit("admin_refresh");
+    }
+
+    return res.json({ message: "تم التراجع عن الرفض بنجاح، المزاد الآن في حالة قيد المراجعة", auction });
+  } catch (error) {
+    console.error("undoRejectAuction error:", error);
+    return res.status(500).json({ message: "فشل التراجع عن الرفض" });
+  }
+};

@@ -73,6 +73,13 @@ router.patch(
   adminController.rejectAuction
 );
 
+router.patch(
+  "/auctions/:id/undo-reject",
+  protect,
+  requireRole("admin", "superAdmin"),
+  adminController.undoRejectAuction
+);
+
 router.get(
   "/stats",
   protect,

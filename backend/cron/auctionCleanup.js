@@ -13,13 +13,12 @@ const startAuctionCleanupCron = () => {
 
         try {
             const now = new Date();
-            const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-            const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            const twelveHoursAgo = new Date(now.getTime() - 12 * 60 * 60 * 1000);
 
-            // المرحلة الأولى: حذف الصور بعد ساعة من الرفض
+            // المرحلة الأولى: حذف الصور بعد 12 ساعة من الرفض
             const auctionsToClearImages = await Auction.find({
                 status: "rejected",
-                rejectedAt: { $lt: oneHourAgo },
+                rejectedAt: { $lt: twelveHoursAgo },
                 images: { $exists: true, $not: { $size: 0 } }
             });
 
@@ -35,10 +34,10 @@ const startAuctionCleanupCron = () => {
                 }
             }
 
-            // المرحلة الثانية: حذف المزاد نهائياً بعد 30 يوم
+            // المرحلة الثانية: حذف المزاد نهائياً بعد 12 ساعة
             const auctionsToDelete = await Auction.find({
                 status: "rejected",
-                rejectedAt: { $lt: thirtyDaysAgo }
+                rejectedAt: { $lt: twelveHoursAgo }
             });
 
             if (auctionsToDelete.length > 0) {

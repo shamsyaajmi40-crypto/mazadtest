@@ -515,7 +515,7 @@ const AuctionDetails = () => {
   useEffect(() => {
     soundsRef.current = {
       bid: new Audio("https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"), // Click
-      outbid: new Audio("https://www.soundjay.com/buttons/beep-01a.mp3"), // Stable Alert Sound
+      outbid: new Audio("https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3"), // Alert/Buzzer
       success: new Audio("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"), // Chime
       tick: new Audio("https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3"), // Tick
       gavel: new Audio("https://assets.mixkit.co/active_storage/sfx/967/967-preview.mp3"), // Strike
@@ -590,7 +590,10 @@ const AuctionDetails = () => {
       const getSafeId = (val: any) => {
         if (!val) return null;
         if (typeof val === 'string') return val;
-        return val._id || val.id || (val.toString?.() !== "[object Object]" ? val.toString() : null);
+        const id = val._id || val.id;
+        if (id) return String(id);
+        if (val.toString && val.toString() !== "[object Object]") return val.toString();
+        return null;
       };
 
       const myId = getSafeId(userRef.current);
@@ -598,8 +601,10 @@ const AuctionDetails = () => {
       const prevWinnerId = getSafeId(auctionRef.current?.winner);
       const prevTopBidderId = bidsRef.current.length > 0 ? getSafeId(bidsRef.current[0].bidder) : null;
 
-      const isMeNow = myId && currentHighestId && String(myId) === String(currentHighestId);
-      const wasMePrev = myId && (String(prevWinnerId) === String(myId) || String(prevTopBidderId) === String(myId));
+      const isMeNow = !!(myId && currentHighestId && String(myId) === String(currentHighestId));
+      const wasMePrev = !!(myId && (String(prevWinnerId) === String(myId) || String(prevTopBidderId) === String(myId)));
+
+      console.log("Audio Debug:", { myId, currentHighestId, prevWinnerId, wasMePrev, isMeNow });
 
       if (wasMePrev && !isMeNow) {
         // شخص آخر سحب منك الصدارة
@@ -607,11 +612,12 @@ const AuctionDetails = () => {
         triggerHaptic([60, 40, 60]);
       } else if (isMeNow) {
         // المزايدة لي (ربما من نافذة أخرى)
+        // إذا لم تكن المزايدة من هذه النافذة تحديداً (optimistic)
         if (optimisticBidRef.current === null) {
           playSound('success');
         }
       } else {
-        // مزايدة بين طرفين غريبين
+        // مزايدة بين طرفين غريبين أو أول مزايدة في المزاد
         playSound('competition');
       }
 

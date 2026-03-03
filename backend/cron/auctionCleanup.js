@@ -7,35 +7,54 @@ import { deleteFromR2 } from "../utils/r2.js";
  * تعمل يومياً في الساعة 3 فجراً
  */
 const startAuctionCleanupCron = () => {
-    nodeCron.schedule("0 3 * * *", async () => {
-        console.log("🧹 Starting Rejected Auctions Cleanup Task...");
+    // تشغيل كل 30 دقيقة
+    nodeCron.schedule("*/30 * * * *", async () => {
+        console.log("🧹 Running Rejected Auctions Cleanup Task...");
 
         try {
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            const now = new Date();
+            const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+            const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-            // البحث عن المزادات المرفوضة التي مر عليها 30 يوم
-            const oldRejectedAuctions = await Auction.find({
+            // المرحلة الأولى: حذف الصور بعد ساعة من الرفض
+            const auctionsToClearImages = await Auction.find({
                 status: "rejected",
-                updatedAt: { $lt: thirtyDaysAgo }
+                rejectedAt: { $lt: oneHourAgo },
+                images: { $exists: true, $not: { $size: 0 } }
             });
 
-            console.log(`🔍 Found ${oldRejectedAuctions.length} old rejected auctions to clean up.`);
-
-            for (const auction of oldRejectedAuctions) {
-                // 1. حذف الصور من Cloudflare R2
-                if (auction.images && auction.images.length > 0) {
+            if (auctionsToClearImages.length > 0) {
+                console.log(`🖼️ Clearing images for ${auctionsToClearImages.length} auctions rejected > 1 hour ago.`);
+                for (const auction of auctionsToClearImages) {
                     for (const imageUrl of auction.images) {
                         await deleteFromR2(imageUrl);
                     }
+                    auction.images = [];
+                    await auction.save();
+                    console.log(`✅ Images cleared for auction: ${auction._id}`);
                 }
-
-                // 2. حذف المزاد من قاعدة البيانات
-                await Auction.findByIdAndDelete(auction._id);
-                console.log(`🗑️ Permanently deleted auction: ${auction._id} (${auction.title})`);
             }
 
-            console.log("✅ Cleanup Task Finished Successfully.");
+            // المرحلة الثانية: حذف المزاد نهائياً بعد 30 يوم
+            const auctionsToDelete = await Auction.find({
+                status: "rejected",
+                rejectedAt: { $lt: thirtyDaysAgo }
+            });
+
+            if (auctionsToDelete.length > 0) {
+                console.log(`🗑️ Permanently deleting ${auctionsToDelete.length} records rejected > 30 days ago.`);
+                for (const auction of auctionsToDelete) {
+                    // للتأكد: نحذف الصور لو كانت لسه موجودة لسبب ما
+                    if (auction.images && auction.images.length > 0) {
+                        for (const imageUrl of auction.images) {
+                            await deleteFromR2(imageUrl);
+                        }
+                    }
+                    await Auction.findByIdAndDelete(auction._id);
+                    console.log(`🔥 Record deleted: ${auction._id}`);
+                }
+            }
+
         } catch (error) {
             console.error("❌ Error in Auction Cleanup Cron:", error);
         }

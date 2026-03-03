@@ -24,6 +24,7 @@ import billingRoutes from "./routes/billing.routes.js";
 import paymentsRoutes from "./routes/payments.routes.js";
 import walletRoutes from "./routes/wallet.routes.js";
 import courierRoutes from "./routes/courier.routes.js";
+import startAuctionCleanupCron from "./cron/auctionCleanup.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -124,6 +125,7 @@ const startServer = async () => {
     // // ⬅️ Cron jobs
     closeAuctions();
     startSubscriptionCron();
+    startAuctionCleanupCron();
     await activateScheduledAuctions();
     // كل 30 ثانية
     setInterval(async () => {

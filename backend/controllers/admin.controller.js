@@ -81,6 +81,7 @@ export const rejectAuction = async (req, res) => {
     auction.status = "rejected";
     auction.rejectionReasons = rejectionReasons;
     auction.rejectionNote = rejectionNote;
+    auction.rejectedAt = new Date();
     await auction.save();
 
     const sellerId = auction.owner || auction.seller;

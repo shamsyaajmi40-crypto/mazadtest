@@ -14,6 +14,7 @@ import { enforceBidCooldown, rollbackBidCooldown } from "../utils/bidCooldown.js
 import AuditLog from "../models/AuditLog.js";
 import Subscription from "../models/Subscription.js";
 import { validateText, validateNumber, validateFutureDate } from "../utils/validation.js";
+import { uploadToR2 } from "../utils/r2.js";
 
 const BID_COOLDOWN_MS = 3000; // نخليها 3 ثواني
 const DEPOSIT_POLICY_KEY = "deposit_policy";
@@ -123,8 +124,24 @@ export const createAuction = async (req, res) => {
     const durationHours = durVal.value;
     const end = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
 
-    // 🖼️ الصور
-    const images = req.files ? req.files.map((file) => `/uploads/${file.filename}`) : [];
+    // 🖼️ الصور (الرفع لـ Cloudflare R2)
+    let images = [];
+    if (req.files && req.files.length > 0) {
+      try {
+        const uploadPromises = req.files.map((file) => uploadToR2(file));
+        images = await Promise.all(uploadPromises);
+      } catch (uploadErr) {
+        console.error("Failed to upload images to R2:", uploadErr);
+        // في حال فشل الرفع، نُعيد العربون المحجوز (Rollback)
+        if (lockedDeposit > 0 && sellerId) {
+          await User.updateOne(
+            { _id: sellerId, heldBalance: { $gte: lockedDeposit } },
+            { $inc: { heldBalance: -lockedDeposit, balance: lockedDeposit } }
+          );
+        }
+        return res.status(500).json({ message: "فشل رفع الصور، يرجى المحاولة لاحقاً" });
+      }
+    }
 
     // 🏗️ إنشاء المزاد
     const auction = await Auction.create({

@@ -361,6 +361,7 @@ const AuctionDetails = () => {
     setOptimisticBid(nextBid);
     setBidLoading(true);
     setError("");
+    playSound('bid'); // التغذية السمعية الفورية
 
     try {
       const optimisticBidEntry: Bid = {
@@ -473,9 +474,9 @@ const AuctionDetails = () => {
 
   useEffect(() => {
     soundsRef.current = {
-      bid: new Audio("https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"),
-      outbid: new Audio("https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3"),
-      success: new Audio("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"),
+      bid: new Audio("https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"), // Click
+      outbid: new Audio("https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3"), // Buzzer/Alert
+      success: new Audio("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"), // Chime
     };
     (Object.values(soundsRef.current) as HTMLAudioElement[]).forEach(s => { s.load(); s.volume = 0.5; });
   }, []);

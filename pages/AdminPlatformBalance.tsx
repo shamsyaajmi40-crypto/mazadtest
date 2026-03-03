@@ -608,61 +608,55 @@ export default function AdminPlatformBalance() {
             <style dangerouslySetInnerHTML={{
               __html: `
               @media print {
-                /* 1. Hide everything by default but collapse height */
+                /* 1. Global Reset */
                 html, body {
-                  background: white !important;
                   margin: 0 !important;
                   padding: 0 !important;
+                  background: white !important;
+                  -webkit-print-color-adjust: exact;
+                  print-color-adjust: exact;
+                  height: auto !important;
                 }
 
-                body {
+                /* 2. Hide everything by default */
+                body * {
                   visibility: hidden !important;
-                  overflow: hidden !important;
-                  height: 0 !important;
-                  width: 0 !important;
                 }
 
-                /* 2. Show the printable wrapper and force it to the top */
-                #printable-record-wrapper, #printable-record-wrapper * {
+                /* 3. Show ONLY the printable wrapper and its children */
+                #printable-record-wrapper, 
+                #printable-record-wrapper * {
                   visibility: visible !important;
                 }
 
+                /* 4. Position the printable area at the very top */
                 #printable-record-wrapper {
                   position: absolute !important;
                   left: 0 !important;
                   top: 0 !important;
-                  width: 100vw !important;
-                  height: auto !important;
-                  visibility: visible !important;
-                  display: block !important;
-                  background: white !important;
-                  z-index: 9999 !important;
-                  overflow: visible !important;
-                }
-
-                #printable-record {
-                  padding: 40px !important;
-                  margin: 0 !important;
                   width: 100% !important;
-                  background: white !important;
-                }
-
-                /* 3. Helper classes for layout during print */
-                .no-print {
-                  display: none !important;
-                  height: 0 !important;
-                  width: 0 !important;
                   margin: 0 !important;
                   padding: 0 !important;
+                  display: block !important;
+                  overflow: visible !important;
+                  height: auto !important;
+                  z-index: 99999 !important;
+                  background: white !important;
                 }
 
-                @page {
-                  size: A4;
-                  margin: 10mm;
+                /* 5. Clear all potential page-break issues */
+                #printable-record {
+                  padding: 2.5rem !important;
+                  width: 100% !important;
+                  height: auto !important;
+                  overflow: visible !important;
+                  page-break-after: avoid !important;
+                  page-break-before: avoid !important;
+                  page-break-inside: avoid !important;
                 }
 
-                /* Ensure flex/grid work in print */
-                #printable-record .flex { display: flex !important; }
+                /* 6. Layout Fixes for Print */
+                #printable-record .flex { display: flex !important; flex-wrap: wrap !important; }
                 #printable-record .grid { display: grid !important; }
                 #printable-record .grid-cols-2 { 
                   display: grid !important; 
@@ -675,10 +669,22 @@ export default function AdminPlatformBalance() {
                 #printable-record .space-y-8 > * + * { margin-top: 2rem !important; }
                 #printable-record .py-6 { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
                 #printable-record .border-y { border-top-width: 1px !important; border-bottom-width: 1px !important; }
+
+                @page {
+                  size: A4;
+                  margin: 10mm;
+                }
+
+                /* Force non-printable items to zero height */
+                .no-print, nav, header, aside, .fixed:not(#printable-record-wrapper-parent) {
+                  display: none !important;
+                  height: 0 !important;
+                  overflow: hidden !important;
+                }
               }
             `}} />
 
-            <div id="printable-record-wrapper">
+            <div id="printable-record-wrapper" className="flex-1 overflow-y-auto custom-scrollbar">
               {/* Modal Content / Printable Area */}
               <div id="printable-record" className="p-8 space-y-8">
                 {/* Branding */}
@@ -686,7 +692,7 @@ export default function AdminPlatformBalance() {
                   <h1 className="text-3xl font-black text-slate-900 tracking-tighter">MAZAD</h1>
                   <div className="text-right">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">وصل مالي رسمي</p>
-                    <p className="text-sm font-bold text-slate-900">{new Date().toLocaleDateString('ar-IQ')}</p>
+                    <p className="text-sm font-bold text-slate-900 font-mono tracking-tighter">{new Date().toLocaleDateString('ar-IQ')}</p>
                   </div>
                 </div>
 
@@ -694,8 +700,8 @@ export default function AdminPlatformBalance() {
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المستخدم / رقم الوصل</p>
                     <p className="text-lg font-black text-slate-900">{selectedLog.user?.name}</p>
-                    <p className="text-xs font-bold text-indigo-600 font-mono mb-1">{selectedLog.orderId}</p>
-                    <p className="text-sm font-bold text-slate-500 font-mono">{selectedLog.user?.phone}</p>
+                    <p className="text-[11px] font-bold text-indigo-600 font-mono mb-1 break-all">{selectedLog.orderId}</p>
+                    <p className="text-sm font-bold text-slate-500 font-mono tracking-tight">{selectedLog.user?.phone}</p>
                   </div>
                   <div className="text-right sm:text-left">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المبلغ</p>
@@ -742,7 +748,7 @@ export default function AdminPlatformBalance() {
                         return (
                           <div key={key} className="flex justify-between items-center gap-4">
                             <span className="text-xs font-bold text-slate-500 capitalize">{key}:</span>
-                            <span className="text-xs font-black text-slate-800 text-left">{String(value)}</span>
+                            <span className="text-[11px] font-black text-slate-800 text-left break-all font-mono">{String(value)}</span>
                           </div>
                         );
                       })}
@@ -751,11 +757,11 @@ export default function AdminPlatformBalance() {
                 )}
 
                 {selectedLog.reason && (
-                  <div>
+                  <div className="pt-4">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">ملاحظات / أسباب</p>
-                    <p className="text-sm font-bold text-slate-600 bg-amber-50/50 p-4 rounded-xl border border-amber-100 italic">
+                    <div className="text-sm font-bold text-slate-600 bg-amber-50/50 p-4 rounded-xl border border-amber-100 italic">
                       {selectedLog.reason}
-                    </p>
+                    </div>
                   </div>
                 )}
               </div>

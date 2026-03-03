@@ -608,37 +608,69 @@ export default function AdminPlatformBalance() {
             <style dangerouslySetInnerHTML={{
               __html: `
               @media print {
-                /* 1. Standard Visibility Isolation */
-                body {
-                  visibility: hidden !important;
+                /* 1. Kill the Height of everything else */
+                html, body {
+                  height: auto !important;
+                  height: min-content !important;
+                  overflow: visible !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
                   background: white !important;
                 }
-                
-                #printable-record-wrapper, #printable-record-wrapper * {
-                  visibility: visible !important;
+
+                /* Hide all direct children of body/root except the modal/printable wrapper */
+                body > *:not(#root),
+                #root > *:not(.fixed),
+                .fixed.inset-0 > *:not(.max-w-xl) {
+                  display: none !important;
+                  height: 0 !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                }
+
+                /* Reset the modal container to take up NO space except for its content */
+                .fixed.inset-0 {
+                  position: static !important;
+                  display: block !important;
+                  background: white !important;
+                  padding: 0 !important;
+                  margin: 0 !important;
+                  box-shadow: none !important;
+                  backdrop-filter: none !important;
+                }
+
+                .bg-white.w-full.max-w-xl {
+                  max-width: none !important;
+                  width: 100% !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                  border-radius: 0 !important;
+                  margin: 0 !important;
+                  height: auto !important;
                 }
 
                 #printable-record-wrapper {
-                  position: absolute !important;
-                  left: 0 !important;
-                  top: 0 !important;
-                  width: 100% !important;
-                  padding: 0 !important;
-                  margin: 0 !important;
+                  display: block !important;
+                  overflow: visible !important;
+                  height: auto !important;
                 }
 
-                /* 2. Remove all display flow for hidden items to prevent extra pages */
-                .no-print, button, .modal-close-btn, nav, header, aside, .dashboard-nav {
+                #printable-record {
+                  visibility: visible !important;
+                  display: block !important;
+                  padding: 2.5rem !important;
+                  margin: 0 !important;
+                  width: 100% !important;
+                }
+
+                /* 2. Remove all display flow for hidden items */
+                .no-print, button, .modal-close-btn, nav, header, aside, .dashboard-nav, [role="navigation"] {
                   display: none !important;
                   height: 0 !important;
-                  overflow: hidden !important;
+                  padding: 0 !important;
                 }
 
                 /* 3. Layout Fixes for Printable Area */
-                #printable-record {
-                  padding: 2rem !important;
-                  background: white !important;
-                }
                 #printable-record .flex { display: flex !important; }
                 #printable-record .grid { display: grid !important; }
                 #printable-record .grid-cols-2 { 
@@ -653,13 +685,7 @@ export default function AdminPlatformBalance() {
 
                 @page {
                   size: A4;
-                  margin: 10mm;
-                }
-                
-                /* Reset containers that might have max-height or overflow */
-                html, body, #root, #root > div {
-                  height: auto !important;
-                  overflow: visible !important;
+                  margin: 0mm;
                 }
               }
             `}} />
@@ -669,8 +695,9 @@ export default function AdminPlatformBalance() {
               <div id="printable-record" className="p-8 space-y-8">
                 <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المستخدم</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">المستخدم / رقم الوصل</p>
                     <p className="text-lg font-black text-slate-900">{selectedLog.user?.name}</p>
+                    <p className="text-xs font-bold text-indigo-600 font-mono mb-1">{selectedLog.orderId}</p>
                     <p className="text-sm font-bold text-slate-500 font-mono">{selectedLog.user?.phone}</p>
                   </div>
                   <div className="text-right sm:text-left">

@@ -37,7 +37,6 @@ console.log("ZC loaded:", {
 });
 
 dns.setDefaultResultOrder("ipv4first");
-dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
 const app = express();
 const httpServer = http.createServer(app);

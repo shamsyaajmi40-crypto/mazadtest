@@ -12,6 +12,7 @@ const getS3 = () => {
 
   // تنظيف الرابط من أي مسافات أو رموز غريبة
   endpoint = endpoint.trim();
+  console.log("🛠️ R2 Client Init - Endpoint:", endpoint || "MISSING!");
 
   s3Instance = new S3Client({
     region: "auto",

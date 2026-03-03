@@ -137,3 +137,8 @@ export const getFinancialLogs = (params: {
   limit?: number;
   type?: "all" | "subscription" | "topup" | "penalty";
 }) => api.get("/admin/financials/logs", { params });
+
+export const downloadFinancialsExcel = (params: {
+  type?: string;
+  period?: "week" | "month";
+}) => api.get("/admin/financials/export", { params, responseType: 'blob' });

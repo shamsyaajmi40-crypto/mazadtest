@@ -298,4 +298,11 @@ router.get(
   adminFinancials.getFinancialLogs
 );
 
+router.get(
+  "/financials/export",
+  protect,
+  requireRole("superAdmin"),
+  adminFinancials.exportFinancialsExcel
+);
+
 export default router;

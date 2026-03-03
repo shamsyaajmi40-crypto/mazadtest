@@ -10,11 +10,13 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Calendar,
-  Search
+  Search,
+  Download
 } from "lucide-react";
 import {
   getFinancialStats,
-  getFinancialLogs
+  getFinancialLogs,
+  downloadFinancialsExcel
 } from "../services/admin";
 import {
   AreaChart,
@@ -100,6 +102,22 @@ export default function AdminPlatformBalance() {
     }
   };
 
+  const handleExport = async (period: "week" | "month") => {
+    try {
+      const res = await downloadFinancialsExcel({ type: typeFilter, period });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `financial-report-${period}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (e) {
+      console.error("Export error:", e);
+      alert("فشل تحميل التقرير");
+    }
+  };
+
   const formatMoney = (n: number) => new Intl.NumberFormat("ar-IQ").format(n);
 
   return (
@@ -119,17 +137,34 @@ export default function AdminPlatformBalance() {
           </div>
         </div>
 
-        {stats && (
-          <div className="bg-indigo-600 px-6 py-3 rounded-2xl text-white shadow-xl shadow-indigo-600/20 flex items-center gap-4">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-              <DollarSign className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-[10px] uppercase font-black tracking-widest text-indigo-100">إجمالي الأرباح</p>
-              <p className="text-xl font-black">{formatMoney(stats.totalPlatformRevenue)} <span className="text-xs">د.ع</span></p>
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+            <button
+              onClick={() => handleExport("week")}
+              className="px-4 py-2 text-xs font-black text-slate-600 hover:bg-slate-50 flex items-center gap-2 border-l border-slate-100"
+            >
+              <Download className="w-3.5 h-3.5" /> تقرير أسبوعي
+            </button>
+            <button
+              onClick={() => handleExport("month")}
+              className="px-4 py-2 text-xs font-black text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+            >
+              <Download className="w-3.5 h-3.5" /> تقرير شهري
+            </button>
           </div>
-        )}
+
+          {stats && (
+            <div className="bg-indigo-600 px-6 py-3 rounded-2xl text-white shadow-xl shadow-indigo-600/20 flex items-center gap-4">
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                <DollarSign className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase font-black tracking-widest text-indigo-100">إجمالي الأرباح</p>
+                <p className="text-xl font-black">{formatMoney(stats.totalPlatformRevenue)} <span className="text-xs">د.ع</span></p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {stats && (

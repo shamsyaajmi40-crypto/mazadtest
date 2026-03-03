@@ -2,6 +2,7 @@ import PaymentTransaction from "../models/PaymentTransaction.js";
 import AuditLog from "../models/AuditLog.js";
 import User from "../models/User.js";
 import mongoose from "mongoose";
+import ExcelJS from "exceljs";
 
 /**
  * Get unified financial stats for the platform
@@ -194,6 +195,118 @@ export const getFinancialLogs = async (req, res) => {
         });
     } catch (err) {
         console.error("getFinancialLogs error:", err);
+        return res.status(500).json({ message: "Server error" });
+    }
+};
+
+/**
+ * Export financial logs to Excel
+ */
+export const exportFinancialsExcel = async (req, res) => {
+    try {
+        const { type = "all", period = "month" } = req.query;
+
+        let startDate = new Date();
+        if (period === "week") {
+            startDate.setDate(startDate.getDate() - 7);
+        } else {
+            startDate.setMonth(startDate.getMonth() - 1);
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet("Financial Report");
+
+        sheet.columns = [
+            { header: "التاريخ", key: "date", width: 22 },
+            { header: "النوع", key: "type", width: 15 },
+            { header: "المستخدم", key: "user", width: 20 },
+            { header: "رقم الهاتف", key: "phone", width: 15 },
+            { header: "المبلغ (IQD)", key: "amount", width: 15 },
+            { header: "المصدر", key: "source", width: 15 },
+            { header: "التفاصيل / السبب", key: "details", width: 40 },
+        ];
+
+        // Fetch Data
+        let logs = [];
+
+        // 1. Penalties
+        if (type === "all" || type === "penalty") {
+            const penalties = await AuditLog.find({
+                action: "CONFISCATE_OK",
+                createdAt: { $gte: startDate }
+            }).populate("user", "name phone").populate("auction", "title").lean();
+
+            penalties.forEach(p => {
+                logs.push({
+                    date: p.createdAt,
+                    type: "مصادرة",
+                    user: p.user?.name || "—",
+                    phone: p.user?.phone || "—",
+                    amount: p.amount,
+                    source: p.source === "SELLER" ? "بائع" : (p.source === "BUYER" ? "مشتري" : "—"),
+                    details: p.reason + (p.auction ? ` (مزاد: ${p.auction.title})` : "")
+                });
+            });
+        }
+
+        // 2. Subscriptions
+        if (type === "all" || type === "subscription") {
+            const subs = await PaymentTransaction.find({
+                kind: "subscription",
+                status: "paid",
+                createdAt: { $gte: startDate }
+            }).populate("user", "name phone").lean();
+
+            subs.forEach(s => {
+                logs.push({
+                    date: s.createdAt,
+                    type: "اشتراك",
+                    user: s.user?.name || "—",
+                    phone: s.user?.phone || "—",
+                    amount: s.amountIQD,
+                    source: "منصة",
+                    details: `اشتراك رقم طلب: ${s.orderId || "—"}`
+                });
+            });
+        }
+
+        // Sort by date desc
+        logs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        // Add to sheet
+        logs.forEach(l => {
+            sheet.addRow({
+                date: new Date(l.date).toLocaleString("ar-IQ"),
+                type: l.type,
+                user: l.user,
+                phone: l.phone,
+                amount: l.amount,
+                source: l.source,
+                details: l.details
+            });
+        });
+
+        // Styling
+        sheet.getRow(1).font = { bold: true };
+        sheet.getRow(1).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFE0E0E0' }
+        };
+
+        res.setHeader(
+            "Content-Type",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        );
+        res.setHeader(
+            "Content-Disposition",
+            `attachment; filename=financial-report-${period}.xlsx`
+        );
+
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (err) {
+        console.error("exportFinancialsExcel error:", err);
         return res.status(500).json({ message: "Server error" });
     }
 };

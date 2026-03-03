@@ -8,10 +8,14 @@ import express from "express";
 import cors from "cors";
 import { Server } from "socket.io";
 import connectDB from "./config/db.js";
+import helmet from "helmet";
+import mongoSanitize from "mongo-sanitize";
 import { initIo } from "./utils/socket.js";
 import { seedPlansIfEmpty } from "./utils/seedPlans.js";
 import { startSubscriptionCron } from "./cron/subscription.cron.js";
 import { activateScheduledAuctions } from "./cron/activateScheduledAuctions.js";
+import jwt from "jsonwebtoken";
+import User from "./models/User.js";
 import closeAuctions from "./cron/auctionCloser.js";
 import startAuctionCleanupCron from "./cron/auctionCleanup.js";
 
@@ -56,28 +60,70 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
   console.log("📁 uploads folder created");
 }
-// Skeleton فقط
+// Socket.io Middleware للتحقق من التوكن (JWT)
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth?.token;
+    if (!token) return next(new Error("Authentication error: No token provided"));
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id).select("-password").lean();
+
+    if (!user || user.blocked || user.isBanned) {
+      return next(new Error("Authentication error: Unauthorized or Banned"));
+    }
+
+    socket.user = user;
+    next();
+  } catch (err) {
+    next(new Error("Authentication error: Invalid token"));
+  }
+});
+
 io.on("connection", (socket) => {
+  console.log(`🔌 Socket connected: ${socket.id} (User: ${socket.user?._id})`);
+
   socket.on("auction:join", (auctionId) => {
     socket.join(auctionId);
   });
 
   // الغرض هنا ربط كل مستخدم بغرفته الخاصة لتلقي الإشعارات اللحظية
   socket.on("user:join", (userId) => {
-    socket.join(userId);
+    // التأكد أن المستخدم ينضم لغرفته الخاصة فقط
+    if (userId === String(socket.user._id)) {
+      socket.join(userId);
+    } else {
+      console.warn(`⚠️ User ${socket.user._id} tried to join unauthorized room ${userId}`);
+    }
   });
 
   // غرفة خاصة بالأدمن لتلقي التحديثات والإشعارات العامة
   socket.on("admin:join", () => {
-    socket.join("admin_room");
+    if (["admin", "superAdmin"].includes(socket.user.role)) {
+      socket.join("admin_room");
+    } else {
+      console.warn(`⚠️ User ${socket.user._id} tried to join admin_room without permission`);
+    }
+  });
+
+  socket.on("disconnect", () => {
+    console.log(`🔌 Socket disconnected: ${socket.id}`);
   });
 });
 
 /* ======================
    Middlewares
 ====================== */
+app.use(helmet()); // حماية رؤوس HTTP
 app.use(cors());
 app.use(express.json());
+// منع NoSQL Injection عبر مسح الكائنات من المدخلات
+app.use((req, res, next) => {
+  req.body = mongoSanitize(req.body);
+  req.query = mongoSanitize(req.query);
+  req.params = mongoSanitize(req.params);
+  next();
+});
 app.use("/uploads", express.static("uploads"));
 app.use(express.urlencoded({ extended: true }));
 /* ======================
@@ -100,6 +146,23 @@ console.log("✅ admin routes mounted at /api/admin");
 app.use("/api/notifications", notificationRoutes);
 app.set("io", io);
 app.set("trust proxy", 1);
+
+/* ======================
+   Global Error Handler
+====================== */
+app.use((err, req, res, next) => {
+  console.error("Global Error:", err.stack);
+  const status = err.status || 500;
+  const message = process.env.NODE_ENV === "production"
+    ? "Internal Server Error"
+    : err.message;
+
+  res.status(status).json({
+    message,
+    status: "error",
+    ...(process.env.NODE_ENV !== "production" && { stack: err.stack })
+  });
+});
 
 app.get("/", (req, res) => {
   res.json({ message: "Mazad API running" });

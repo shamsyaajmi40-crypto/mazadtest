@@ -503,24 +503,33 @@ export const toggleUserBan = async (req, res) => {
 };
 
 export const toggleUserAdminRole = async (req, res) => {
-  const user = await User.findById(req.params.id);
-  if (!user) {
-    return res.status(404).json({ message: "User not found" });
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // لا يمكن تعديل دور السوبر أدمن أبداً
+    if (user.role === "superAdmin") {
+      return res.status(403).json({ message: "لا يمكن تعديل صلاحيات المدير العام" });
+    }
+
+    // فقط السوبر أدمن يمكنه ترقية مستخدم إلى أدمن أو سحب الصلاحية منه
+    if (req.user.role !== "superAdmin") {
+      return res.status(403).json({ message: "فقط المدير العام يمكنه تعديل الأدوار الإدارية" });
+    }
+
+    // التبديل بين مستخدم ومدير
+    user.role = user.role === "admin" ? "user" : "admin";
+    await user.save();
+
+    res.json({
+      message: user.role === "admin" ? "تمت الترقية إلى مدير" : "تم التخفيض إلى مستخدم",
+      role: user.role,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
   }
-
-  // لا يمكن تعديل دور السوبر أدمن أبداً
-  if (user.role === "superAdmin") {
-    return res.status(403).json({ message: "لا يمكن تعديل صلاحيات المدير العام" });
-  }
-
-  // التبديل بين مستخدم ومدير
-  user.role = user.role === "admin" ? "user" : "admin";
-  await user.save();
-
-  res.json({
-    message: user.role === "admin" ? "تمت الترقية إلى مدير" : "تم التخفيض إلى مستخدم",
-    role: user.role,
-  });
 };
 
 export const getAdminUserDetails = async (req, res) => {
@@ -837,18 +846,17 @@ export const adminDeleteUser = async (req, res) => {
       return res.status(403).json({ message: "لا يمكنك حذف حسابك الشخصي من هنا" });
     }
 
-    // أدمن عادي لا يمكنه حذف سوبر أدمن أو أدمن آخر
-    if (req.user.role === "admin") {
-      if (user.role === "superAdmin" || user.role === "admin") {
-        return res.status(403).json({ message: "ليس لديك صلاحية لحذف هذا الحساب" });
-      }
+    // المنع البات لحذف السوبر أدمن
+    if (user.role === "superAdmin") {
+      return res.status(403).json({ message: "لا يمكن حذف حساب المدير العام" });
+    }
+
+    // أدمن عادي لا يمكنه حذف أدمن آخر
+    if (req.user.role === "admin" && user.role === "admin") {
+      return res.status(403).json({ message: "ليس لديك صلاحية لحذف حساب مدير آخر" });
     }
 
     await User.findByIdAndDelete(req.params.id);
-
-    // إختياري: حذف المزادات المرتبطة بالمستخدم
-    // await Auction.deleteMany({ owner: user._id });
-
     res.json({ message: "User deleted successfully" });
   } catch (error) {
     console.error("adminDeleteUser error:", error);

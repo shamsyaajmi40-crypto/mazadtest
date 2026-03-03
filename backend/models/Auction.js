@@ -144,4 +144,11 @@ const auctionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// الفهارس البرمجية لتحسين الأداء (Indexes)
+auctionSchema.index({ status: 1, endTime: 1 });
+auctionSchema.index({ seller: 1 });
+auctionSchema.index({ owner: 1 });
+auctionSchema.index({ category: 1, governorate: 1 });
+auctionSchema.index({ createdAt: -1 });
+
 export default mongoose.model("Auction", auctionSchema);

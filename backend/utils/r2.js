@@ -47,6 +47,7 @@ export const uploadToR2 = async (file) => {
     Key: fileName,
     Body: compressedBuffer,
     ContentType: "image/webp",
+    CacheControl: "public, max-age=31536000, immutable",
   });
 
   await getS3().send(command);

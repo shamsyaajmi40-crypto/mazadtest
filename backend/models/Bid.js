@@ -13,19 +13,22 @@ const bidSchema = new mongoose.Schema(
       required: true,
     },
     depositHeld: {
-  type: Boolean,
-  default: false,
-},
+      type: Boolean,
+      default: false,
+    },
     amount: {
       type: Number,
       required: true,
     },
     isDepositHeld: {
-  type: Boolean,
-  default: false
-}
+      type: Boolean,
+      default: false
+    }
   },
   { timestamps: true }
 );
+
+// فهرس لتحسين جلب أعلى مزايدة بسرعة
+bidSchema.index({ auction: 1, amount: -1, createdAt: 1 });
 
 export default mongoose.model("Bid", bidSchema);

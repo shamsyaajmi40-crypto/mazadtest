@@ -35,6 +35,7 @@ type FinancialLog = {
   orderId?: string;
   auction?: { title: string; _id: string };
   reason?: string;
+  source?: "SELLER" | "BUYER" | "PLATFORM" | "OTHER";
 };
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -161,8 +162,13 @@ export default function AdminPlatformBalance() {
                   <p className="text-sm font-bold text-slate-500">من المصادرات</p>
                   <p className="text-3xl font-black text-slate-900">{formatMoney(stats.penaltyRevenue)} <span className="text-sm">د.ع</span></p>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs font-black text-indigo-600 bg-indigo-50 w-fit px-2.5 py-1 rounded-full">
-                  <ArrowUpRight className="w-3 h-3" /> {stats.cashFlow?.penalty?.count || stats.penaltyCount || 0} مخالفة
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-1.5 text-[10px] font-black text-indigo-600 bg-indigo-50 w-fit px-2 py-0.5 rounded-md border border-indigo-100/50">
+                    بائع: {formatMoney(stats.penaltyBreakdown?.SELLER?.total || 0)} ({stats.penaltyBreakdown?.SELLER?.count || 0})
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] font-black text-purple-600 bg-purple-50 w-fit px-2 py-0.5 rounded-md border border-purple-100/50">
+                    مشتري: {formatMoney(stats.penaltyBreakdown?.BUYER?.total || 0)} ({stats.penaltyBreakdown?.BUYER?.count || 0})
+                  </div>
                 </div>
               </div>
             </div>
@@ -314,13 +320,20 @@ export default function AdminPlatformBalance() {
                   {logs.map((log) => (
                     <tr key={log._id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black ${log.type === 'SUBSCRIPTION' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                        <div className="flex flex-col gap-1">
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black ${log.type === 'SUBSCRIPTION' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
                             log.type === 'PENALTY' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
                               'bg-blue-50 text-blue-600 border border-blue-100'
-                          }`}>
-                          {log.type === 'SUBSCRIPTION' ? 'اشتراك' :
-                            log.type === 'PENALTY' ? 'مصادرة' : 'شحن رصيد'}
-                        </span>
+                            }`}>
+                            {log.type === 'SUBSCRIPTION' ? 'اشتراك' :
+                              log.type === 'PENALTY' ? 'مصادرة' : 'شحن رصيد'}
+                          </span>
+                          {log.source && log.source !== "OTHER" && (
+                            <span className="text-[9px] font-black text-slate-400 px-2 py-0.5 bg-slate-100 w-fit rounded border border-slate-200">
+                              {log.source === 'SELLER' ? 'عربون بائع' : 'عربون مشتري'}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col">

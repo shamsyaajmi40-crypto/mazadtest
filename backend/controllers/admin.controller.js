@@ -68,6 +68,7 @@ export const rejectAuction = async (req, res) => {
               ? "Auction rejected - refund seller deposit"
               : "Auction rejected - refund failed (insufficient heldBalance)",
           by: "ADMIN",
+          source: "SELLER",
         });
       } catch (logErr) {
         // لا نكسر العملية بسبب AuditLog
@@ -1046,6 +1047,7 @@ export const resolveDispute = async (req, res) => {
           amount: depositToReturn,
           reason: "إعادة عربون بعد قبول الاعتراض على نتيجة التوصيل",
           by: "ADMIN",
+          source: isSellersBlame ? "SELLER" : "BUYER",
         });
       }
 

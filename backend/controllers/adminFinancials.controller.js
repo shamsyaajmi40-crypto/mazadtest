@@ -22,11 +22,23 @@ export const getFinancialStats = async (req, res) => {
             { $group: { _id: null, total: { $sum: "$amountIQD" }, count: { $sum: 1 } } }
         ]);
 
-        // 2. Penalty Revenue (Confiscations)
+        // 2. Penalty Revenue (Confiscations) grouped by source
         const penaltyRevenueAgg = await AuditLog.aggregate([
             { $match: { action: "CONFISCATE_OK" } },
-            { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }
+            {
+                $group: {
+                    _id: "$source",
+                    total: { $sum: "$amount" },
+                    count: { $sum: 1 }
+                }
+            }
         ]);
+
+        const totalPenaltyRevenue = penaltyRevenueAgg.reduce((acc, curr) => acc + curr.total, 0);
+        const penaltyBreakdown = penaltyRevenueAgg.reduce((acc, curr) => {
+            acc[curr._id || "OTHER"] = { total: curr.total, count: curr.count };
+            return acc;
+        }, {});
 
         // 3. Cash Flow (Topups vs Payouts/Refunds recorded in PaymentTransaction)
         const cashFlowAgg = await PaymentTransaction.aggregate([
@@ -42,8 +54,9 @@ export const getFinancialStats = async (req, res) => {
 
         const stats = {
             subscriptionRevenue: subRevenueAgg[0]?.total || 0,
-            penaltyRevenue: penaltyRevenueAgg[0]?.total || 0,
-            totalPlatformRevenue: (subRevenueAgg[0]?.total || 0) + (penaltyRevenueAgg[0]?.total || 0),
+            penaltyRevenue: totalPenaltyRevenue,
+            penaltyBreakdown,
+            totalPlatformRevenue: (subRevenueAgg[0]?.total || 0) + totalPenaltyRevenue,
             platformWalletBalance,
             cashFlow: cashFlowAgg.reduce((acc, curr) => {
                 acc[curr._id] = { total: curr.total, count: curr.count };
@@ -164,7 +177,8 @@ export const getFinancialLogs = async (req, res) => {
                 user: p.user,
                 createdAt: p.createdAt,
                 auction: p.auction,
-                reason: p.reason
+                reason: p.reason,
+                source: p.source || "OTHER"
             }));
 
             totalCount = await AuditLog.countDocuments(match);

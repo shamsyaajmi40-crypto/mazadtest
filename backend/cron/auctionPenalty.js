@@ -35,7 +35,7 @@ const COURIER_REASONS = new Set([
   "COURIER_ISSUE",
 ]);
 
-async function transferHeldToBalance({ userId, amount, reason, auctionId }) {
+async function transferHeldToBalance({ userId, amount, reason, auctionId, source }) {
   const amt = toNumber(amount);
 
   if (!userId || amt <= 0) return;
@@ -48,18 +48,19 @@ async function transferHeldToBalance({ userId, amount, reason, auctionId }) {
   if (res.modifiedCount === 0) {
     await AuditLog.create({
       action: "REFUND_FAILED",
-      auction: auctionId,          // ✅ أضف هذا
+      auction: auctionId,
       user: userId,
       auctionId: String(auctionId),
       userId: String(userId),
       amount: amt,
       reason: reason || "refund_failed_insufficient_held",
       by: "SYSTEM",
+      source: source || "OTHER",
     });
   }
 }
 
-async function confiscateHeld({ userId, amount, reason, auctionId }) {
+async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
   const amt = toNumber(amount);
   const PLATFORM_USER_ID = process.env.PLATFORM_USER_ID || null;
   if (!userId || amt <= 0) return { ok: false, amount: 0, rate: 0 };
@@ -100,6 +101,7 @@ async function confiscateHeld({ userId, amount, reason, auctionId }) {
         amount: confiscatedAmount,
         reason: reason || "confiscate_failed_insufficient_held",
         by: "SYSTEM",
+        source: source || "OTHER",
       });
       return { ok: false, amount: 0, rate: confiscationRate };
     }
@@ -122,6 +124,7 @@ async function confiscateHeld({ userId, amount, reason, auctionId }) {
     amount: confiscatedAmount,
     reason: reason || "confiscated",
     by: "SYSTEM",
+    source: source || "OTHER",
     meta: {
       platformUserId: PLATFORM_USER_ID || null,
       platformModified: platRes ? platRes.modifiedCount : 0,
@@ -178,7 +181,7 @@ const checkAndBanUserIfNeeded = async (userId) => {
 /* ================================
    🧾 Audit Log
 ================================ */
-const createAuditLog = async ({ action, auctionId, userId, amount, reason }) => {
+const createAuditLog = async ({ action, auctionId, userId, amount, reason, source }) => {
   await AuditLog.create({
     action,
     auction: auctionId,
@@ -186,6 +189,7 @@ const createAuditLog = async ({ action, auctionId, userId, amount, reason }) => 
     amount,
     reason,
     by: "SYSTEM",
+    source: source || "OTHER",
   });
 };
 
@@ -287,6 +291,7 @@ const applyAuctionPenalty = async () => {
             amount: auction.depositAmount,
             reason: "إعادة عربون المشتري بعد فشل التوصيل بسبب البائع",
             auctionId: auction._id,
+            source: "BUYER",
           });
 
           await createAuditLog({
@@ -295,6 +300,7 @@ const applyAuctionPenalty = async () => {
             userId: winnerUser._id,
             amount: auction.depositAmount,
             reason: "إعادة عربون المشتري بعد فشل التوصيل بسبب البائع",
+            source: "BUYER",
           });
 
           await notifyUser({
@@ -312,6 +318,7 @@ const applyAuctionPenalty = async () => {
             amount: auction.sellerDeposit,
             reason: `مصادرة عربون البائع بسبب فشل التوصيل (${reason})`,
             auctionId: auction._id,
+            source: "SELLER",
           });
 
           await createAutoNegativeRating({ auctionId: auction._id, toUser: sellerUser._id });
@@ -353,6 +360,7 @@ const applyAuctionPenalty = async () => {
             amount: auction.depositAmount,
             reason: "إرجاع عربون المشتري بعد إتمام الصفقة",
             auctionId: auction._id,
+            source: "BUYER",
           });
         }
 
@@ -363,6 +371,7 @@ const applyAuctionPenalty = async () => {
             amount: auction.sellerDeposit,
             reason: "إرجاع عربون البائع بعد إتمام الصفقة",
             auctionId: auction._id,
+            source: "SELLER",
           });
         }
 
@@ -398,6 +407,7 @@ const applyAuctionPenalty = async () => {
               amount: auction.sellerDeposit,
               reason: "إعادة عربون البائع بعد فشل التوصيل بسبب المشتري",
               auctionId: auction._id,
+              source: "SELLER",
             });
 
             await createAuditLog({
@@ -406,6 +416,7 @@ const applyAuctionPenalty = async () => {
               userId: sellerUser._id,
               amount: auction.sellerDeposit,
               reason: "إعادة عربون البائع بعد فشل التوصيل بسبب المشتري",
+              source: "SELLER",
             });
 
             await notifyUser({
@@ -423,6 +434,7 @@ const applyAuctionPenalty = async () => {
               amount: auction.depositAmount,
               reason: `مصادرة عربون المشتري بسبب فشل التوصيل (${reason})`,
               auctionId: auction._id,
+              source: "BUYER",
             });
 
             await createAutoNegativeRating({ auctionId: auction._id, toUser: winnerUser._id });

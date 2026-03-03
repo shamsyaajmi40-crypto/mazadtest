@@ -134,63 +134,96 @@ export const getFinancialLogs = async (req, res) => {
     try {
         const { page = 1, limit = 20, type = "all" } = req.query;
         const skip = (parseInt(page) - 1) * parseInt(limit);
+        const limitNum = parseInt(limit);
 
         let logs = [];
         let totalCount = 0;
 
-        if (type === "all" || type === "subscription" || type === "topup") {
+        // Fetch from PaymentTransaction (Subscriptions, Topups)
+        const getTxLogs = async () => {
             const match = { status: "paid" };
             if (type === "subscription") match.kind = "subscription";
             if (type === "topup") match.kind = "wallet_topup";
 
-            const txs = await PaymentTransaction.find(match)
-                .sort({ createdAt: -1 })
-                .limit(parseInt(limit))
-                .skip(skip)
-                .populate("user", "name phone")
-                .lean();
+            if (type !== "penalty" && type !== "refund") {
+                const txs = await PaymentTransaction.find(match)
+                    .sort({ createdAt: -1 })
+                    .limit(limitNum + skip)
+                    .populate("user", "name phone")
+                    .lean();
 
-            logs = txs.map(t => ({
-                _id: t._id,
-                type: t.kind === "subscription" ? "SUBSCRIPTION" : "TOPUP",
-                amount: t.amountIQD,
-                user: t.user,
-                createdAt: t.createdAt,
-                orderId: t.orderId,
-                provider: t.provider
-            }));
+                return txs.map(t => ({
+                    _id: t._id,
+                    type: t.kind === "subscription" ? "SUBSCRIPTION" : "TOPUP",
+                    amount: t.amountIQD,
+                    user: t.user,
+                    createdAt: t.createdAt,
+                    orderId: t.orderId,
+                    provider: t.provider
+                }));
+            }
+            return [];
+        };
 
-            totalCount = await PaymentTransaction.countDocuments(match);
-        } else if (type === "penalty") {
-            const match = { action: "CONFISCATE_OK" };
-            const penalties = await AuditLog.find(match)
-                .sort({ createdAt: -1 })
-                .limit(parseInt(limit))
-                .skip(skip)
-                .populate("user", "name phone")
-                .populate("auction", "title")
-                .lean();
+        // Fetch from AuditLog (Penalties, Refunds)
+        const getAuditLogs = async () => {
+            const actions = [];
+            if (type === "all" || type === "penalty") actions.push("CONFISCATE_OK");
+            if (type === "all" || type === "refund") actions.push("REFUND");
 
-            logs = penalties.map(p => ({
-                _id: p._id,
-                type: "PENALTY",
-                amount: p.amount,
-                user: p.user,
-                createdAt: p.createdAt,
-                auction: p.auction,
-                reason: p.reason,
-                source: p.source || "OTHER"
-            }));
+            if (actions.length > 0) {
+                const audits = await AuditLog.find({ action: { $in: actions } })
+                    .sort({ createdAt: -1 })
+                    .limit(limitNum + skip)
+                    .populate("user", "name phone")
+                    .populate("auction", "title")
+                    .lean();
 
-            totalCount = await AuditLog.countDocuments(match);
-        }
+                return audits.map(p => ({
+                    _id: p._id,
+                    type: p.action === "CONFISCATE_OK" ? "PENALTY" : "REFUND",
+                    amount: p.amount,
+                    user: p.user,
+                    createdAt: p.createdAt,
+                    auction: p.auction,
+                    reason: p.reason,
+                    source: p.source || "OTHER"
+                }));
+            }
+            return [];
+        };
+
+        const [txLogs, auditLogs] = await Promise.all([getTxLogs(), getAuditLogs()]);
+
+        // Merge and sort
+        const merged = [...txLogs, ...auditLogs].sort((a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+
+        // Calculate total counts for approximate pagination
+        const txCount = (type === "penalty" || type === "refund") ? 0 :
+            await PaymentTransaction.countDocuments({
+                status: "paid",
+                ...(type === "subscription" ? { kind: "subscription" } : {}),
+                ...(type === "topup" ? { kind: "wallet_topup" } : {})
+            });
+
+        const auditCount = (type === "subscription" || type === "topup") ? 0 :
+            await AuditLog.countDocuments({
+                action: {
+                    $in: type === "all" ? ["CONFISCATE_OK", "REFUND"] :
+                        (type === "penalty" ? ["CONFISCATE_OK"] : ["REFUND"])
+                }
+            });
+
+        totalCount = txCount + auditCount;
 
         return res.json({
-            logs,
+            logs: merged.slice(skip, skip + limitNum),
             pagination: {
                 total: totalCount,
                 page: parseInt(page),
-                pages: Math.ceil(totalCount / limit)
+                pages: Math.ceil(totalCount / limitNum)
             }
         });
     } catch (err) {
@@ -229,21 +262,25 @@ export const exportFinancialsExcel = async (req, res) => {
         // Fetch Data
         let logs = [];
 
-        // 1. Penalties
-        if (type === "all" || type === "penalty") {
-            const penalties = await AuditLog.find({
-                action: "CONFISCATE_OK",
+        // 1. Penalties & Refunds
+        if (type === "all" || type === "penalty" || type === "refund") {
+            const actions = [];
+            if (type === "all" || type === "penalty") actions.push("CONFISCATE_OK");
+            if (type === "all" || type === "refund") actions.push("REFUND");
+
+            const audits = await AuditLog.find({
+                action: { $in: actions },
                 createdAt: { $gte: startDate }
             }).populate("user", "name phone").populate("auction", "title").lean();
 
-            penalties.forEach(p => {
+            audits.forEach(p => {
                 logs.push({
                     date: p.createdAt,
-                    type: "مصادرة",
+                    type: p.action === "CONFISCATE_OK" ? "مصادرة" : "إرجاع",
                     user: p.user?.name || "—",
                     phone: p.user?.phone || "—",
                     amount: p.amount,
-                    source: p.source === "SELLER" ? "بائع" : (p.source === "BUYER" ? "مشتري" : "—"),
+                    source: p.source === "SELLER" ? "بائع" : (p.source === "BUYER" ? "مشتري" : (p.source === "PLATFORM" ? "منصة" : "—")),
                     details: p.reason + (p.auction ? ` (مزاد: ${p.auction.title})` : "")
                 });
             });

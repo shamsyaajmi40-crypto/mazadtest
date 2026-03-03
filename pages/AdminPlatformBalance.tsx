@@ -66,7 +66,7 @@ export default function AdminPlatformBalance() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [logs, setLogs] = useState<FinancialLog[]>([]);
-  const [typeFilter, setTypeFilter] = useState<"all" | "subscription" | "topup" | "penalty">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "subscription" | "topup" | "penalty" | "refund">("all");
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [totalLogs, setTotalLogs] = useState(0);
@@ -322,6 +322,10 @@ export default function AdminPlatformBalance() {
               onClick={() => { setTypeFilter("topup"); setPage(1); }}
               className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${typeFilter === 'topup' ? 'bg-blue-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
             >الإيداع</button>
+            <button
+              onClick={() => { setTypeFilter("refund"); setPage(1); }}
+              className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${typeFilter === 'refund' ? 'bg-amber-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+            >إرجاع</button>
           </div>
         </div>
 
@@ -357,11 +361,13 @@ export default function AdminPlatformBalance() {
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-1">
                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black ${log.type === 'SUBSCRIPTION' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                            log.type === 'PENALTY' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
-                              'bg-blue-50 text-blue-600 border border-blue-100'
+                              log.type === 'PENALTY' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
+                                log.type === 'REFUND' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                                  'bg-blue-50 text-blue-600 border border-blue-100'
                             }`}>
                             {log.type === 'SUBSCRIPTION' ? 'اشتراك' :
-                              log.type === 'PENALTY' ? 'مصادرة' : 'شحن رصيد'}
+                              log.type === 'PENALTY' ? 'مصادرة' :
+                                log.type === 'REFUND' ? 'إرجاع' : 'شحن رصيد'}
                           </span>
                           {log.source && log.source !== "OTHER" && (
                             <span className="text-[9px] font-black text-slate-400 px-2 py-0.5 bg-slate-100 w-fit rounded border border-slate-200">

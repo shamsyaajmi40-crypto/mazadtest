@@ -20,6 +20,7 @@ import api from "../services/api";
 import { io, Socket } from "socket.io-client";
 import TermsModal from "../components/TermsModal";
 import { canUserRate } from "../utils/canUserRate";
+import confetti from "canvas-confetti";
 
 const RatingStars = ({ value }: { value: number }) => {
   const clampedValue = Math.max(0, Math.min(5, value));
@@ -116,6 +117,9 @@ const AuctionDetails = () => {
   const [disputeSuccessMessage, setDisputeSuccessMessage] = useState("");
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [priceFlash, setPriceFlash] = useState(false);
+  const [isHotAuction, setIsHotAuction] = useState(false);
+  const lastBidTimesRef = useRef<number[]>([]);
+  const hasCelebratedRef = useRef(false);
   const [viewersCount, setViewersCount] = useState(() => Math.floor(Math.random() * 8) + 3);
   const loadCourierCompanies = async () => {
     try {
@@ -242,6 +246,23 @@ const AuctionDetails = () => {
       // ✅ الحالة 3 — انتهى
       else {
         timeRef.current.textContent = "منتهي";
+        if (!hasPlayedGavelRef.current) {
+          playSound('gavel');
+          hasPlayedGavelRef.current = true;
+
+          // الاحتفال بالفائز
+          const isWinner = auctionRef.current?.winner && user && String((auctionRef.current.winner as any)._id || auctionRef.current.winner) === String(user._id);
+          if (isWinner && !hasCelebratedRef.current) {
+            hasCelebratedRef.current = true;
+            playSound('winner');
+            confetti({
+              particleCount: 150,
+              spread: 70,
+              origin: { y: 0.6 },
+              colors: ['#10b981', '#3b82f6', '#f59e0b', '#ffffff']
+            });
+          }
+        }
         return;
       }
 
@@ -256,6 +277,13 @@ const AuctionDetails = () => {
       const h = Math.floor(diff / 3600000);
       const m = Math.floor((diff % 3600000) / 60000);
       const s = Math.floor((diff % 60000) / 1000);
+
+      // 🔊 Countdown Sounds
+      if (label === "active") {
+        if (diff <= 10000 && diff > 0) {
+          playSound('tick');
+        }
+      }
 
       timeRef.current.textContent = `${h}س ${m}د ${s}ث`;
     }, 1000);
@@ -362,6 +390,7 @@ const AuctionDetails = () => {
     setBidLoading(true);
     setError("");
     playSound('bid'); // التغذية السمعية الفورية
+    triggerHaptic(50); // اهتزاز خفيف للضغطة
 
     try {
       const optimisticBidEntry: Bid = {
@@ -471,20 +500,31 @@ const AuctionDetails = () => {
   // --- نظام الأصوات ---
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem("mazad_muted") === "true");
   const soundsRef = useRef<{ [key: string]: HTMLAudioElement }>({});
+  const hasPlayedGavelRef = useRef(false);
 
   useEffect(() => {
     soundsRef.current = {
       bid: new Audio("https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"), // Click
       outbid: new Audio("https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3"), // Buzzer/Alert
       success: new Audio("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"), // Chime
+      tick: new Audio("https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3"), // Tick
+      gavel: new Audio("https://assets.mixkit.co/active_storage/sfx/967/967-preview.mp3"), // Strike
+      winner: new Audio("https://assets.mixkit.co/active_storage/sfx/2012/2012-preview.mp3"), // Fanfare
+      fire: new Audio("https://assets.mixkit.co/active_storage/sfx/1483/1483-preview.mp3"), // Sizzle
     };
     (Object.values(soundsRef.current) as HTMLAudioElement[]).forEach(s => { s.load(); s.volume = 0.5; });
   }, []);
 
-  const playSound = (type: 'bid' | 'outbid' | 'success') => {
+  const playSound = (type: 'bid' | 'outbid' | 'success' | 'tick' | 'gavel' | 'winner' | 'fire') => {
     if (isMuted) return;
     const s = soundsRef.current[type];
     if (s) { s.currentTime = 0; s.play().catch(() => { }); }
+  };
+
+  const triggerHaptic = (pattern: number | number[] = 50) => {
+    if (window.navigator?.vibrate) {
+      window.navigator.vibrate(pattern);
+    }
   };
 
   const toggleMute = () => {
@@ -548,8 +588,18 @@ const AuctionDetails = () => {
 
       if (wasHighest && !isNowHighest) {
         playSound('outbid');
+        triggerHaptic([60, 40, 60]); // اهتزاز تنبيهي
       } else if (!isNowHighest) {
         playSound('bid');
+      }
+
+      // حساب الـ Hot Auction (3 مزايدات في 10 ثواني)
+      const nowTs = Date.now();
+      lastBidTimesRef.current = [...lastBidTimesRef.current.filter(ts => nowTs - ts < 10000), nowTs];
+      if (lastBidTimesRef.current.length >= 3 && !isHotAuction) {
+        setIsHotAuction(true);
+        playSound('fire');
+        setTimeout(() => setIsHotAuction(false), 12000); // يستمر 12 ثانية
       }
 
       applyAuctionUpdate(data as any);
@@ -957,27 +1007,35 @@ const AuctionDetails = () => {
               {/* Price & Time Row */}
               <div className="grid grid-cols-2 gap-3 mb-5">
                 {/* Price Box (Premium Indigo) */}
-                <div className={`flex flex-col justify-center bg-indigo-50/50 border border-indigo-100 rounded-2xl p-2.5 sm:p-3.5 relative overflow-hidden transition-all duration-300 ${priceFlash ? 'bg-indigo-100 border-indigo-300 shadow-inner scale-105' : ''}`}>
-                  {priceFlash && <div className="absolute inset-0 bg-indigo-400/10 blur-xl"></div>}
+                <div className={`flex flex-col justify-center rounded-2xl p-2.5 sm:p-3.5 relative overflow-hidden transition-all duration-300 ${isHotAuction ? 'bg-orange-50 border-orange-200 ring-2 ring-orange-500/20 shadow-lg shadow-orange-500/10' : 'bg-indigo-50/50 border-indigo-100'} ${priceFlash ? 'bg-indigo-100 border-indigo-300 shadow-inner scale-105' : ''}`}>
+                  {(priceFlash || isHotAuction) && <div className={`absolute inset-0 blur-xl ${isHotAuction ? 'bg-orange-400/20' : 'bg-indigo-400/10'}`}></div>}
 
                   <div className="flex justify-between items-start mb-1 relative z-10">
-                    <span className="text-[9px] sm:text-[10px] font-black text-indigo-700/60 uppercase tracking-widest">
-                      {isEnded ? "السعر النهائي" : "أعلى عرض حالي"}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest ${isHotAuction ? 'text-orange-700' : 'text-indigo-700/60'}`}>
+                        {isEnded ? "السعر النهائي" : "أعلى عرض حالي"}
+                      </span>
+                      {isHotAuction && (
+                        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-orange-100 text-[8px] font-black text-orange-600 rounded-md animate-pulse border border-orange-200">
+                          <span>🔥</span>
+                          <span>مشتعل!</span>
+                        </div>
+                      )}
+                    </div>
                     {!isEnded && (
-                      <span className="text-[9px] font-black text-indigo-600 bg-white px-1.5 py-0.5 rounded border border-indigo-100 shadow-sm">
+                      <span className={`text-[9px] font-black bg-white px-1.5 py-0.5 rounded border shadow-sm ${isHotAuction ? 'text-orange-600 border-orange-100' : 'text-indigo-600 border-indigo-100'}`}>
                         +{auction.increment.toLocaleString()}
                       </span>
                     )}
                   </div>
 
                   <div className="flex items-baseline gap-1 relative z-10">
-                    <span className="text-xl sm:text-2xl font-black text-indigo-900 tracking-tight leading-none truncate">{displayedPrice.toLocaleString()}</span>
-                    <span className="text-[9px] sm:text-[10px] font-bold text-indigo-400 shrink-0">د.ع</span>
+                    <span className={`text-xl sm:text-2xl font-black tracking-tight leading-none truncate ${isHotAuction ? 'text-orange-900' : 'text-indigo-900'}`}>{displayedPrice.toLocaleString()}</span>
+                    <span className={`text-[9px] sm:text-[10px] font-bold shrink-0 ${isHotAuction ? 'text-orange-400' : 'text-indigo-400'}`}>د.ع</span>
                   </div>
 
                   {!isEnded && (
-                    <div className="mt-1 text-[8px] font-bold text-indigo-400/70 relative z-10 italic">الحد الأدنى للمزايدة القادمة</div>
+                    <div className={`mt-1 text-[8px] font-bold relative z-10 italic ${isHotAuction ? 'text-orange-500/80' : 'text-indigo-400/70'}`}>الحد الأدنى للمزايدة القادمة</div>
                   )}
                 </div>
 

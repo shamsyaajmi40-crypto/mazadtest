@@ -136,6 +136,11 @@ const AuctionDetails = () => {
   useEffect(() => {
     auctionRef.current = auction;
   }, [auction]);
+
+  const userRef = useRef(user);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
   // حالة عرض الصورة النشطة
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -561,7 +566,8 @@ const AuctionDetails = () => {
 
   //Listener ويب سوكيت
   useEffect(() => {
-    if (!socketRef.current) return;
+    const socket = socketRef.current;
+    if (!socket || !socketConnected) return;
 
     const handleBidNew = (data: { auction: Auction; bids?: Bid[] }) => {
       // إذا الباكند ما بعث bids، خذ auction فقط وخلِّ polling/refresh يجيب bids
@@ -575,21 +581,28 @@ const AuctionDetails = () => {
       }
 
       // تحديد إذا تم تجاوز المستخدم (Outbid)
-      const latestBid = data.bids?.[0];
-      const bidder = latestBid?.bidder;
-      if (!bidder) return;
+      const currentHighestBidder = data.bids?.[0]?.bidder;
+      if (!currentHighestBidder) return;
 
-      const currentHighestBidderId = typeof bidder === 'object' ? (bidder as any)._id : bidder;
+      const currentHighestBidderId = typeof currentHighestBidder === 'object' ? (currentHighestBidder as any)._id : currentHighestBidder;
 
       const prevWinner = auctionRef.current?.winner;
       const prevWinnerId = typeof prevWinner === 'object' ? (prevWinner as any)._id : prevWinner;
-      const wasHighest = String(prevWinnerId) === String(user?._id);
-      const isNowHighest = String(currentHighestBidderId) === String(user?._id);
 
-      if (wasHighest && !isNowHighest) {
-        playSound('outbid');
-        triggerHaptic([60, 40, 60]); // اهتزاز تنبيهي
-      } else if (!isNowHighest) {
+      const myId = userRef.current?._id;
+
+      if (myId) {
+        const wasHighest = String(prevWinnerId) === String(myId);
+        const isNowHighest = String(currentHighestBidderId) === String(myId);
+
+        if (wasHighest && !isNowHighest) {
+          playSound('outbid');
+          triggerHaptic([60, 40, 60]);
+        } else if (!isNowHighest) {
+          playSound('bid');
+        }
+      } else {
+        // مستخدم غير مسجل، فقط صوت المزايدة العادي
         playSound('bid');
       }
 
@@ -617,12 +630,12 @@ const AuctionDetails = () => {
       }
     };
 
-    socketRef.current.on("bid:new", handleBidNew);
+    socket.on("bid:new", handleBidNew);
 
     return () => {
-      socketRef.current?.off("bid:new", handleBidNew);
+      socket.off("bid:new", handleBidNew);
     };
-  }, []);
+  }, [socketConnected]);
   if (loading || !auction) {
     return (
       <div className="min-h-screen flex items-center justify-center">

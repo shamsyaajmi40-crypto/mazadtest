@@ -999,20 +999,23 @@ export const getDisputedAuctions = async (req, res) => {
 };
 
 export const resolveDispute = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
     const { id } = req.params;
     const { decision } = req.body; // 'accept_courier' | 'accept_user'
 
     if (!["accept_courier", "accept_user"].includes(decision)) {
+      await session.abortTransaction();
       return res.status(400).json({ message: "Invalid decision" });
     }
 
-    const auction = await Auction.findById(id).populate("deliveryOrder");
+    const auction = await Auction.findById(id).populate("deliveryOrder").session(session);
     if (!auction || !auction.isDisputed) {
+      await session.abortTransaction();
       return res.status(404).json({ message: "Dispute not found or already resolved" });
     }
 
-    // ✅ FIX 1: حفظ سبب الفشل قبل مسحه (كان يُقرأ بعد المسح = null دائماً)
     const SELLER_FAULT_REASONS = ["SELLER_NO_SHOW", "SELLER_NOT_READY"];
     const faultReason = auction.deliveryPenaltyReason || auction.deliveryOrder?.failureReason || "";
     const isSellersBlame = SELLER_FAULT_REASONS.includes(faultReason);
@@ -1021,29 +1024,24 @@ export const resolveDispute = async (req, res) => {
 
     const notifyUser = async (userId, title, message, event) => {
       if (!userId) return;
-      await Notification.create({
+      await Notification.create([{
         user: userId,
         type: "SYSTEM",
         event,
         title,
         message,
         auction: auction._id,
-      });
+      }], { session });
+
       const io = getIo();
       if (io) io.to(userId.toString()).emit("new_notification", { title });
     };
 
-
-
-    // ────────────────────────────────────────────────────
-    // CASE A: رفض الاعتراض → تطبيق الغرامة فوراً عبر الكرون
-    // ────────────────────────────────────────────────────
     if (decision === "accept_courier") {
       auction.isDisputed = false;
-      auction.confirmationDeadline = new Date(Date.now() - 1); // يجعل الكرون يصطاده فوراً
-      await auction.save();
+      auction.confirmationDeadline = new Date(Date.now() - 1);
+      await auction.save({ session });
 
-      // ✅ FIX 4: إشعار الشخص المتهم
       await notifyUser(
         blamedUserId,
         "تم رفض اعتراضك ❌",
@@ -1051,76 +1049,72 @@ export const resolveDispute = async (req, res) => {
         "DISPUTE_REJECTED"
       );
 
+      await session.commitTransaction();
       return res.json({ message: "تم رفض عذر المستخدم. سيتم تطبيق العقوبة قريباً عبر الكرون.", auction });
     }
 
-    // ────────────────────────────────────────────────────
-    // CASE B: قبول الاعتراض → تبرئة + إعادة الوديعة
-    // ────────────────────────────────────────────────────
     if (decision === "accept_user") {
-      // ✅ FIX 2: إعادة عربون الشخص البريء من heldBalance إلى balance
       const depositToReturn = isSellersBlame
         ? (auction.sellerDeposit || 0)
         : (auction.depositAmount || 0);
 
       if (blamedUserId && depositToReturn > 0) {
-        await User.updateOne(
+        const userUpdateRes = await User.updateOne(
           { _id: blamedUserId, heldBalance: { $gte: depositToReturn } },
-          { $inc: { heldBalance: -depositToReturn, balance: depositToReturn } }
+          { $inc: { heldBalance: -depositToReturn, balance: depositToReturn } },
+          { session }
         );
 
-        const receiptId = generateReceiptId();
-        await AuditLog.create({
-          action: "REFUND",
-          auction: auction._id,
-          user: blamedUserId,
-          amount: depositToReturn,
-          receiptId,
-          reason: "إعادة عربون بعد قبول الاعتراض على نتيجة التوصيل",
-          by: "ADMIN",
-          source: isSellersBlame ? "SELLER" : "BUYER",
-        });
-
-        // ✅ إرسال بريد إلكتروني بالوصل المالي في حال قبول الاعتراض بنجاح
-        const user = await User.findById(blamedUserId).select("name email");
-        if (user && user.email) {
-          sendReceiptEmail({
-            to: user.email,
-            userName: user.name,
-            receiptId,
+        if (userUpdateRes.modifiedCount > 0) {
+          const receiptId = generateReceiptId();
+          await AuditLog.create([{
+            action: "REFUND",
+            auction: auction._id,
+            user: blamedUserId,
             amount: depositToReturn,
-            type: "DEPOSIT_REFUND",
-            date: new Date(),
-            details: `إعادة العربون بعد قبول الاعتراض على المزاد: ${auction.title}`
-          });
+            receiptId,
+            reason: "إعادة عربون بعد قبول الاعتراض على نتيجة التوصيل",
+            by: "ADMIN",
+            source: isSellersBlame ? "SELLER" : "BUYER",
+          }], { session });
+
+          const user = await User.findById(blamedUserId).select("name email").session(session);
+          if (user && user.email) {
+            sendReceiptEmail({
+              to: user.email,
+              userName: user.name,
+              receiptId,
+              amount: depositToReturn,
+              type: "DEPOSIT_REFUND",
+              date: new Date(),
+              details: `إعادة العربون بعد قبول الاعتراض على المزاد: ${auction.title}`
+            });
+          }
         }
       }
 
-      // ✅ FIX 3: تحديث حالة المزاد بشكل صحيح
-      // إذا البائع هو المتهم البريء → المشتري كان فعلاً سبب الفشل → cancelled_by_winner
-      // إذا المشتري هو المتهم البريء → البائع كان فعلاً سبب الفشل → cancelled_by_seller
       auction.status = isSellersBlame ? "cancelled_by_winner" : "cancelled_by_seller";
       auction.isDisputed = false;
       auction.deliveryPenaltyReason = null;
-      auction.penaltyApplied = true; // تأكيد أن الموضوع تمت معالجته يدوياً
+      auction.penaltyApplied = true;
       auction.confirmationDeadline = null;
-      await auction.save();
+      await auction.save({ session });
 
-      // إعادة الطلب للمباشرة أو يعالجه الأدمن
       if (auction.deliveryOrder) {
-        await auction.deliveryOrder.updateOne({
-          status: "READY_FOR_PICKUP",
-          failureReason: null,
-        });
+        await DeliveryOrder.updateOne(
+          { _id: auction.deliveryOrder._id },
+          { status: "READY_FOR_PICKUP", failureReason: null },
+          { session }
+        );
       }
 
-      // ✅ FIX 4: إشعار الطرفين كليهما
       await notifyUser(
         blamedUserId,
         "تم قبول اعتراضك ✅",
         "أصدرت الإدارة قراراً بقبول اعتراضك وتبرئتك. تم إعادة عربونك المحجوز إلى رصيدك.",
         "DISPUTE_ACCEPTED"
       );
+
       await notifyUser(
         otherUserId,
         "قرار إدارة المنصة بشأن شكوى التوصيل",
@@ -1128,6 +1122,7 @@ export const resolveDispute = async (req, res) => {
         "DISPUTE_RESOLVED"
       );
 
+      await session.commitTransaction();
       return res.json({
         message: "تمت تبرئة المستخدم وإعادة عربونه إلى رصيده بنجاح.",
         refunded: depositToReturn,
@@ -1136,8 +1131,11 @@ export const resolveDispute = async (req, res) => {
     }
 
   } catch (error) {
+    await session.abortTransaction();
     console.error("resolveDispute error:", error);
-    return res.status(500).json({ message: "Failed to resolve dispute" });
+    res.status(500).json({ message: "Failed to resolve dispute" });
+  } finally {
+    session.endSession();
   }
 };
 

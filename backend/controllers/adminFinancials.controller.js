@@ -60,6 +60,12 @@ export const getFinancialStats = async (req, res) => {
             penaltyBreakdown,
             totalPlatformRevenue: (subRevenueAgg[0]?.total || 0) + totalPenaltyRevenue,
             platformWalletBalance,
+            reconciliation: {
+                auditTotalConfiscated: totalPenaltyRevenue,
+                actualPlatformBalance: platformWalletBalance,
+                isConsistent: platformWalletBalance === totalPenaltyRevenue,
+                difference: platformWalletBalance - totalPenaltyRevenue
+            },
             cashFlow: cashFlowAgg.reduce((acc, curr) => {
                 acc[curr._id] = { total: curr.total, count: curr.count };
                 return acc;

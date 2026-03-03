@@ -37,9 +37,8 @@ const COURIER_REASONS = new Set([
   "COURIER_ISSUE",
 ]);
 
-async function transferHeldToBalance({ userId, amount, reason, auctionId, source }) {
+async function refundHeld({ userId, amount, reason, auctionId, source }) {
   const amt = toNumber(amount);
-
   if (!userId || amt <= 0) return;
 
   const res = await User.updateOne(
@@ -47,26 +46,13 @@ async function transferHeldToBalance({ userId, amount, reason, auctionId, source
     { $inc: { heldBalance: -amt, balance: amt } }
   );
 
-  if (res.modifiedCount === 0) {
-    await AuditLog.create({
-      action: "REFUND_FAILED",
-      auction: auctionId,
-      user: userId,
-      amount: amt,
-      reason: reason || "refund_failed_insufficient_held",
-      by: "SYSTEM",
-      source: source || "OTHER",
-    });
-  } else {
-    // ✅ Success Refund: Generate receipt and send email
-    const receiptId = generateReceiptId();
+  if (res.modifiedCount > 0) {
     await AuditLog.create({
       action: "REFUND",
       auction: auctionId,
       user: userId,
       amount: amt,
-      receiptId,
-      reason: reason || "refund_from_held",
+      reason: reason || "refunded",
       by: "SYSTEM",
       source: source || "OTHER",
     });
@@ -76,7 +62,7 @@ async function transferHeldToBalance({ userId, amount, reason, auctionId, source
       sendReceiptEmail({
         to: user.email,
         userName: user.name,
-        receiptId,
+        receiptId: "REF-" + Date.now(),
         amount: amt,
         type: "DEPOSIT_REFUND",
         date: new Date(),
@@ -91,90 +77,94 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
   const PLATFORM_USER_ID = process.env.PLATFORM_USER_ID || null;
   if (!userId || amt <= 0) return { ok: false, amount: 0, rate: 0 };
 
-  // Progressive confiscation:
-  // - First violation in last 30 days: 50%
-  // - Repeated violation in last 30 days: 100%
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const previousConfiscations = await AuditLog.countDocuments({
-    user: userId,
-    by: "SYSTEM",
-    action: "CONFISCATE_OK",
-    createdAt: { $gte: since },
-  });
-  const confiscationRate = previousConfiscations >= 1 ? 1 : 0.5;
-  const confiscatedAmount = Math.max(1, Math.ceil(amt * confiscationRate));
-  const remainingAmount = amt - confiscatedAmount;
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  const res = await User.updateOne(
-    { _id: userId, heldBalance: { $gte: amt } }, // تأكد أن المحفظة المحجوزة تحتوي على كل مبلغ الدخول
-    { $inc: { heldBalance: -amt, balance: remainingAmount } } // رجع الباقي للمحفظة العادية وصادر الجزء المطلوب
-  );
+  let confiscatedAmount = 0;
+  let confiscationRate = 0;
+  let receiptId = null;
 
-  // في حال فشل التحديث الأول (يعني المستخدم يملك في heldBalance أقل من الوديعة الكاملة لسبب ما)
-  if (res.modifiedCount === 0) {
-    const alternativeRes = await User.updateOne(
-      { _id: userId, heldBalance: { $gte: confiscatedAmount } },
-      { $inc: { heldBalance: -confiscatedAmount } }
+  try {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const previousConfiscations = await AuditLog.countDocuments({
+      user: userId,
+      by: "SYSTEM",
+      action: "CONFISCATE_OK",
+      createdAt: { $gte: since },
+    }).session(session);
+
+    confiscationRate = previousConfiscations >= 1 ? 1 : 0.5;
+    confiscatedAmount = Math.max(1, Math.ceil(amt * confiscationRate));
+    const remainingAmount = amt - confiscatedAmount;
+
+    // 1. محاولة خصم المبلغ بالكامل وإرجاع الباقي
+    const userUpdate = await User.findOneAndUpdate(
+      { _id: userId, heldBalance: { $gte: amt } },
+      { $inc: { heldBalance: -amt, balance: remainingAmount } },
+      { session, new: true }
     );
-    // إذا حتى المبلغ المصادر المطلوب مو موجود، معناها فشلت المصادرة
-    if (alternativeRes.modifiedCount === 0) {
-      await AuditLog.create({
-        action: "CONFISCATE_FAILED",
-        auction: auctionId,
-        user: userId,
-        auctionId: String(auctionId),
-        userId: String(userId),
-        amount: confiscatedAmount,
-        reason: reason || "confiscate_failed_insufficient_held",
-        by: "SYSTEM",
-        source: source || "OTHER",
-      });
-      return { ok: false, amount: 0, rate: confiscationRate };
+
+    if (!userUpdate) {
+      // في حال فشل التحديث الأول (heldBalance أقل من اجمالي العربون)
+      const altUpdate = await User.findOneAndUpdate(
+        { _id: userId, heldBalance: { $gte: confiscatedAmount } },
+        { $inc: { heldBalance: -confiscatedAmount } },
+        { session, new: true }
+      );
+
+      if (!altUpdate) {
+        // فشلت المصادرة بالكامل
+        await AuditLog.create([{
+          action: "CONFISCATE_FAILED",
+          auction: auctionId,
+          user: userId,
+          amount: confiscatedAmount,
+          reason: reason || "confiscate_failed_insufficient_held",
+          by: "SYSTEM",
+          source: source || "OTHER",
+        }], { session });
+        await session.commitTransaction();
+        return { ok: false, amount: 0, rate: confiscationRate };
+      }
     }
-  }
 
-  let platRes = null;
-  if (PLATFORM_USER_ID) {
-    platRes = await User.updateOne(
-      { _id: PLATFORM_USER_ID },
-      { $inc: { balance: confiscatedAmount } }
-    );
-  }
+    // 2. زيادة رصيد المنصة (مصدر الحقيقة)
+    if (PLATFORM_USER_ID) {
+      await User.findByIdAndUpdate(
+        PLATFORM_USER_ID,
+        { $inc: { balance: confiscatedAmount } },
+        { session }
+      );
+    }
 
-  const receiptId = generateReceiptId();
-  await AuditLog.create({
-    action: "CONFISCATE_OK",
-    auction: auctionId,
-    user: userId,
-    amount: confiscatedAmount,
-    receiptId,
-    reason: reason || "confiscated",
-    by: "SYSTEM",
-    source: source || "OTHER",
-    meta: {
-      platformUserId: PLATFORM_USER_ID || null,
-      platformModified: platRes ? platRes.modifiedCount : 0,
-      requestedAmount: amt,
-      confiscationRate,
-      previousConfiscations30d: previousConfiscations,
-    },
-  });
-
-  // ✅ Send Email for Confiscation
-  const user = await User.findById(userId).select("name email");
-  if (user && user.email) {
-    sendReceiptEmail({
-      to: user.email,
-      userName: user.name,
-      receiptId,
+    // 3. توثيق العملية في السجل (AuditLog)
+    receiptId = generateReceiptId();
+    await AuditLog.create([{
+      action: "CONFISCATE_OK",
+      auction: auctionId,
+      user: userId,
       amount: confiscatedAmount,
-      type: "PENALTY",
-      date: new Date(),
-      details: reason || "مصادرة عربون بسبب مخالفة القوانين"
-    });
-  }
+      receiptId,
+      reason: reason || "confiscated",
+      by: "SYSTEM",
+      source: source || "OTHER",
+      meta: {
+        platformUserId: PLATFORM_USER_ID || null,
+        requestedAmount: amt,
+        confiscationRate,
+        previousConfiscations30d: previousConfiscations,
+      },
+    }], { session });
 
-  return { ok: true, amount: confiscatedAmount, rate: confiscationRate };
+    await session.commitTransaction();
+    return { ok: true, amount: confiscatedAmount, rate: confiscationRate, receiptId };
+  } catch (error) {
+    await session.abortTransaction();
+    console.error("Confiscate transaction error:", error);
+    return { ok: false, amount: 0, rate: 0 };
+  } finally {
+    session.endSession();
+  }
 }
 
 

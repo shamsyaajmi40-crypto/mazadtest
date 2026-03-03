@@ -11,6 +11,8 @@ import PlatformSetting from "../models/PlatformSetting.js";
 import bcrypt from "bcryptjs";
 import { DEFAULT_DEPOSIT_POLICY, normalizeDepositPolicy } from "../utils/helpers.js";
 import { getIo } from "../utils/socket.js";
+import { generateReceiptId } from "../utils/receipt.js";
+import { sendReceiptEmail } from "../utils/email.js";
 
 //
 const DEPOSIT_POLICY_KEY = "deposit_policy";

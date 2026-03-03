@@ -7,19 +7,22 @@ const getS3 = () => {
 
   let rawEndpoint = (process.env.R2_ENDPOINT || "").trim();
 
-  // 1. إزالة أي مسافات من داخل النص (مهم جداً!)
+  // 1. Remove all spaces
   let cleaned = rawEndpoint.replace(/\s+/g, "");
 
-  // 2. إزالة أي بروتوكول موجود مسبقاً للبدء من جديد
+  // 2. Remove any pre-existing protocol
   cleaned = cleaned.replace(/^https?:\/\//i, "");
 
-  if (!cleaned) {
-    console.error("❌ R2_ENDPOINT is missing or invalid! Current value:", rawEndpoint);
-    // نرجع null أو نتركها لتفشل بشكل أوضح لاحقاً
+  // 3. Remove trailing slash if exists
+  cleaned = cleaned.replace(/\/+$/, "");
+
+  // 4. Critical check: If after cleaning we only have "http" or "https" or empty, it's invalid
+  if (!cleaned || cleaned === "http" || cleaned === "https") {
+    console.error("❌ R2_ENDPOINT is invalid! Current raw value:", rawEndpoint, "Cleaned:", cleaned);
     return null;
   }
 
-  // 3. بناء الرابط النهائي بشكل نظيف
+  // 5. Construct final endpoint
   let endpoint = `https://${cleaned}`;
 
   console.log("🛠️ R2 Client Init - Final Sanitized Endpoint:", endpoint);

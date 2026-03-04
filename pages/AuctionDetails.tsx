@@ -935,1256 +935,1281 @@ const AuctionDetails = () => {
   const isSeller = isOwner; // توحيد المتغيرات لتجنب الأخطاء
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8" dir="rtl">
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center text-slate-500 hover:text-primary font-bold mb-6"
-      >
-        <ArrowRight className="w-5 h-5 ml-2" />
-        العودة
-      </button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100/50 relative overflow-hidden pb-12" dir="rtl">
+      {/* Glow Effects in Background */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px] pointer-events-none"></div>
+      <div className="absolute bottom-[10%] right-[-10%] w-[30%] h-[30%] bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none"></div>
 
-      {/* 🔴 الهيدر الرئيسي: العنوان ومعلومات البائع (كامل العرض بالـ Desktop) */}
-      <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-black mb-4 tracking-tight text-slate-900 leading-snug">
-          {auction.title}
-        </h1>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 relative z-10">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center text-slate-500 hover:text-slate-800 font-bold mb-6 sm:mb-8 transition-colors bg-white/50 backdrop-blur px-4 py-2 rounded-2xl w-fit shadow-sm"
+        >
+          <ArrowRight className="w-5 h-5 ml-2" />
+          العودة
+        </button>
 
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-slate-500">بواسطة:</span>
-          <Link
-            to={`/users/${typeof auction.owner === "string" ? auction.owner : auction.owner._id}`}
-            className="text-blue-600 font-bold hover:underline"
-          >
-            {typeof auction.owner === "string" ? "صاحب المزاد" : auction.owner.name}
-          </Link>
+        {/* 🔴 الهيدر الرئيسي: العنوان ومعلومات البائع (كامل العرض بالـ Desktop) */}
+        <div className="mb-6 sm:mb-8 md:mb-10">
+          <h1 className="text-2xl sm:text-3xl md:text-5xl font-black mb-3 md:mb-5 tracking-tight text-slate-900 leading-[1.3]">
+            {auction.title}
+          </h1>
 
-          {(() => {
-            const displayRating = sellerRating || auction.owner?.rating;
-            if (displayRating && displayRating.count > 0) {
-              return (
-                <div className="flex items-center gap-1.5 mr-3 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100 shadow-sm">
-                  <RatingStars value={displayRating.average} />
-                  <span className="text-sm font-black text-amber-700">{Number(displayRating.average).toFixed(1)}</span>
-                  <span className="text-xs font-medium text-amber-600/70">({displayRating.count})</span>
-                </div>
-              );
-            }
-            return null;
-          })()}
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs sm:text-sm text-slate-500 font-medium bg-white/60 px-3 py-1.5 rounded-xl">بواسطة:</span>
+            <Link
+              to={`/users/${typeof auction.owner === "string" ? auction.owner : auction.owner._id}`}
+              className="text-primary hover:text-primary-dark font-black hover:underline px-2 py-1"
+            >
+              {typeof auction.owner === "string" ? "صاحب المزاد" : auction.owner.name}
+            </Link>
+
+            {(() => {
+              const displayRating = sellerRating || auction.owner?.rating;
+              if (displayRating && displayRating.count > 0) {
+                return (
+                  <div className="flex items-center gap-1.5 mr-auto sm:mr-4 bg-gradient-to-r from-amber-50 to-yellow-50/50 px-3 py-1.5 rounded-xl border border-amber-200/50 shadow-sm">
+                    <RatingStars value={displayRating.average} />
+                    <span className="text-sm font-black text-amber-700">{Number(displayRating.average).toFixed(1)}</span>
+                    <span className="text-xs font-bold text-amber-600/60">({displayRating.count})</span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+          </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-        {/* القسم الأيمن: الصور والوصف */}
-        <div className="lg:col-span-7 space-y-4">
-          <div
-            className="relative aspect-video rounded-[2.5rem] overflow-hidden bg-slate-100 shadow-md group"
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-          >
-            {hasImages ? (
-              <img
-                src={getImageUrl(auction.images?.[activeImageIndex] || auction.images?.[0])}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 cursor-zoom-in"
-                alt={auction.title}
-                onClick={() => setLightboxOpen(true)}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-slate-400">
-                <div className="flex flex-col items-center gap-2">
-                  <Image className="w-10 h-10" />
-                  <span className="text-sm font-bold">لا توجد صور</span>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-10">
+          {/* القسم الأيمن: الصور والوصف */}
+          <div className="lg:col-span-7 space-y-6">
+            <div
+              className="relative w-full aspect-[4/3] md:aspect-video rounded-3xl overflow-hidden bg-slate-100 shadow-xl group touch-pan-x"
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+            >
+              {hasImages ? (
+                <img
+                  src={getImageUrl(auction.images?.[activeImageIndex] || auction.images?.[0])}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 cursor-zoom-in"
+                  alt={auction.title}
+                  onClick={() => setLightboxOpen(true)}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-slate-400">
+                  <div className="flex flex-col items-center gap-2">
+                    <Image className="w-10 h-10" />
+                    <span className="text-sm font-bold">لا توجد صور</span>
+                  </div>
                 </div>
+              )}
+
+              {totalImages > 1 && (
+                <>
+                  <div className="absolute top-4 left-4 bg-slate-900/40 text-white text-xs font-black px-3.5 py-1.5 rounded-full backdrop-blur-md shadow-lg">
+                    {activeImageIndex + 1} / {totalImages}
+                  </div>
+                  <button
+                    onClick={prevImage}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/40 hover:bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg transition-all text-slate-800 opacity-0 group-hover:opacity-100 focus:opacity-100 active:scale-95 border border-white/40"
+                  >
+                    <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </button>
+                  <button
+                    onClick={nextImage}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/40 hover:bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg transition-all text-slate-800 opacity-0 group-hover:opacity-100 focus:opacity-100 active:scale-95 border border-white/40"
+                  >
+                    <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </button>
+
+                  {/* نقط مؤشرات الصور Pagination Dots */}
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/20 backdrop-blur-sm px-3 py-1.5 rounded-full truncate">
+                    {auction.images.map((_, idx) => (
+                      <span
+                        key={idx}
+                        className={`h-1.5 rounded-full transition-all duration-300 ${idx === activeImageIndex ? "w-4 bg-white" : "w-1.5 bg-white/50"}`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {totalImages > 1 && (
+              <div className="flex gap-2.5 overflow-x-auto pb-2 snap-x hide-scrollbar">
+                {auction.images.map((img, idx) => (
+                  <button
+                    key={`${img}-${idx}`}
+                    type="button"
+                    onClick={() => setActiveImageIndex(idx)}
+                    className={`relative shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 transition-all duration-300 snap-center ${idx === activeImageIndex ? "border-primary shadow-md scale-105 z-10" : "border-slate-200/60 opacity-70 hover:opacity-100"
+                      }`}
+                  >
+                    <img
+                      src={getImageUrl(img)}
+                      alt={`${auction.title}-${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
               </div>
             )}
 
-            {totalImages > 1 && (
-              <>
-                <div className="absolute top-4 left-4 bg-slate-900/70 text-white text-xs font-black px-3 py-1 rounded-full backdrop-blur">
-                  {activeImageIndex + 1} / {totalImages}
+            <div className="bg-white/80 backdrop-blur-xl p-6 sm:p-8 rounded-3xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+              <h2 className="text-xl sm:text-2xl font-black mb-6 flex items-center gap-3 text-slate-800">
+                <span className="p-2 sm:p-2.5 bg-gradient-to-br from-primary/10 to-primary/5 text-primary rounded-xl shadow-inner border border-primary/10">
+                  <FileText className="w-5 h-5 sm:w-6 sm:h-6" />
+                </span>
+                الوصف
+              </h2>
+              <p className="text-slate-600 leading-relaxed font-semibold text-base sm:text-lg whitespace-pre-wrap">{auction.description}</p>
+            </div>
+          </div>
+
+          {/* القسم الأيسر: المزايدة والحالة */}
+          <div className="lg:col-span-5 relative mt-4 md:mt-0">
+            <div className="bg-white/90 backdrop-blur-2xl p-5 sm:p-8 rounded-3xl border border-white shadow-[0_10px_40px_rgb(0,0,0,0.08)] sticky top-24 h-fit flex flex-col z-20">
+              {/* ===== PREMIUM ACTION PANEL ===== */}
+              <div className="bg-white border border-slate-100 rounded-[2rem] p-5 sm:p-6 shadow-xl shadow-slate-200/30 relative overflow-hidden mb-6">
+                {/* LIVE Indicator & Viewers */}
+                <div className="flex items-center justify-between mb-5">
+                  {isPending ? (
+                    <div className="flex items-center gap-2 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100">
+                      <Clock className="w-3.5 h-3.5 text-amber-500" />
+                      <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">تحت المراجعة</span>
+                    </div>
+                  ) : isRejected ? (
+                    <div className="flex items-center gap-2 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-100">
+                      <X className="w-3.5 h-3.5 text-rose-500" />
+                      <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">تم الرفض</span>
+                    </div>
+                  ) : !isEnded ? (
+                    <div className="flex items-center gap-2 bg-red-50 px-3 py-1 rounded-lg border border-red-100/50">
+                      <div className="relative flex items-center justify-center w-2 h-2">
+                        {isActive && <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping"></span>}
+                        <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${isActive ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]' : 'bg-slate-300'}`}></span>
+                      </div>
+                      <span className={`text-[10px] font-black tracking-widest uppercase ${isActive ? 'text-red-600' : 'text-slate-400'}`}>
+                        {isActive ? "LIVE" : "UPCOMING"}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">
+                      <span className="text-[10px] font-black text-slate-500">منتهي</span>
+                    </div>
+                  )}
+
+                  {isActive && (
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={toggleMute}
+                        className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg transition-colors"
+                        title={isMuted ? "تفعيل الصوت" : "كتم الصوت"}
+                      >
+                        {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                      </button>
+                      <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>{viewersCount} يشاهدون</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Price & Time Row */}
+                <div className="grid grid-cols-2 gap-3 mb-5">
+                  {/* Price Box (Premium Indigo) */}
+                  <div className={`flex flex-col justify-center rounded-2xl p-2.5 sm:p-3.5 relative overflow-hidden transition-all duration-300 ${isHotAuction ? 'bg-orange-50 border-orange-200 ring-2 ring-orange-500/20 shadow-lg shadow-orange-500/10' : 'bg-indigo-50/50 border-indigo-100'} ${priceFlash ? 'bg-indigo-100 border-indigo-300 shadow-inner scale-105' : ''}`}>
+                    {(priceFlash || isHotAuction) && <div className={`absolute inset-0 blur-xl ${isHotAuction ? 'bg-orange-400/20' : 'bg-indigo-400/10'}`}></div>}
+
+                    <div className="flex justify-between items-start mb-1 relative z-10">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest ${isHotAuction ? 'text-orange-700' : 'text-indigo-700/60'}`}>
+                          {isEnded ? "السعر النهائي" : "أعلى عرض حالي"}
+                        </span>
+                        {isHotAuction && (
+                          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-orange-100 text-[8px] font-black text-orange-600 rounded-md animate-pulse border border-orange-200">
+                            <span>🔥</span>
+                            <span>مشتعل!</span>
+                          </div>
+                        )}
+                      </div>
+                      {!isEnded && (
+                        <span className={`text-[9px] font-black bg-white px-1.5 py-0.5 rounded border shadow-sm ${isHotAuction ? 'text-orange-600 border-orange-100' : 'text-indigo-600 border-indigo-100'}`}>
+                          +{auction.increment.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-baseline gap-1 relative z-10">
+                      <span className={`text-xl sm:text-2xl font-black tracking-tight leading-none whitespace-nowrap ${isHotAuction ? 'text-orange-900' : 'text-indigo-900'}`}>{displayedPrice.toLocaleString()}</span>
+                      <span className={`text-[9px] sm:text-[10px] font-bold shrink-0 ${isHotAuction ? 'text-orange-400' : 'text-indigo-400'}`}>د.ع</span>
+                    </div>
+
+                    {!isEnded && (
+                      <div className={`mt-1 text-[8px] font-bold relative z-10 italic ${isHotAuction ? 'text-orange-500/80' : 'text-indigo-400/70'}`}>الحد الأدنى للمزايدة القادمة</div>
+                    )}
+                  </div>
+
+                  {/* Time Box (Urgency Red/Orange Gradient) */}
+                  {isPending || isRejected ? (
+                    <div className={`flex flex-col justify-center rounded-2xl p-2.5 sm:p-3.5 border ${isPending ? 'bg-amber-50 border-amber-100' : 'bg-rose-50 border-rose-100'}`}>
+                      <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-1 ${isPending ? 'text-amber-600' : 'text-rose-600'}`}>حالة المراجعة</span>
+                      <span className={`text-xs sm:text-sm font-black ${isPending ? 'text-amber-900' : 'text-rose-900'}`}>
+                        {isPending ? "في انتظار الموافقة" : "تم رفض المزاد"}
+                      </span>
+                    </div>
+                  ) : !isDealResolved && auction.status !== "ENDED" ? (
+                    <div className={`flex flex-col justify-center rounded-2xl p-2.5 sm:p-3.5 relative overflow-hidden transition-all shadow-sm ${isLastMinutes ? 'bg-gradient-to-br from-orange-500 to-red-600 border-none shadow-orange-500/20' : 'bg-slate-900 border border-slate-800'}`}>
+                      <div className="flex justify-between items-start mb-1 relative z-10">
+                        <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest ${isLastMinutes ? 'text-white/80' : 'text-slate-400'}`}>
+                          {isLastMinutes ? "فرصة أخيرة!" : "الوقت المتبقي"}
+                        </span>
+                        {isExtensionWindow && (
+                          <span className="text-[8px] font-black bg-white/20 text-white px-1 rounded animate-pulse">
+                            تمديد تلقائي 🔄
+                          </span>
+                        )}
+                      </div>
+
+                      <div
+                        ref={timeRef}
+                        className={`text-[1.1rem] sm:text-[1.25rem] font-black tabular-nums tracking-tight leading-none relative z-10 whitespace-nowrap min-w-0 ${isLastMinutes ? 'text-white drop-shadow-md animate-pulse' : 'text-emerald-400'}`}
+                        style={{ fontVariantNumeric: "tabular-nums" }}
+                      ></div>
+
+                      {isExtensionWindow && (
+                        <div className="mt-1.5 text-[7px] sm:text-[8px] font-bold text-white/90 relative z-10 leading-tight">
+                          المزايدة الآن ستضيف +2 دقيقة للوقت
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col justify-center bg-slate-50 border border-slate-100 rounded-2xl p-2.5 sm:p-3.5">
+                      <span className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">حالة المزاد</span>
+                      <span className="text-xs sm:text-sm font-black text-slate-700">انتهى الوقت</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Button (The "Winning" Action - High Contrast) */}
+                {!isEnded && !isOwner && (
+                  <button
+                    onClick={handlePlaceBid}
+                    disabled={isUpcoming || isPending || isRejected || bidLoading || bidCooldown > 0}
+                    className="w-full py-4 sm:py-5 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white rounded-2xl sm:rounded-3xl font-black text-sm sm:text-base flex flex-col items-center justify-center gap-1 sm:gap-1.5
+                    shadow-[0_10px_25px_-5px_rgba(16,185,129,0.5)] hover:shadow-[0_15px_30px_-5px_rgba(16,185,129,0.6)] hover:-translate-y-1 active:translate-y-0.5 active:scale-[0.98] transition-all duration-300
+                    disabled:bg-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed border-transparent disabled:border-slate-200 border group relative overflow-hidden"
+                  >
+                    {/* Glass Shimmer Effect */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-[150%] animate-[shimmer_3s_infinite] group-hover:animate-none group-disabled:hidden"></div>
+
+                    {bidLoading ? (
+                      <Loader2 className="animate-spin w-6 h-6 sm:w-7 sm:h-7" />
+                    ) : (
+                      <>
+                        {!isUpcoming && !isPending && !isRejected && bidCooldown <= 0 && (
+                          <span className="text-[10px] sm:text-[11px] font-black opacity-90 uppercase tracking-[0.2em] mb-0.5 group-hover:scale-110 transition-transform">
+                            زايد الآن واربح! 🚀
+                          </span>
+                        )}
+                        <div className="flex items-center gap-2.5">
+                          <Gavel className="w-5 h-5 sm:w-6 sm:h-6 group-hover:rotate-12 transition-transform" />
+                          <span className="text-lg sm:text-xl tracking-wide">
+                            {isPending
+                              ? "في انتظار المراجعة"
+                              : isRejected
+                                ? "مرفوض"
+                                : isUpcoming
+                                  ? "لم يبدأ بعد"
+                                  : bidCooldown > 0
+                                    ? `انتظر ${bidCooldown}ث`
+                                    : `${(displayedPrice + auction.increment).toLocaleString()} د.ع`}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </button>
+                )}
+                {!isEnded && isOwner && (
+                  <div className="w-full py-3.5 bg-slate-50 text-slate-500 rounded-2xl font-black text-xs flex items-center justify-center border border-slate-200 shadow-inner">
+                    أنت صاحب هذا المزاد
+                  </div>
+                )}
+
+                {/* Admin Actions Panel (Floating or Static) */}
+                {isPending && isAdmin && (
+                  <div className="mt-6 p-6 bg-slate-900 rounded-3xl border border-slate-800 shadow-2xl relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-2xl group-hover:bg-primary/20 transition-all"></div>
+
+                    <div className="relative z-10">
+                      <h3 className="text-white font-black text-sm mb-4 flex items-center gap-2">
+                        <Settings className="w-4 h-4 text-primary" /> لوحة تحكم الإدارة
+                      </h3>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          onClick={handleApprove}
+                          disabled={adminActionLoading}
+                          className="flex items-center justify-center gap-2 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all disabled:opacity-50"
+                        >
+                          {adminActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                          قبول ونشر
+                        </button>
+                        <button
+                          onClick={() => setRejectModalOpen(true)}
+                          disabled={adminActionLoading}
+                          className="flex items-center justify-center gap-2 py-3.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-2xl font-black text-xs active:scale-95 transition-all disabled:opacity-50"
+                        >
+                          <XCircle className="w-4 h-4 text-rose-400" />
+                          رفض المزاد
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Deposit Info Footer - Only show if user hasn't bid or is not logged in */}
+                {!isEnded && (!user || !uniqueBids.some(b => b.bidderId === getUserId(user))) && (
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-100">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-slate-400 mb-0.5">عربون الدخول</span>
+                      <span className="text-sm font-black text-slate-700 leading-none">{(auction.depositAmount || 0).toLocaleString()} <span className="text-[9px] text-slate-400">د.ع</span></span>
+                    </div>
+                    <div className="h-6 w-px bg-slate-200"></div>
+                    <div className="flex flex-col text-left">
+                      <span className="text-[10px] font-bold text-slate-400 mb-0.5">الزيادة الثابتة</span>
+                      <span className="text-sm font-black text-slate-700 leading-none">{(auction.increment || 0).toLocaleString()} <span className="text-[9px] text-slate-400">د.ع</span></span>
+                    </div>
+                  </div>
+                )}
+
+                {/* COMPACT BIDS FEED & WINNER */}
+                {!isEnded && uniqueBids.length > 0 && (
+                  <div className="mt-8 pt-6 border-t border-slate-100/60 relative">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-1 rounded-full bg-slate-200/50"></div>
+
+                    <h4 className="flex items-center justify-between text-sm sm:text-base font-black text-slate-800 mb-5">
+                      <span className="flex items-center gap-2.5">
+                        <History className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />
+                        أعلى المزايدين (المتصدرين)
+                      </span>
+                      <span className="text-[10px] sm:text-xs bg-slate-100 text-slate-500 px-2.5 py-1 rounded-md font-bold">{uniqueBids.length} منافسين</span>
+                    </h4>
+                    <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                      {uniqueBids.slice(0, 5).map((b, idx) => {
+                        const isMe = b.bidderId === getUserId(user);
+                        const isFirst = idx === 0;
+                        return (
+                          <div key={b.bidderId} className={`flex items-center justify-between p-3.5 sm:p-4 rounded-[1.25rem] border transition-all duration-300 ${isFirst ? 'bg-gradient-to-r from-amber-50 to-yellow-50/30 border-amber-200/60 shadow-[0_4px_20px_rgb(251,191,36,0.15)] scale-[1.02] origin-right z-10' : 'bg-slate-50/50 hover:bg-slate-50 border-slate-100/80 hover:border-slate-200'}`}>
+                            <div className="flex items-center gap-3 sm:gap-4">
+                              <div className={`flex items-center justify-center w-10 h-10 rounded-2xl font-black text-lg sm:text-xl shadow-sm ${isFirst ? 'bg-gradient-to-br from-amber-200 to-yellow-400 text-white shadow-amber-300/50' : 'bg-white text-slate-400 border border-slate-100'}`}>
+                                {isFirst ? '👑' : `#${idx + 1}`}
+                              </div>
+                              <div className="flex flex-col">
+                                <span className={`text-sm sm:text-base font-black ${isFirst ? 'text-amber-900 tracking-tight' : 'text-slate-700'}`}>
+                                  {isMe ? (isFirst ? "أنت المتصدر! 🥇" : "مزايدتك (تم تجاوزك)") : maskUsername(b.bid.bidder?.name || "")}
+                                </span>
+                                <span className="text-[10px] sm:text-xs text-slate-500 font-bold mt-0.5 flex items-center gap-1">
+                                  <span className={`w-1.5 h-1.5 rounded-full ${isFirst ? 'bg-amber-400' : 'bg-slate-300'}`}></span>
+                                  {b.count} مزايدة
+                                </span>
+                              </div>
+                            </div>
+                            <div className={`font-black tracking-tight flex flex-col items-end ${isFirst ? 'text-amber-700 text-base sm:text-lg' : 'text-slate-800 text-[13px] sm:text-sm'}`}>
+                              {b.bid.amount.toLocaleString()}
+                              <span className="text-[9px] sm:text-[10px] uppercase opacity-70">د.ع</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {isEnded && auction.winner && !isDealFailed && (
+                  <div className="mt-6 border-t border-emerald-100 pt-5 flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🏆</span>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black tracking-wider text-emerald-600 uppercase">الفائز بالمزاد</span>
+                        <span className="text-lg font-black text-emerald-900">
+                          {isMeWinner ? "أنت الفائز!" : maskUsername(auction.winner.name)}
+                        </span>
+                      </div>
+                    </div>
+                    {isOwner && !isMeWinner && auction.winner.phone && (
+                      <div className="pt-3 border-t border-emerald-200/50 flex gap-2">
+                        <a href={`https://wa.me/${auction.winner.phone.replace(/^0/, "964")}`} target="_blank" className="flex-1 bg-[#25D366] hover:bg-[#20b358] text-white text-[11px] font-black py-2 rounded-xl text-center transition-colors">💬 واتساب</a>
+                        <a href={`tel:${auction.winner.phone}`} className="flex-1 bg-emerald-800 hover:bg-emerald-900 text-white text-[11px] font-black py-2 rounded-xl text-center transition-colors">📞 اتصال</a>
+                      </div>
+                    )}
+                    {isMeWinner && auction.seller?.phone && (
+                      <div className="pt-3 border-t border-emerald-200/50">
+                        <p className="text-[11px] font-bold text-emerald-800 mb-2">تواصل مع البائع لإتمام الصفقة:</p>
+                        <div className="flex gap-2">
+                          <a href={`https://wa.me/${auction.seller.phone.replace(/\D/g, "")}`} target="_blank" className="flex-1 bg-[#25D366] hover:bg-[#20b358] text-white text-[11px] font-black py-2 rounded-xl text-center transition-colors">💬 واتساب</a>
+                          <a href={`tel:${auction.seller.phone}`} className="flex-1 bg-emerald-800 hover:bg-emerald-900 text-white text-[11px] font-black py-2 rounded-xl text-center transition-colors">📞 اتصال</a>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {error && (
+                <div className="mt-4 text-rose-600 bg-rose-50 p-3 rounded-xl flex items-center gap-2 text-sm">
+
+                  <AlertTriangle />
+                  {error}
+                </div>
+              )}
+
+              {normalizedStatus === "ended" && isOwner && auction.winner && auction.deliveryMode !== "courier" && !isDealResolved && (
+                <button
+                  onClick={() => { setShowCourierModal(true); setCourierErr(null); loadCourierCompanies(); }}
+                  className="block w-full text-center mt-3 bg-slate-900 hover:bg-slate-800 text-white py-3 rounded-xl font-black"
+                >
+                  طلب توصيل (COD + OTP)
+                </button>
+              )}
+
+              {/* رسالة للبائع قبل ظهور OTP الدفع */}
+              {isOwner &&
+                normalizedStatus === "ended" &&
+                auction.deliveryMode === "courier" &&
+                !auction.payoutOtpCode && !isDealResolved && (
+                  <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/60 p-4 flex items-start gap-3">
+                    <span className="text-2xl shrink-0 mt-0.5">📦</span>
+                    <div>
+                      <p className="font-black text-amber-900 text-sm mb-1">الطلب في طريقه إلى المشتري</p>
+                      <p className="text-xs text-amber-700 leading-relaxed font-medium">
+                        راح يطلعلك بعد ما يستلم االمشتري البضاعة رمز استلام الفلوس من شركة التوصيل، تروح للشركة تستلم فلوسك بالبداية بعدين تنطي الرقم.
+                      </p>
+                      <div className="mt-2 p-2 bg-rose-50 border border-rose-100 rounded-lg">
+                        <p className="text-[11px] text-rose-600 font-black">
+                          ⚠️ تحذير: لاتنطي الرقم بدون ماتتاكد من فلوسك، غير هيج المنصة مو مسؤولة.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+              {/* ===== Courier OTP (ظهر فقط لصاحبه من الباكند) ===== */}
+              {normalizedStatus === "ended" &&
+                auction.deliveryMode === "courier" &&
+                (isOwner || isWinner) && !isDealResolved && (
+                  <div className="mt-4 rounded-2xl overflow-hidden border border-blue-100">
+                    {/* Header */}
+                    <div className="bg-gradient-to-l from-blue-600 to-indigo-600 px-4 py-3 flex items-center gap-2">
+                      <div className="p-1.5 bg-white/20 rounded-lg">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      </div>
+                      <span className="text-white font-black text-sm">كود التسليم عبر شركة (OTP)</span>
+                    </div>
+
+                    {/* OTP codes */}
+                    <div className="bg-white p-4 space-y-3">
+                      {!isDealResolved && (
+                        <>
+                          {/* OTP المشتري */}
+                          {isWinner && auction.deliveryOtpCode && (
+                            <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                              <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">كود الاستلام — اعطه للمندوب</p>
+                              <div className="text-3xl font-black tracking-[0.3em] text-slate-900 select-all text-center py-2 bg-white rounded-lg border border-slate-100">
+                                {auction.deliveryOtpCode}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* OTP البائع */}
+                          {isOwner && auction.payoutOtpCode && (
+                            <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                              <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">كود COD — اعطه لموظف الشركة</p>
+                              <div className="text-3xl font-black tracking-[0.3em] text-slate-900 select-all text-center py-2 bg-white rounded-lg border border-slate-100">
+                                {auction.payoutOtpCode}
+                              </div>
+                            </div>
+                          )}
+
+                          {!auction.deliveryOtpCode && !auction.payoutOtpCode && (
+                            <p className="text-sm text-slate-500 text-center py-2">لا يوجد كود متاح حالياً.</p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              {auction.deliveryMode === "courier" && auction.deliveryOrder && (
+                <div className="mt-4 rounded-2xl overflow-hidden border border-slate-200">
+                  {/* Header */}
+                  <div className="bg-gradient-to-l from-slate-800 to-slate-700 px-4 py-3 flex items-center gap-2">
+                    <div className="p-1.5 bg-white/10 rounded-lg">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <span className="text-white font-black text-sm">حالة التوصيل</span>
+                  </div>
+                  <div className="bg-white p-4 space-y-2.5">
+
+                    <div className="text-sm font-bold">
+                      {(() => {
+                        const order = auction.deliveryOrder;
+                        const status = order?.status;
+
+                        const reason =
+                          order?.failureReason ||
+                          auction.deliveryPenaltyReason ||
+                          "";
+
+                        const label =
+                          deliveryFailureReasonLabel[reason] ||
+                          reason ||
+                          "سبب الفشل غير محدد";
+
+                        const sellerReasons = ["SELLER_NO_SHOW", "SELLER_NOT_READY"];
+                        const buyerReasons = [
+                          "BUYER_NO_SHOW",
+                          "BUYER_REFUSED",
+                          "BUYER_DID_NOT_RECEIVE",
+                          "BUYER_UNREACHABLE",
+                          "WRONG_ADDRESS",
+                        ];
+
+                        const isSellerFault = sellerReasons.includes(reason);
+                        const isBuyerFault = buyerReasons.includes(reason);
+
+                        const isSeller =
+                          user &&
+                          auction.seller &&
+                          String(auction.seller._id || auction.seller) === String(user._id);
+
+                        const isWinner =
+                          user &&
+                          auction.winner &&
+                          String(auction.winner._id || auction.winner) === String(user._id);
+
+                        switch (status) {
+                          case "READY_FOR_PICKUP":
+                            return (
+                              <span className="text-blue-600">
+                                📦 بانتظار استلام الطلب من البائع
+                              </span>
+                            );
+
+                          case "PICKED_UP":
+                            return (
+                              <span className="text-indigo-600">
+                                🚚 تم استلام الطلب من البائع
+                                {order?.agentUser && " وتحديد مندوب التوصيل"}
+                              </span>
+                            );
+
+                          case "DELIVERED":
+                            return (
+                              <span className="text-green-600">
+                                ✅ تم تسليم الطلب للمشتري
+                              </span>
+                            );
+
+                          case "COD_PAID_TO_SELLER":
+                            return (
+                              <span className="text-emerald-600">
+                                💰 تم تسليم المبلغ للبائع — الصفقة مكتملة
+                              </span>
+                            );
+
+                          case "DELIVERY_FAILED": {
+                            // ===== البائع مخطئ =====
+                            if (isSellerFault) {
+                              if (isSeller) {
+                                return (
+                                  <span className="text-red-600">
+                                    ❌ فشل التوصيل بسببك ({label}) — {auction.penaltyApplied ? "تم تطبيق العقوبة" : "قد يتم تطبيق عقوبة"}
+                                  </span>
+                                );
+                              }
+
+                              if (isWinner) {
+                                return (
+                                  <span className="text-orange-600">
+                                    ⚠️ فشل التوصيل بسبب البائع ({label}) — {auction.penaltyApplied ? "تم إعادة عربونك" : "سيتم إرجاع عربونك"}
+                                  </span>
+                                );
+                              }
+                            }
+
+                            // ===== المشتري مخطئ =====
+                            if (isBuyerFault) {
+                              if (isWinner) {
+                                return (
+                                  <span className="text-red-600">
+                                    ❌ فشل التوصيل بسببك ({label}) — {auction.penaltyApplied ? "تم تطبيق العقوبة" : "قد يتم تطبيق عقوبة"}
+                                  </span>
+                                );
+                              }
+
+                              if (isSeller) {
+                                return (
+                                  <span className="text-orange-600">
+                                    ⚠️ فشل التوصيل بسبب المشتري ({label}) — {auction.penaltyApplied ? "تم إعادة عربونك" : "سيتم إرجاع عربونك"}
+                                  </span>
+                                );
+                              }
+                            }
+
+                            // ===== شركة التوصيل =====
+                            if (reason === "COURIER_ISSUE") {
+                              return (
+                                <span className="text-yellow-600">
+                                  🚚 مشكلة لوجستية — سيتم إعادة المحاولة بدون عقوبات
+                                </span>
+                              );
+                            }
+
+                            return (
+                              <span className="text-red-600">
+                                ❌ {label}
+                              </span>
+                            );
+                          }
+
+                          default:
+                            return status;
+                        }
+                      })()}
+                    </div>
+                    {auction.penaltyApplied && (auction.deliveryOrder?.status === "DELIVERY_FAILED") ? (
+                      // ✅ رسالة ما بعد تطبيق العقوبة
+                      (() => {
+                        const reason = auction.deliveryPenaltyReason || (auction.deliveryOrder as any)?.failureReason || "";
+                        const SELLER_FAULTS = ["SELLER_NO_SHOW", "SELLER_NOT_READY"];
+                        const BUYER_FAULTS = ["BUYER_NO_SHOW", "BUYER_REFUSED", "BUYER_DID_NOT_RECEIVE", "BUYER_UNREACHABLE", "WRONG_ADDRESS"];
+                        const iAmFault = (SELLER_FAULTS.includes(reason) && isSeller) || (BUYER_FAULTS.includes(reason) && isWinner);
+
+                        return iAmFault ? (
+                          <div className="mt-3 rounded-xl bg-slate-800 text-white p-4 flex items-start gap-3">
+                            <span className="text-2xl shrink-0">📋</span>
+                            <div>
+                              <p className="font-black text-sm mb-0.5">تم إغلاق هذا المزاد</p>
+                              <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                                تُذكّرك المنصة بأهمية الالتزام بالصفقات بعد الفوز. الانسحاب أو التغيب يضرّ بالثقة ويؤدي إلى عقوبات. نأمل أن تكون التجربة القادمة أفضل.
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-3 rounded-xl bg-emerald-50 border border-emerald-100 p-4 flex items-start gap-3">
+                            <span className="text-2xl shrink-0">✅</span>
+                            <div>
+                              <p className="font-black text-sm text-emerald-800 mb-0.5">تم معالجة الصفقة</p>
+                              <p className="text-xs text-emerald-700 leading-relaxed font-medium">
+                                تم إغلاق هذا المزاد وإعادة عربونك. شكراً لالتزامك — هذا ما يبني الثقة في المنصة.
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <div className="space-y-2">
+                        {Number(auction.deliveryOrder.deliveryFee || 0) > 0 && (
+                          <div className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
+                            <span className="text-xs font-bold text-slate-500">🚚 أجرة التوصيل</span>
+                            <span className="text-xs font-black text-slate-800">{Number(auction.deliveryOrder.deliveryFee || 0).toLocaleString()} د.ع</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
+                          <span className="text-xs font-bold text-slate-500">💰 مستحق البائع</span>
+                          <span className="text-xs font-black text-slate-800">{Number(auction.currentPrice || 0).toLocaleString()} د.ع</span>
+                        </div>
+                        <div className="flex items-center justify-between bg-emerald-50 rounded-xl px-3 py-2 border border-emerald-100">
+                          <span className="text-xs font-bold text-emerald-700">🧾 إجمالي المشتري</span>
+                          <span className="text-xs font-black text-emerald-800">{(Number(auction.currentPrice || 0) + Number(auction.deliveryOrder.deliveryFee || 0)).toLocaleString()} د.ع</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+
+              {/* نظام الاعتراض الذكي (Dispute System) */}
+              {auction.deliveryOrder?.status === "DELIVERY_FAILED" && !auction.penaltyApplied && (
+                <>
+                  {/* 1. للمتهم قبل الاعتراض (إظهار النموذج) */}
+                  {!auction.isDisputed && ((isSellerFault && isSeller) || (isBuyerFault && isWinner)) && (
+                    <div className="mt-6 rounded-2xl border-2 border-rose-200 bg-rose-50/50 p-5 shadow-sm relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-1.5 h-full bg-rose-500"></div>
+                      <div className="flex items-start gap-3 mb-4">
+                        <AlertTriangle className="w-6 h-6 text-rose-600 shrink-0 mt-0.5" />
+                        <div>
+                          <h4 className="font-black text-rose-800 text-lg">تنبيه عاجل: فشل التوصيل بسببك</h4>
+                          <p className="text-sm text-rose-700 mt-1 font-medium leading-relaxed">
+                            أفاد مندوب التوصيل بأن فشل إتمام الصفقة كان بسببك. سيتم مصادرة عربونك وإلغاء المزاد نهائياً خلال 24 ساعة. إذا كان هذا الإدعاء غير صحيح أو حدث خطأ، يرجى تقديم اعتراضك فوراً.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="bg-white rounded-xl p-1 border border-rose-100">
+                        <textarea
+                          value={disputeReasonText}
+                          onChange={(e) => setDisputeReasonText(e.target.value)}
+                          placeholder="اكتب سبب اعتراضك بوضوح (مثال: المندوب لم يتصل بي، البائع لم يسلم القطعة...)"
+                          className="w-full text-sm font-medium p-3 resize-none outline-none bg-transparent min-h-[80px]"
+                        />
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                        <span className="text-xs font-bold text-rose-500 bg-rose-100 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" /> المهلة: 24 ساعة فقط
+                        </span>
+
+                        <button
+                          onClick={handleDispute}
+                          disabled={disputeLoading || disputeReasonText.trim().length < 5}
+                          className="flex-1 sm:flex-none px-6 py-2.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-black rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2"
+                        >
+                          {disputeLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "تقديم الاعتراض ✋"}
+                        </button>
+                      </div>
+
+                      {disputeSuccessMessage && (
+                        <div className="mt-3 text-sm font-bold text-emerald-600 bg-emerald-50 p-2.5 rounded-lg border border-emerald-100">
+                          {disputeSuccessMessage}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 2. للمتهم بعد الاعتراض (رسالة قيد المراجعة) */}
+                  {auction.isDisputed && ((isSellerFault && isSeller) || (isBuyerFault && isWinner)) && (
+                    <div className="mt-6 rounded-2xl border bg-amber-50 p-4 flex items-center gap-3">
+                      <div className="p-2 bg-amber-100 rounded-xl shrink-0">
+                        <FileText className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-black text-amber-800 text-sm">اعتراضك قيد المراجعة</h4>
+                        <p className="text-xs text-amber-700 mt-0.5 font-bold">
+                          تم إيقاف الغرامة مؤقتاً. الإدارة تقوم حالياً بمراجعة الشكوى مع مندوب التوصيل وسنرسل لك النتيجة قريباً.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+              {/* COMPACT BIDS FEED WAS MOVED TO ACTION PANEL */}
+            </div>
+          </div>
+        </div> {/* نهاية الشبكة الثنائية (الصور + صندوق المزايدة) */}
+
+        {canRate && !alreadyRated && (
+          <div id="rating-section" className="mt-12 lg:mt-16 bg-white/70 backdrop-blur-md p-8 rounded-[2.5rem] border border-slate-200/50 shadow-xl shadow-slate-200/30 scroll-mt-32">
+            <div className="flex items-center gap-3 mb-8">
+              <span className="p-3 bg-gradient-to-br from-yellow-100 to-amber-50 rounded-2xl text-amber-500 shadow-sm border border-yellow-200/50">
+                <Star className="w-6 h-6 fill-current" />
+              </span>
+              <h3 className="text-2xl font-black text-slate-800 tracking-tight">
+                قيّم الصفقة
+              </h3>
+            </div>
+
+            <div className="space-y-8">
+              {/* النجوم */}
+              <div>
+                <p className="text-sm font-bold text-slate-500 mb-3">حدد التقييم (من 1 إلى 5)</p>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setScore(n)}
+                      className={`relative w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all duration-300 transform hover:-translate-y-1 ${score === n
+                        ? "bg-gradient-to-br from-yellow-400 to-amber-500 text-white shadow-lg shadow-amber-500/30 border-none scale-105"
+                        : score >= n
+                          ? "bg-yellow-50 text-amber-400 border border-yellow-200 hover:bg-yellow-100"
+                          : "bg-slate-50 text-slate-300 border border-slate-200 hover:bg-slate-100"
+                        }`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* الأسباب */}
+              <div>
+                <p className="text-sm font-bold text-slate-500 mb-3">ما هي أبرز الأسباب؟</p>
+                <div className="flex flex-wrap gap-2.5">
+                  {RATING_REASONS[role].map((r) => {
+                    const isChecked = reasons.includes(r.key);
+                    return (
+                      <label
+                        key={r.key}
+                        className={`cursor-pointer select-none px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 border ${isChecked
+                          ? "bg-slate-900 border-slate-900 text-white shadow-md shadow-slate-900/20"
+                          : "bg-white border-slate-200 text-slate-600 hover:border-slate-400 hover:bg-slate-50"
+                          }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="hidden"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) setReasons((prev) => [...prev, r.key]);
+                            else setReasons((prev) => prev.filter((x) => x !== r.key));
+                          }}
+                        />
+                        {r.label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* التعليق */}
+              <div className={`transition-all duration-500 overflow-hidden ${score <= 2 || comment ? "max-h-40 opacity-100" : "max-h-0 opacity-0"}`}>
+                <p className="text-sm font-bold text-slate-500 mb-2">تعليق إضافي {(score <= 2) && <span className="text-rose-500 text-xs bg-rose-50 px-2 py-0.5 rounded-md ml-2">مطلوب</span>}</p>
+                <textarea
+                  className="w-full border-2 border-slate-200 bg-white p-4 rounded-2xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none resize-none text-sm font-medium h-28"
+                  placeholder="اكتب تعليقك هنا لمعرفة سبب تجربتك..."
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                />
+              </div>
+
+              {/* زر الإرسال */}
+              <div className="pt-4">
+                <button
+                  disabled={
+                    ratingLoading ||
+                    score < 1 ||
+                    reasons.length === 0 ||
+                    (score <= 2 && comment.trim().length < 5)
+                  }
+                  onClick={submitRating}
+                  className="w-full sm:w-auto px-10 py-4 bg-gradient-to-r from-primary to-primary-light text-white font-black rounded-xl hover:shadow-lg hover:shadow-primary/30 transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+                >
+                  {ratingLoading ? "جارٍ الإرسال..." : "تأكيد وإرسال التقييم"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+
+
+        {/* ===== الأوسمة السفلية والتقييمات ===== */}
+        <div className="mt-12 bg-surface p-8 rounded-[2.5rem] border border-slate-200/60 shadow-md shadow-slate-200/30">
+
+          {/* badges block */}
+          <div className={`flex flex-wrap gap-3 ${isEnded ? "mb-8 pb-6 border-b border-slate-100" : ""}`}>
+            {/* المزاد جارٍ */}
+            {auction.status === "ACTIVE" && (
+              <div className="flex items-center gap-4 bg-yellow-50/50 p-2 pl-4 rounded-2xl border border-yellow-100/60 w-full sm:w-auto shadow-sm">
+                <span className="flex items-center gap-2 text-sm font-black text-yellow-700">
+                  <span className="w-2.5 h-2.5 bg-yellow-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(234,179,8,0.5)]" />
+                  المزاد جارٍ
+                </span>
+                <span className="text-sm font-black text-slate-700 bg-white px-3 py-1.5 rounded-xl shadow-sm border border-yellow-100/50 tabular-nums">
+                  ⏳ {timeLeft}
+                </span>
+              </div>
+            )}
+
+            {/* تمت الصفقة */}
+            {normalizedStatus === "ended" && auction.winner && (
+              <span className="px-5 py-2 text-sm font-black tracking-wide rounded-2xl bg-amber-50 text-amber-700 border border-amber-200/60 shadow-sm flex items-center gap-2">
+                <Check className="w-4 h-4" /> المزاد انتهى بانتظار حسم الصفقة
+              </span>
+            )}
+
+            {isDealSuccess && auction.winner && (
+              <span className="px-5 py-2 text-sm font-black tracking-wide rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200/60 shadow-sm flex items-center gap-2">
+                <Check className="w-4 h-4" /> تمت الصفقة
+              </span>
+            )}
+
+            {isDealFailed && auction.winner && (
+              <span className="px-5 py-2 text-sm font-black tracking-wide rounded-2xl bg-rose-50 text-rose-700 border border-rose-200/60 shadow-sm flex items-center gap-2">
+                <Check className="w-4 h-4" /> فشلت الصفقة
+              </span>
+            )}
+
+            {/* الفائز */}
+            {isEnded && auction.winner && (
+              <span className="px-5 py-2 text-sm font-bold rounded-2xl bg-slate-50 text-slate-700 border border-slate-200 shadow-sm">
+                الفائز: <span className="font-black text-slate-900">{auction.winner?.name || "مستخدم"}</span>
+              </span>
+            )}
+          </div>
+
+          {/* قائمة التقييمات مع التعليقات (تُخفى أو تظهر حسب حالة المزاد) */}
+          {isDealResolved && (
+            <div>
+              <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-slate-400" /> التقييمات
+              </h3>
+
+              {ratingsLoading && (
+                <div className="flex justify-center py-10">
+                  <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-400 rounded-full animate-spin"></div>
+                </div>
+              )}
+
+              {!ratingsLoading && ratings.length === 0 && (
+                <div className="text-center py-12 bg-slate-50 rounded-3xl border border-dashed border-slate-200">
+                  <div className="text-slate-400 mb-2"><MessageSquare className="w-8 h-8 mx-auto opacity-50" /></div>
+                  <h4 className="font-bold text-slate-600">لا توجد تقييمات</h4>
+                  <p className="text-xs text-slate-400 mt-1">لم يقم أحد بتقييم هذه الصفقة حتى الآن.</p>
+                </div>
+              )}
+
+              {!ratingsLoading && ratings.length > 0 && averageRating && (
+                <div className="flex items-center gap-4 mb-8 bg-amber-50/50 p-4 rounded-2xl w-fit border border-amber-100/50">
+                  <div className="flex gap-1 text-amber-500">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} className={`w-6 h-6 ${i < Math.round(Number(averageRating)) ? "fill-current" : "fill-slate-200 text-slate-200"}`} />
+                    ))}
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-black text-3xl text-slate-800 tracking-tight">
+                      {averageRating}
+                    </span>
+                    <span className="text-slate-500 text-sm font-bold bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-sm">
+                      {ratings.length} تقييم
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div className="mt-8 space-y-4">
+                  <div className="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100/60">
+                    <div className="w-12 h-12 bg-slate-200 rounded-xl flex items-center justify-center font-black text-slate-500 shrink-0">
+                      {(auction.owner?.name?.[0] || 'ب').toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-400 mb-1">صاحب المزاد</p>
+                      <Link
+                        to={`/users/${typeof auction.owner === 'object' ? auction.owner._id : auction.owner}`}
+                        className="text-slate-800 font-bold hover:text-primary transition-colors hover:underline block mb-1"
+                      >
+                        {auction.owner?.name || 'مستخدم غير معروف'}
+                      </Link>
+
+                      {(() => {
+                        const displayRating = sellerRating || auction.owner?.rating;
+                        if (displayRating && displayRating.count > 0) {
+                          return (
+                            <div className="flex items-center gap-1.5 mt-1 bg-white px-2.5 py-1 rounded-lg border border-slate-200/60 w-fit shadow-sm">
+                              <RatingStars value={displayRating.average} />
+                              <span className="text-[11px] font-black text-slate-700">
+                                {Number(displayRating.average).toFixed(1)}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-medium">({displayRating.count})</span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
+                  </div>
+                </div>
+                {ratings.map((r) => (
+                  <div
+                    key={r._id}
+                    className="bg-white border border-slate-100 rounded-[1.5rem] p-5 shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-slate-500 uppercase">
+                          {(r.fromUser?.name || "U")[0]}
+                        </div>
+                        <div>
+                          <div className="font-black text-slate-800 flex items-center gap-2">
+                            {r.fromUser?.name || "مستخدم"}
+                            <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${r.role === "buyer_to_seller" ? "bg-blue-50 text-blue-600 border border-blue-100" : "bg-purple-50 text-purple-600 border border-purple-100"}`}>
+                              {r.role === "buyer_to_seller" ? "مشتري" : "بائع"}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-0.5 font-medium">إلى: {r.toUser?.name}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-0.5 text-amber-400">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star key={i} className={`w-4 h-4 ${i < r.score ? "fill-current" : "fill-slate-200 text-slate-200"}`} />
+                        ))}
+                      </div>
+                    </div>
+
+                    {r.comment && (
+                      <p className="text-slate-600 text-sm font-medium mb-4 pr-1">
+                        "{r.comment}"
+                      </p>
+                    )}
+
+                    {r.reasons?.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {r.reasons.map((rs: string, i: number) => {
+                          const key = rs.toLowerCase();
+                          const label = ratingReasonMap[key] || rs;
+                          return (
+                            <span
+                              key={i}
+                              className={`px-3 py-1 text-[11px] font-bold rounded-lg border bg-slate-50 text-slate-600 border-slate-200`}
+                            >
+                              {label}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        {/* ===== نهاية عرض التقييمات ===== */}
+        {/* ===== Courier Modal ===== */}
+        {showCourierModal && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="w-full max-w-md rounded-[2.5rem] bg-white p-8 shadow-2xl relative overflow-hidden border border-slate-100">
+
+              <div className="flex items-center justify-between mb-8">
+                <div className="text-xl font-black text-slate-800 flex items-center gap-2">
+                  <span className="bg-emerald-100 p-2 rounded-xl text-emerald-600">
+                    <Package className="w-5 h-5" />
+                  </span>
+                  اختيار شركة التوصيل
                 </div>
                 <button
-                  onClick={prevImage}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white backdrop-blur-md p-3 rounded-2xl shadow-lg transition-all text-slate-700 hover:text-primary active:scale-95"
+                  onClick={() => setShowCourierModal(false)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {courierErr && (
+                <div className="mb-6 rounded-2xl border border-rose-200/50 bg-rose-50/80 backdrop-blur-sm p-4 text-rose-600 text-sm font-bold flex gap-2">
+                  <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+                  <span>{courierErr}</span>
+                </div>
+              )}
+
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-2 ml-1">الشركة المتاحة للتوصيل المباشر</label>
+                  <div className="relative">
+                    <select
+                      value={selectedCompanyId}
+                      onChange={(e) => setSelectedCompanyId(e.target.value)}
+                      className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 font-bold text-slate-800 appearance-none focus:outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-sm"
+                    >
+                      <option value="" disabled>اختر شركة توصيل...</option>
+                      {courierCompanies.map(c => (
+                        <option key={c._id} value={c._id}>
+                          {c.name}{c.phone ? ` - ${c.phone}` : ""}{` - أجرة: ${Number(c.deliveryFee || 0).toLocaleString()} د.ع`}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                      <ChevronDown className="w-5 h-5" />
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  disabled={!selectedCompanyId || courierLoading}
+                  onClick={async () => {
+                    setCourierLoading(true);
+                    setCourierErr(null);
+                    try {
+                      await api.post(`/courier/orders/${auction._id}/create`, { companyId: selectedCompanyId });
+                      setShowCourierModal(false);
+                      setSelectedCompanyId("");
+                      await refreshAuction();
+                    } catch (e: any) {
+                      setCourierErr(e?.response?.data?.message || "فشل إنشاء طلب التوصيل");
+                    } finally {
+                      setCourierLoading(false);
+                    }
+                  }}
+                  className="w-full rounded-2xl bg-slate-900 hover:bg-slate-800 text-white py-4 font-black transition-all shadow-lg shadow-slate-900/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none active:scale-95 flex items-center justify-center gap-2"
+                >
+                  {courierLoading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <Check className="w-5 h-5" /> <span>تأكيد إنشاء طلب التوصيل</span>
+                    </>
+                  )}
+                </button>
+
+                <div className="text-center">
+                  <span className="text-[11px] font-bold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg inline-block border border-slate-100">
+                    🔒 سيتم إنشاء رموز OTP آمنة للمشتري وللبائع لضمان الاستلام.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {lightboxOpen && hasImages && (
+          <div
+            className="fixed inset-0 z-[70] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setLightboxOpen(false)}
+          >
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(false)}
+              className="absolute top-4 left-4 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {totalImages > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    prevImage();
+                  }}
+                  className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center"
                 >
                   <ChevronRight className="w-6 h-6" />
                 </button>
                 <button
-                  onClick={nextImage}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white backdrop-blur-md p-3 rounded-2xl shadow-lg transition-all text-slate-700 hover:text-primary active:scale-95"
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    nextImage();
+                  }}
+                  className="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center"
                 >
                   <ChevronLeft className="w-6 h-6" />
                 </button>
               </>
             )}
-          </div>
 
-          {totalImages > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {auction.images.map((img, idx) => (
-                <button
-                  key={`${img}-${idx}`}
-                  type="button"
-                  onClick={() => setActiveImageIndex(idx)}
-                  className={`relative shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition ${idx === activeImageIndex ? "border-primary" : "border-slate-200"
-                    }`}
-                >
-                  <img
-                    src={getImageUrl(img)}
-                    alt={`${auction.title}-${idx + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                </button>
-              ))}
+            <img
+              src={getImageUrl(auction.images?.[activeImageIndex] || auction.images?.[0])}
+              alt={auction.title}
+              className="max-h-[88vh] max-w-[94vw] object-contain rounded-2xl shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <div className="absolute bottom-5 right-1/2 translate-x-1/2 text-white/90 text-sm font-black bg-white/10 px-3 py-1.5 rounded-full">
+              {activeImageIndex + 1} / {totalImages}
             </div>
-          )}
-
-          <div className="bg-surface p-8 rounded-[2.5rem] border border-slate-200/60 shadow-sm">
-            <h2 className="text-xl font-black mb-6 flex items-center gap-2.5 text-slate-800">
-              <span className="p-2 bg-primary/10 text-primary rounded-xl">
-                <FileText className="w-5 h-5" />
-              </span>
-              الوصف
-            </h2>
-            <p className="text-slate-600 leading-relaxed font-medium text-lg">{auction.description}</p>
           </div>
-        </div>
+        )}
 
-        {/* القسم الأيسر: المزايدة والحالة */}
-        <div className="lg:col-span-5 relative">
-          <div className="bg-surface p-8 rounded-[2.5rem] border border-slate-200/60 shadow-xl shadow-slate-200/40 sticky top-24 h-full flex flex-col">
-            {/* ===== ULTRA COMPACT ACTION PANEL ===== */}
-            <div className="mt-4 bg-white border border-slate-200/60 rounded-3xl p-5 shadow-lg shadow-slate-200/40 relative overflow-hidden">
-              {/* LIVE Indicator & Viewers */}
-              <div className="flex items-center justify-between mb-5">
-                {isPending ? (
-                  <div className="flex items-center gap-2 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100">
-                    <Clock className="w-3.5 h-3.5 text-amber-500" />
-                    <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">تحت المراجعة</span>
-                  </div>
-                ) : isRejected ? (
-                  <div className="flex items-center gap-2 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-100">
-                    <X className="w-3.5 h-3.5 text-rose-500" />
-                    <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">تم الرفض</span>
-                  </div>
-                ) : !isEnded ? (
-                  <div className="flex items-center gap-2 bg-red-50 px-3 py-1 rounded-lg border border-red-100/50">
-                    <div className="relative flex items-center justify-center w-2 h-2">
-                      {isActive && <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping"></span>}
-                      <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${isActive ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]' : 'bg-slate-300'}`}></span>
-                    </div>
-                    <span className={`text-[10px] font-black tracking-widest uppercase ${isActive ? 'text-red-600' : 'text-slate-400'}`}>
-                      {isActive ? "LIVE" : "UPCOMING"}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">
-                    <span className="text-[10px] font-black text-slate-500">منتهي</span>
-                  </div>
-                )}
-
-                {isActive && (
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={toggleMute}
-                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg transition-colors"
-                      title={isMuted ? "تفعيل الصوت" : "كتم الصوت"}
-                    >
-                      {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                    </button>
-                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>{viewersCount} يشاهدون</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Price & Time Row */}
-              <div className="grid grid-cols-2 gap-3 mb-5">
-                {/* Price Box (Premium Indigo) */}
-                <div className={`flex flex-col justify-center rounded-2xl p-2.5 sm:p-3.5 relative overflow-hidden transition-all duration-300 ${isHotAuction ? 'bg-orange-50 border-orange-200 ring-2 ring-orange-500/20 shadow-lg shadow-orange-500/10' : 'bg-indigo-50/50 border-indigo-100'} ${priceFlash ? 'bg-indigo-100 border-indigo-300 shadow-inner scale-105' : ''}`}>
-                  {(priceFlash || isHotAuction) && <div className={`absolute inset-0 blur-xl ${isHotAuction ? 'bg-orange-400/20' : 'bg-indigo-400/10'}`}></div>}
-
-                  <div className="flex justify-between items-start mb-1 relative z-10">
-                    <div className="flex items-center gap-1.5">
-                      <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest ${isHotAuction ? 'text-orange-700' : 'text-indigo-700/60'}`}>
-                        {isEnded ? "السعر النهائي" : "أعلى عرض حالي"}
-                      </span>
-                      {isHotAuction && (
-                        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-orange-100 text-[8px] font-black text-orange-600 rounded-md animate-pulse border border-orange-200">
-                          <span>🔥</span>
-                          <span>مشتعل!</span>
-                        </div>
-                      )}
-                    </div>
-                    {!isEnded && (
-                      <span className={`text-[9px] font-black bg-white px-1.5 py-0.5 rounded border shadow-sm ${isHotAuction ? 'text-orange-600 border-orange-100' : 'text-indigo-600 border-indigo-100'}`}>
-                        +{auction.increment.toLocaleString()}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-baseline gap-1 relative z-10">
-                    <span className={`text-xl sm:text-2xl font-black tracking-tight leading-none whitespace-nowrap ${isHotAuction ? 'text-orange-900' : 'text-indigo-900'}`}>{displayedPrice.toLocaleString()}</span>
-                    <span className={`text-[9px] sm:text-[10px] font-bold shrink-0 ${isHotAuction ? 'text-orange-400' : 'text-indigo-400'}`}>د.ع</span>
-                  </div>
-
-                  {!isEnded && (
-                    <div className={`mt-1 text-[8px] font-bold relative z-10 italic ${isHotAuction ? 'text-orange-500/80' : 'text-indigo-400/70'}`}>الحد الأدنى للمزايدة القادمة</div>
-                  )}
-                </div>
-
-                {/* Time Box (Urgency Red/Orange Gradient) */}
-                {isPending || isRejected ? (
-                  <div className={`flex flex-col justify-center rounded-2xl p-2.5 sm:p-3.5 border ${isPending ? 'bg-amber-50 border-amber-100' : 'bg-rose-50 border-rose-100'}`}>
-                    <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-1 ${isPending ? 'text-amber-600' : 'text-rose-600'}`}>حالة المراجعة</span>
-                    <span className={`text-xs sm:text-sm font-black ${isPending ? 'text-amber-900' : 'text-rose-900'}`}>
-                      {isPending ? "في انتظار الموافقة" : "تم رفض المزاد"}
-                    </span>
-                  </div>
-                ) : !isDealResolved && auction.status !== "ENDED" ? (
-                  <div className={`flex flex-col justify-center rounded-2xl p-2.5 sm:p-3.5 relative overflow-hidden transition-all shadow-sm ${isLastMinutes ? 'bg-gradient-to-br from-orange-500 to-red-600 border-none shadow-orange-500/20' : 'bg-slate-900 border border-slate-800'}`}>
-                    <div className="flex justify-between items-start mb-1 relative z-10">
-                      <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest ${isLastMinutes ? 'text-white/80' : 'text-slate-400'}`}>
-                        {isLastMinutes ? "فرصة أخيرة!" : "الوقت المتبقي"}
-                      </span>
-                      {isExtensionWindow && (
-                        <span className="text-[8px] font-black bg-white/20 text-white px-1 rounded animate-pulse">
-                          تمديد تلقائي 🔄
-                        </span>
-                      )}
-                    </div>
-
-                    <div
-                      ref={timeRef}
-                      className={`text-[1.1rem] sm:text-[1.25rem] font-black tabular-nums tracking-tight leading-none relative z-10 whitespace-nowrap min-w-0 ${isLastMinutes ? 'text-white drop-shadow-md animate-pulse' : 'text-emerald-400'}`}
-                      style={{ fontVariantNumeric: "tabular-nums" }}
-                    ></div>
-
-                    {isExtensionWindow && (
-                      <div className="mt-1.5 text-[7px] sm:text-[8px] font-bold text-white/90 relative z-10 leading-tight">
-                        المزايدة الآن ستضيف +2 دقيقة للوقت
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex flex-col justify-center bg-slate-50 border border-slate-100 rounded-2xl p-2.5 sm:p-3.5">
-                    <span className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">حالة المزاد</span>
-                    <span className="text-xs sm:text-sm font-black text-slate-700">انتهى الوقت</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Action Button (The "Winning" Action - High Contrast) */}
-              {!isEnded && !isOwner && (
-                <button
-                  onClick={handlePlaceBid}
-                  disabled={isUpcoming || isPending || isRejected || bidLoading || bidCooldown > 0}
-                  className="w-full py-4.5 bg-gradient-to-r from-emerald-600 via-emerald-500 to-cyan-600 text-white rounded-2xl font-black text-sm flex flex-col items-center justify-center gap-1
-                    shadow-[0_10px_25px_-5px_rgba(16,185,129,0.4)] hover:shadow-[0_15px_30px_-5px_rgba(16,185,129,0.5)] hover:-translate-y-1 active:scale-[0.97] transition-all duration-300
-                    disabled:bg-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed border-transparent disabled:border-slate-200 border group"
-                >
-                  {bidLoading ? (
-                    <Loader2 className="animate-spin w-6 h-6" />
-                  ) : (
-                    <>
-                      {!isUpcoming && !isPending && !isRejected && bidCooldown <= 0 && (
-                        <span className="text-[10px] font-black opacity-90 uppercase tracking-[0.2em] mb-0.5 group-hover:scale-110 transition-transform">
-                          زايد الآن واربح! 🚀
-                        </span>
-                      )}
-                      <div className="flex items-center gap-2.5">
-                        <Gavel className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                        <span className="text-lg sm:text-xl tracking-wide">
-                          {isPending
-                            ? "في انتظار المراجعة"
-                            : isRejected
-                              ? "مرفوض"
-                              : isUpcoming
-                                ? "لم يبدأ بعد"
-                                : bidCooldown > 0
-                                  ? `انتظر ${bidCooldown}ث`
-                                  : `${(displayedPrice + auction.increment).toLocaleString()} د.ع`}
-                        </span>
-                      </div>
-                    </>
-                  )}
-                </button>
-              )}
-              {!isEnded && isOwner && (
-                <div className="w-full py-3.5 bg-slate-50 text-slate-500 rounded-2xl font-black text-xs flex items-center justify-center border border-slate-200 shadow-inner">
-                  أنت صاحب هذا المزاد
-                </div>
-              )}
-
-              {/* Admin Actions Panel (Floating or Static) */}
-              {isPending && isAdmin && (
-                <div className="mt-6 p-6 bg-slate-900 rounded-3xl border border-slate-800 shadow-2xl relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-2xl group-hover:bg-primary/20 transition-all"></div>
-
-                  <div className="relative z-10">
-                    <h3 className="text-white font-black text-sm mb-4 flex items-center gap-2">
-                      <Settings className="w-4 h-4 text-primary" /> لوحة تحكم الإدارة
-                    </h3>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        onClick={handleApprove}
-                        disabled={adminActionLoading}
-                        className="flex items-center justify-center gap-2 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all disabled:opacity-50"
-                      >
-                        {adminActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                        قبول ونشر
-                      </button>
-                      <button
-                        onClick={() => setRejectModalOpen(true)}
-                        disabled={adminActionLoading}
-                        className="flex items-center justify-center gap-2 py-3.5 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-2xl font-black text-xs active:scale-95 transition-all disabled:opacity-50"
-                      >
-                        <XCircle className="w-4 h-4 text-rose-400" />
-                        رفض المزاد
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Deposit Info Footer - Only show if user hasn't bid or is not logged in */}
-              {!isEnded && (!user || !uniqueBids.some(b => b.bidderId === getUserId(user))) && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-100">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-bold text-slate-400 mb-0.5">عربون الدخول</span>
-                    <span className="text-sm font-black text-slate-700 leading-none">{(auction.depositAmount || 0).toLocaleString()} <span className="text-[9px] text-slate-400">د.ع</span></span>
-                  </div>
-                  <div className="h-6 w-px bg-slate-200"></div>
-                  <div className="flex flex-col text-left">
-                    <span className="text-[10px] font-bold text-slate-400 mb-0.5">الزيادة الثابتة</span>
-                    <span className="text-sm font-black text-slate-700 leading-none">{(auction.increment || 0).toLocaleString()} <span className="text-[9px] text-slate-400">د.ع</span></span>
-                  </div>
-                </div>
-              )}
-
-              {/* COMPACT BIDS FEED & WINNER */}
-              {!isEnded && uniqueBids.length > 0 && (
-                <div className="mt-6 border-t border-slate-100 pt-5">
-                  <h4 className="flex items-center justify-between text-sm font-black text-slate-800 mb-4">
-                    <span className="flex items-center gap-2">
-                      <History className="w-4 h-4 text-emerald-600" />
-                      أعلى المزايدين
-                    </span>
-                    <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded-md">{uniqueBids.length} منافسين</span>
-                  </h4>
-                  <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-                    {uniqueBids.slice(0, 5).map((b, idx) => {
-                      const isMe = b.bidderId === getUserId(user);
-                      const isFirst = idx === 0;
-                      return (
-                        <div key={b.bidderId} className={`flex items-center justify-between p-3 rounded-2xl border ${isFirst ? 'bg-gradient-to-r from-emerald-50 to-white border-emerald-200 shadow-sm' : 'bg-slate-50 border-slate-100'}`}>
-                          <div className="flex items-center gap-3">
-                            <div className={`flex items-center justify-center w-8 h-8 rounded-full font-black text-xs ${isFirst ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
-                              {isFirst ? '👑' : `#${idx + 1}`}
-                            </div>
-                            <div className="flex flex-col">
-                              <span className={`text-sm font-bold ${isFirst ? 'text-emerald-900' : 'text-slate-700'}`}>
-                                {isMe ? (isFirst ? "أنت المتصدر! 🥇" : "مزايدتك (تم تجاوزك)") : maskUsername(b.bid.bidder?.name || "")}
-                              </span>
-                              <span className="text-[10px] text-slate-400 font-medium">{b.count} مزايدات</span>
-                            </div>
-                          </div>
-                          <div className={`font-black tracking-tight ${isFirst ? 'text-emerald-700 text-[15px]' : 'text-slate-800 text-[13px]'}`}>
-                            {b.bid.amount.toLocaleString()} <span className="text-[10px] opacity-70">د.ع</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {isEnded && auction.winner && !isDealFailed && (
-                <div className="mt-6 border-t border-emerald-100 pt-5 flex flex-col gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">🏆</span>
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-black tracking-wider text-emerald-600 uppercase">الفائز بالمزاد</span>
-                      <span className="text-lg font-black text-emerald-900">
-                        {isMeWinner ? "أنت الفائز!" : maskUsername(auction.winner.name)}
-                      </span>
-                    </div>
-                  </div>
-                  {isOwner && !isMeWinner && auction.winner.phone && (
-                    <div className="pt-3 border-t border-emerald-200/50 flex gap-2">
-                      <a href={`https://wa.me/${auction.winner.phone.replace(/^0/, "964")}`} target="_blank" className="flex-1 bg-[#25D366] hover:bg-[#20b358] text-white text-[11px] font-black py-2 rounded-xl text-center transition-colors">💬 واتساب</a>
-                      <a href={`tel:${auction.winner.phone}`} className="flex-1 bg-emerald-800 hover:bg-emerald-900 text-white text-[11px] font-black py-2 rounded-xl text-center transition-colors">📞 اتصال</a>
-                    </div>
-                  )}
-                  {isMeWinner && auction.seller?.phone && (
-                    <div className="pt-3 border-t border-emerald-200/50">
-                      <p className="text-[11px] font-bold text-emerald-800 mb-2">تواصل مع البائع لإتمام الصفقة:</p>
-                      <div className="flex gap-2">
-                        <a href={`https://wa.me/${auction.seller.phone.replace(/\D/g, "")}`} target="_blank" className="flex-1 bg-[#25D366] hover:bg-[#20b358] text-white text-[11px] font-black py-2 rounded-xl text-center transition-colors">💬 واتساب</a>
-                        <a href={`tel:${auction.seller.phone}`} className="flex-1 bg-emerald-800 hover:bg-emerald-900 text-white text-[11px] font-black py-2 rounded-xl text-center transition-colors">📞 اتصال</a>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {error && (
-              <div className="mt-4 text-rose-600 bg-rose-50 p-3 rounded-xl flex items-center gap-2 text-sm">
-
-                <AlertTriangle />
-                {error}
-              </div>
-            )}
-
-            {normalizedStatus === "ended" && isOwner && auction.winner && auction.deliveryMode !== "courier" && !isDealResolved && (
-              <button
-                onClick={() => { setShowCourierModal(true); setCourierErr(null); loadCourierCompanies(); }}
-                className="block w-full text-center mt-3 bg-slate-900 hover:bg-slate-800 text-white py-3 rounded-xl font-black"
-              >
-                طلب توصيل (COD + OTP)
-              </button>
-            )}
-
-            {/* رسالة للبائع قبل ظهور OTP الدفع */}
-            {isOwner &&
-              normalizedStatus === "ended" &&
-              auction.deliveryMode === "courier" &&
-              !auction.payoutOtpCode && !isDealResolved && (
-                <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/60 p-4 flex items-start gap-3">
-                  <span className="text-2xl shrink-0 mt-0.5">📦</span>
-                  <div>
-                    <p className="font-black text-amber-900 text-sm mb-1">الطلب في طريقه إلى المشتري</p>
-                    <p className="text-xs text-amber-700 leading-relaxed font-medium">
-                      راح يطلعلك بعد ما يستلم االمشتري البضاعة رمز استلام الفلوس من شركة التوصيل، تروح للشركة تستلم فلوسك بالبداية بعدين تنطي الرقم.
-                    </p>
-                    <div className="mt-2 p-2 bg-rose-50 border border-rose-100 rounded-lg">
-                      <p className="text-[11px] text-rose-600 font-black">
-                        ⚠️ تحذير: لاتنطي الرقم بدون ماتتاكد من فلوسك، غير هيج المنصة مو مسؤولة.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-            {/* ===== Courier OTP (ظهر فقط لصاحبه من الباكند) ===== */}
-            {normalizedStatus === "ended" &&
-              auction.deliveryMode === "courier" &&
-              (isOwner || isWinner) && !isDealResolved && (
-                <div className="mt-4 rounded-2xl overflow-hidden border border-blue-100">
-                  {/* Header */}
-                  <div className="bg-gradient-to-l from-blue-600 to-indigo-600 px-4 py-3 flex items-center gap-2">
-                    <div className="p-1.5 bg-white/20 rounded-lg">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
-                    </div>
-                    <span className="text-white font-black text-sm">كود التسليم عبر شركة (OTP)</span>
-                  </div>
-
-                  {/* OTP codes */}
-                  <div className="bg-white p-4 space-y-3">
-                    {!isDealResolved && (
-                      <>
-                        {/* OTP المشتري */}
-                        {isWinner && auction.deliveryOtpCode && (
-                          <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
-                            <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">كود الاستلام — اعطه للمندوب</p>
-                            <div className="text-3xl font-black tracking-[0.3em] text-slate-900 select-all text-center py-2 bg-white rounded-lg border border-slate-100">
-                              {auction.deliveryOtpCode}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* OTP البائع */}
-                        {isOwner && auction.payoutOtpCode && (
-                          <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
-                            <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">كود COD — اعطه لموظف الشركة</p>
-                            <div className="text-3xl font-black tracking-[0.3em] text-slate-900 select-all text-center py-2 bg-white rounded-lg border border-slate-100">
-                              {auction.payoutOtpCode}
-                            </div>
-                          </div>
-                        )}
-
-                        {!auction.deliveryOtpCode && !auction.payoutOtpCode && (
-                          <p className="text-sm text-slate-500 text-center py-2">لا يوجد كود متاح حالياً.</p>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-            {auction.deliveryMode === "courier" && auction.deliveryOrder && (
-              <div className="mt-4 rounded-2xl overflow-hidden border border-slate-200">
-                {/* Header */}
-                <div className="bg-gradient-to-l from-slate-800 to-slate-700 px-4 py-3 flex items-center gap-2">
-                  <div className="p-1.5 bg-white/10 rounded-lg">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <span className="text-white font-black text-sm">حالة التوصيل</span>
-                </div>
-                <div className="bg-white p-4 space-y-2.5">
-
-                  <div className="text-sm font-bold">
-                    {(() => {
-                      const order = auction.deliveryOrder;
-                      const status = order?.status;
-
-                      const reason =
-                        order?.failureReason ||
-                        auction.deliveryPenaltyReason ||
-                        "";
-
-                      const label =
-                        deliveryFailureReasonLabel[reason] ||
-                        reason ||
-                        "سبب الفشل غير محدد";
-
-                      const sellerReasons = ["SELLER_NO_SHOW", "SELLER_NOT_READY"];
-                      const buyerReasons = [
-                        "BUYER_NO_SHOW",
-                        "BUYER_REFUSED",
-                        "BUYER_DID_NOT_RECEIVE",
-                        "BUYER_UNREACHABLE",
-                        "WRONG_ADDRESS",
-                      ];
-
-                      const isSellerFault = sellerReasons.includes(reason);
-                      const isBuyerFault = buyerReasons.includes(reason);
-
-                      const isSeller =
-                        user &&
-                        auction.seller &&
-                        String(auction.seller._id || auction.seller) === String(user._id);
-
-                      const isWinner =
-                        user &&
-                        auction.winner &&
-                        String(auction.winner._id || auction.winner) === String(user._id);
-
-                      switch (status) {
-                        case "READY_FOR_PICKUP":
-                          return (
-                            <span className="text-blue-600">
-                              📦 بانتظار استلام الطلب من البائع
-                            </span>
-                          );
-
-                        case "PICKED_UP":
-                          return (
-                            <span className="text-indigo-600">
-                              🚚 تم استلام الطلب من البائع
-                              {order?.agentUser && " وتحديد مندوب التوصيل"}
-                            </span>
-                          );
-
-                        case "DELIVERED":
-                          return (
-                            <span className="text-green-600">
-                              ✅ تم تسليم الطلب للمشتري
-                            </span>
-                          );
-
-                        case "COD_PAID_TO_SELLER":
-                          return (
-                            <span className="text-emerald-600">
-                              💰 تم تسليم المبلغ للبائع — الصفقة مكتملة
-                            </span>
-                          );
-
-                        case "DELIVERY_FAILED": {
-                          // ===== البائع مخطئ =====
-                          if (isSellerFault) {
-                            if (isSeller) {
-                              return (
-                                <span className="text-red-600">
-                                  ❌ فشل التوصيل بسببك ({label}) — {auction.penaltyApplied ? "تم تطبيق العقوبة" : "قد يتم تطبيق عقوبة"}
-                                </span>
-                              );
-                            }
-
-                            if (isWinner) {
-                              return (
-                                <span className="text-orange-600">
-                                  ⚠️ فشل التوصيل بسبب البائع ({label}) — {auction.penaltyApplied ? "تم إعادة عربونك" : "سيتم إرجاع عربونك"}
-                                </span>
-                              );
-                            }
-                          }
-
-                          // ===== المشتري مخطئ =====
-                          if (isBuyerFault) {
-                            if (isWinner) {
-                              return (
-                                <span className="text-red-600">
-                                  ❌ فشل التوصيل بسببك ({label}) — {auction.penaltyApplied ? "تم تطبيق العقوبة" : "قد يتم تطبيق عقوبة"}
-                                </span>
-                              );
-                            }
-
-                            if (isSeller) {
-                              return (
-                                <span className="text-orange-600">
-                                  ⚠️ فشل التوصيل بسبب المشتري ({label}) — {auction.penaltyApplied ? "تم إعادة عربونك" : "سيتم إرجاع عربونك"}
-                                </span>
-                              );
-                            }
-                          }
-
-                          // ===== شركة التوصيل =====
-                          if (reason === "COURIER_ISSUE") {
-                            return (
-                              <span className="text-yellow-600">
-                                🚚 مشكلة لوجستية — سيتم إعادة المحاولة بدون عقوبات
-                              </span>
-                            );
-                          }
-
-                          return (
-                            <span className="text-red-600">
-                              ❌ {label}
-                            </span>
-                          );
-                        }
-
-                        default:
-                          return status;
-                      }
-                    })()}
-                  </div>
-                  {auction.penaltyApplied && (auction.deliveryOrder?.status === "DELIVERY_FAILED") ? (
-                    // ✅ رسالة ما بعد تطبيق العقوبة
-                    (() => {
-                      const reason = auction.deliveryPenaltyReason || (auction.deliveryOrder as any)?.failureReason || "";
-                      const SELLER_FAULTS = ["SELLER_NO_SHOW", "SELLER_NOT_READY"];
-                      const BUYER_FAULTS = ["BUYER_NO_SHOW", "BUYER_REFUSED", "BUYER_DID_NOT_RECEIVE", "BUYER_UNREACHABLE", "WRONG_ADDRESS"];
-                      const iAmFault = (SELLER_FAULTS.includes(reason) && isSeller) || (BUYER_FAULTS.includes(reason) && isWinner);
-
-                      return iAmFault ? (
-                        <div className="mt-3 rounded-xl bg-slate-800 text-white p-4 flex items-start gap-3">
-                          <span className="text-2xl shrink-0">📋</span>
-                          <div>
-                            <p className="font-black text-sm mb-0.5">تم إغلاق هذا المزاد</p>
-                            <p className="text-xs text-slate-300 leading-relaxed font-medium">
-                              تُذكّرك المنصة بأهمية الالتزام بالصفقات بعد الفوز. الانسحاب أو التغيب يضرّ بالثقة ويؤدي إلى عقوبات. نأمل أن تكون التجربة القادمة أفضل.
-                            </p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="mt-3 rounded-xl bg-emerald-50 border border-emerald-100 p-4 flex items-start gap-3">
-                          <span className="text-2xl shrink-0">✅</span>
-                          <div>
-                            <p className="font-black text-sm text-emerald-800 mb-0.5">تم معالجة الصفقة</p>
-                            <p className="text-xs text-emerald-700 leading-relaxed font-medium">
-                              تم إغلاق هذا المزاد وإعادة عربونك. شكراً لالتزامك — هذا ما يبني الثقة في المنصة.
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })()
-                  ) : (
-                    <div className="space-y-2">
-                      {Number(auction.deliveryOrder.deliveryFee || 0) > 0 && (
-                        <div className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
-                          <span className="text-xs font-bold text-slate-500">🚚 أجرة التوصيل</span>
-                          <span className="text-xs font-black text-slate-800">{Number(auction.deliveryOrder.deliveryFee || 0).toLocaleString()} د.ع</span>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
-                        <span className="text-xs font-bold text-slate-500">💰 مستحق البائع</span>
-                        <span className="text-xs font-black text-slate-800">{Number(auction.currentPrice || 0).toLocaleString()} د.ع</span>
-                      </div>
-                      <div className="flex items-center justify-between bg-emerald-50 rounded-xl px-3 py-2 border border-emerald-100">
-                        <span className="text-xs font-bold text-emerald-700">🧾 إجمالي المشتري</span>
-                        <span className="text-xs font-black text-emerald-800">{(Number(auction.currentPrice || 0) + Number(auction.deliveryOrder.deliveryFee || 0)).toLocaleString()} د.ع</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-
-            {/* نظام الاعتراض الذكي (Dispute System) */}
-            {auction.deliveryOrder?.status === "DELIVERY_FAILED" && !auction.penaltyApplied && (
+        {/* نافذة الموافقة على شروط المزايدة */}
+        {auction && (
+          <TermsModal
+            isOpen={showBidTermsModal}
+            onClose={() => setShowBidTermsModal(false)}
+            title="تأكيد شروط المزايدة"
+            description={
               <>
-                {/* 1. للمتهم قبل الاعتراض (إظهار النموذج) */}
-                {!auction.isDisputed && ((isSellerFault && isSeller) || (isBuyerFault && isWinner)) && (
-                  <div className="mt-6 rounded-2xl border-2 border-rose-200 bg-rose-50/50 p-5 shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-1.5 h-full bg-rose-500"></div>
-                    <div className="flex items-start gap-3 mb-4">
-                      <AlertTriangle className="w-6 h-6 text-rose-600 shrink-0 mt-0.5" />
-                      <div>
-                        <h4 className="font-black text-rose-800 text-lg">تنبيه عاجل: فشل التوصيل بسببك</h4>
-                        <p className="text-sm text-rose-700 mt-1 font-medium leading-relaxed">
-                          أفاد مندوب التوصيل بأن فشل إتمام الصفقة كان بسببك. سيتم مصادرة عربونك وإلغاء المزاد نهائياً خلال 24 ساعة. إذا كان هذا الإدعاء غير صحيح أو حدث خطأ، يرجى تقديم اعتراضك فوراً.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl p-1 border border-rose-100">
-                      <textarea
-                        value={disputeReasonText}
-                        onChange={(e) => setDisputeReasonText(e.target.value)}
-                        placeholder="اكتب سبب اعتراضك بوضوح (مثال: المندوب لم يتصل بي، البائع لم يسلم القطعة...)"
-                        className="w-full text-sm font-medium p-3 resize-none outline-none bg-transparent min-h-[80px]"
-                      />
-                    </div>
-
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                      <span className="text-xs font-bold text-rose-500 bg-rose-100 px-3 py-1.5 rounded-lg flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5" /> المهلة: 24 ساعة فقط
-                      </span>
-
-                      <button
-                        onClick={handleDispute}
-                        disabled={disputeLoading || disputeReasonText.trim().length < 5}
-                        className="flex-1 sm:flex-none px-6 py-2.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-black rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2"
-                      >
-                        {disputeLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "تقديم الاعتراض ✋"}
-                      </button>
-                    </div>
-
-                    {disputeSuccessMessage && (
-                      <div className="mt-3 text-sm font-bold text-emerald-600 bg-emerald-50 p-2.5 rounded-lg border border-emerald-100">
-                        {disputeSuccessMessage}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* 2. للمتهم بعد الاعتراض (رسالة قيد المراجعة) */}
-                {auction.isDisputed && ((isSellerFault && isSeller) || (isBuyerFault && isWinner)) && (
-                  <div className="mt-6 rounded-2xl border bg-amber-50 p-4 flex items-center gap-3">
-                    <div className="p-2 bg-amber-100 rounded-xl shrink-0">
-                      <FileText className="w-5 h-5 text-amber-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-black text-amber-800 text-sm">اعتراضك قيد المراجعة</h4>
-                      <p className="text-xs text-amber-700 mt-0.5 font-bold">
-                        تم إيقاف الغرامة مؤقتاً. الإدارة تقوم حالياً بمراجعة الشكوى مع مندوب التوصيل وسنرسل لك النتيجة قريباً.
-                      </p>
-                    </div>
-                  </div>
-                )}
+                بمجرد وضع المزايدة، سيتم اقتطاع وحجز <strong>عربون دخول</strong> بقيمة ({(auction.depositAmount || 0).toLocaleString()} د.ع) من محفظتك لضمان جديتك في هذا المزاد.
               </>
-            )}
-            {/* COMPACT BIDS FEED WAS MOVED TO ACTION PANEL */}
-          </div>
-        </div>
-      </div> {/* نهاية الشبكة الثنائية (الصور + صندوق المزايدة) */}
+            }
+            termsList={[
+              "المزايدة تعتبر التزاماً قاطعاً بالشراء في حال رسو المزاد عليك.",
+              "سيتم خصم مبلغ العربون فور المزايدة ولن يتم استرداده إذا انسحبت بعد فوزك أو تهربت من إتمام عملية الدفع والتسليم عبر المنصة.",
+              "في حال خسارتك للمزاد، سيتم فك الحجز وإرجاع العربون إلى محفظتك فوراً.",
+              "يجب عليك الرد وإتمام الصفقة مع البائع خلال المدة المحددة بعد فوزك وإلا سيتم حظر حسابك ومصادرة العربون."
+            ]}
+            actionLabel={`موافق ومزايدة بـ ${(
+              (optimisticBid !== null ? optimisticBid : auction.currentPrice) + auction.increment
+            ).toLocaleString()} د.ع`}
+            onAccept={async () => {
+              const acceptedKey = `hasAcceptedBidTerms_${auction._id}`;
+              localStorage.setItem(acceptedKey, "true");
+              setShowBidTermsModal(false);
+              executeBid();
+            }}
+          />
+        )}
+        {/* Rejection Modal for Admins */}
+        {rejectModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg border border-slate-100 flex flex-col max-h-[90vh]">
+              <div className="p-8 overflow-y-auto custom-scrollbar">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center border border-rose-100">
+                    <XCircle className="w-6 h-6 text-rose-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900">تحديد أسباب الرفض</h3>
+                    <p className="text-sm font-medium text-slate-500">سيتم إبلاغ البائع وإعادة العربون له</p>
+                  </div>
+                </div>
 
-      {canRate && !alreadyRated && (
-        <div id="rating-section" className="mt-12 lg:mt-16 bg-white/70 backdrop-blur-md p-8 rounded-[2.5rem] border border-slate-200/50 shadow-xl shadow-slate-200/30 scroll-mt-32">
-          <div className="flex items-center gap-3 mb-8">
-            <span className="p-3 bg-gradient-to-br from-yellow-100 to-amber-50 rounded-2xl text-amber-500 shadow-sm border border-yellow-200/50">
-              <Star className="w-6 h-6 fill-current" />
-            </span>
-            <h3 className="text-2xl font-black text-slate-800 tracking-tight">
-              قيّم الصفقة
-            </h3>
-          </div>
-
-          <div className="space-y-8">
-            {/* النجوم */}
-            <div>
-              <p className="text-sm font-bold text-slate-500 mb-3">حدد التقييم (من 1 إلى 5)</p>
-              <div className="flex gap-2">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setScore(n)}
-                    className={`relative w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all duration-300 transform hover:-translate-y-1 ${score === n
-                      ? "bg-gradient-to-br from-yellow-400 to-amber-500 text-white shadow-lg shadow-amber-500/30 border-none scale-105"
-                      : score >= n
-                        ? "bg-yellow-50 text-amber-400 border border-yellow-200 hover:bg-yellow-100"
-                        : "bg-slate-50 text-slate-300 border border-slate-200 hover:bg-slate-100"
-                      }`}
-                  >
-                    ★
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* الأسباب */}
-            <div>
-              <p className="text-sm font-bold text-slate-500 mb-3">ما هي أبرز الأسباب؟</p>
-              <div className="flex flex-wrap gap-2.5">
-                {RATING_REASONS[role].map((r) => {
-                  const isChecked = reasons.includes(r.key);
-                  return (
-                    <label
-                      key={r.key}
-                      className={`cursor-pointer select-none px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 border ${isChecked
-                        ? "bg-slate-900 border-slate-900 text-white shadow-md shadow-slate-900/20"
-                        : "bg-white border-slate-200 text-slate-600 hover:border-slate-400 hover:bg-slate-50"
-                        }`}
-                    >
+                <div className="space-y-4 mb-8">
+                  {[
+                    "المزاد لا يصلح للنشر",
+                    "الصور غير واضحة أو غير كافية",
+                    "تفاصيل المزاد غير كاملة",
+                    "سعر المزاد غير منطقي",
+                    "محتوى مخالف للشروط والأحكام"
+                  ].map((reason) => (
+                    <label key={reason} className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
                       <input
                         type="checkbox"
-                        className="hidden"
-                        checked={isChecked}
+                        className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary"
+                        checked={rejectionReasons.includes(reason)}
                         onChange={(e) => {
-                          if (e.target.checked) setReasons((prev) => [...prev, r.key]);
-                          else setReasons((prev) => prev.filter((x) => x !== r.key));
+                          if (e.target.checked) {
+                            setRejectionReasons([...rejectionReasons, reason]);
+                          } else {
+                            setRejectionReasons(rejectionReasons.filter(r => r !== reason));
+                          }
                         }}
                       />
-                      {r.label}
+                      <span className="font-bold text-slate-700">{reason}</span>
                     </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* التعليق */}
-            <div className={`transition-all duration-500 overflow-hidden ${score <= 2 || comment ? "max-h-40 opacity-100" : "max-h-0 opacity-0"}`}>
-              <p className="text-sm font-bold text-slate-500 mb-2">تعليق إضافي {(score <= 2) && <span className="text-rose-500 text-xs bg-rose-50 px-2 py-0.5 rounded-md ml-2">مطلوب</span>}</p>
-              <textarea
-                className="w-full border-2 border-slate-200 bg-white p-4 rounded-2xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none resize-none text-sm font-medium h-28"
-                placeholder="اكتب تعليقك هنا لمعرفة سبب تجربتك..."
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-              />
-            </div>
-
-            {/* زر الإرسال */}
-            <div className="pt-4">
-              <button
-                disabled={
-                  ratingLoading ||
-                  score < 1 ||
-                  reasons.length === 0 ||
-                  (score <= 2 && comment.trim().length < 5)
-                }
-                onClick={submitRating}
-                className="w-full sm:w-auto px-10 py-4 bg-gradient-to-r from-primary to-primary-light text-white font-black rounded-xl hover:shadow-lg hover:shadow-primary/30 transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
-              >
-                {ratingLoading ? "جارٍ الإرسال..." : "تأكيد وإرسال التقييم"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-
-
-      {/* ===== الأوسمة السفلية والتقييمات ===== */}
-      <div className="mt-12 bg-surface p-8 rounded-[2.5rem] border border-slate-200/60 shadow-md shadow-slate-200/30">
-
-        {/* badges block */}
-        <div className={`flex flex-wrap gap-3 ${isEnded ? "mb-8 pb-6 border-b border-slate-100" : ""}`}>
-          {/* المزاد جارٍ */}
-          {auction.status === "ACTIVE" && (
-            <div className="flex items-center gap-4 bg-yellow-50/50 p-2 pl-4 rounded-2xl border border-yellow-100/60 w-full sm:w-auto shadow-sm">
-              <span className="flex items-center gap-2 text-sm font-black text-yellow-700">
-                <span className="w-2.5 h-2.5 bg-yellow-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(234,179,8,0.5)]" />
-                المزاد جارٍ
-              </span>
-              <span className="text-sm font-black text-slate-700 bg-white px-3 py-1.5 rounded-xl shadow-sm border border-yellow-100/50 tabular-nums">
-                ⏳ {timeLeft}
-              </span>
-            </div>
-          )}
-
-          {/* تمت الصفقة */}
-          {normalizedStatus === "ended" && auction.winner && (
-            <span className="px-5 py-2 text-sm font-black tracking-wide rounded-2xl bg-amber-50 text-amber-700 border border-amber-200/60 shadow-sm flex items-center gap-2">
-              <Check className="w-4 h-4" /> المزاد انتهى بانتظار حسم الصفقة
-            </span>
-          )}
-
-          {isDealSuccess && auction.winner && (
-            <span className="px-5 py-2 text-sm font-black tracking-wide rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200/60 shadow-sm flex items-center gap-2">
-              <Check className="w-4 h-4" /> تمت الصفقة
-            </span>
-          )}
-
-          {isDealFailed && auction.winner && (
-            <span className="px-5 py-2 text-sm font-black tracking-wide rounded-2xl bg-rose-50 text-rose-700 border border-rose-200/60 shadow-sm flex items-center gap-2">
-              <Check className="w-4 h-4" /> فشلت الصفقة
-            </span>
-          )}
-
-          {/* الفائز */}
-          {isEnded && auction.winner && (
-            <span className="px-5 py-2 text-sm font-bold rounded-2xl bg-slate-50 text-slate-700 border border-slate-200 shadow-sm">
-              الفائز: <span className="font-black text-slate-900">{auction.winner?.name || "مستخدم"}</span>
-            </span>
-          )}
-        </div>
-
-        {/* قائمة التقييمات مع التعليقات (تُخفى أو تظهر حسب حالة المزاد) */}
-        {isDealResolved && (
-          <div>
-            <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-slate-400" /> التقييمات
-            </h3>
-
-            {ratingsLoading && (
-              <div className="flex justify-center py-10">
-                <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-400 rounded-full animate-spin"></div>
-              </div>
-            )}
-
-            {!ratingsLoading && ratings.length === 0 && (
-              <div className="text-center py-12 bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-                <div className="text-slate-400 mb-2"><MessageSquare className="w-8 h-8 mx-auto opacity-50" /></div>
-                <h4 className="font-bold text-slate-600">لا توجد تقييمات</h4>
-                <p className="text-xs text-slate-400 mt-1">لم يقم أحد بتقييم هذه الصفقة حتى الآن.</p>
-              </div>
-            )}
-
-            {!ratingsLoading && ratings.length > 0 && averageRating && (
-              <div className="flex items-center gap-4 mb-8 bg-amber-50/50 p-4 rounded-2xl w-fit border border-amber-100/50">
-                <div className="flex gap-1 text-amber-500">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className={`w-6 h-6 ${i < Math.round(Number(averageRating)) ? "fill-current" : "fill-slate-200 text-slate-200"}`} />
                   ))}
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="font-black text-3xl text-slate-800 tracking-tight">
-                    {averageRating}
-                  </span>
-                  <span className="text-slate-500 text-sm font-bold bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-sm">
-                    {ratings.length} تقييم
-                  </span>
+
+                <div className="space-y-2 mb-8">
+                  <label className="text-xs font-black text-slate-500 uppercase tracking-widest">ملاحظة إضافية (اختياري)</label>
+                  <textarea
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all font-bold text-slate-700 h-24 resize-none"
+                    placeholder="اكتب ملاحظات إضافية للبائع هنا..."
+                    value={rejectionNote}
+                    onChange={(e) => setRejectionNote(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleReject}
+                    disabled={adminActionLoading || (rejectionReasons.length === 0 && !rejectionNote.trim())}
+                    className="flex-1 py-4 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-black shadow-lg shadow-rose-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {adminActionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                    تأكيد الرفض وإعادة العربون
+                  </button>
+                  <button
+                    onClick={() => setRejectModalOpen(false)}
+                    disabled={adminActionLoading}
+                    className="px-6 py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-black transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    إلغاء
+                  </button>
                 </div>
               </div>
-            )}
-
-            <div className="space-y-4">
-              <div className="mt-8 space-y-4">
-                <div className="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100/60">
-                  <div className="w-12 h-12 bg-slate-200 rounded-xl flex items-center justify-center font-black text-slate-500 shrink-0">
-                    {(auction.owner?.name?.[0] || 'ب').toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-400 mb-1">صاحب المزاد</p>
-                    <Link
-                      to={`/users/${typeof auction.owner === 'object' ? auction.owner._id : auction.owner}`}
-                      className="text-slate-800 font-bold hover:text-primary transition-colors hover:underline block mb-1"
-                    >
-                      {auction.owner?.name || 'مستخدم غير معروف'}
-                    </Link>
-
-                    {(() => {
-                      const displayRating = sellerRating || auction.owner?.rating;
-                      if (displayRating && displayRating.count > 0) {
-                        return (
-                          <div className="flex items-center gap-1.5 mt-1 bg-white px-2.5 py-1 rounded-lg border border-slate-200/60 w-fit shadow-sm">
-                            <RatingStars value={displayRating.average} />
-                            <span className="text-[11px] font-black text-slate-700">
-                              {Number(displayRating.average).toFixed(1)}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-medium">({displayRating.count})</span>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </div>
-                </div>
-              </div>
-              {ratings.map((r) => (
-                <div
-                  key={r._id}
-                  className="bg-white border border-slate-100 rounded-[1.5rem] p-5 shadow-sm hover:shadow-md transition-shadow"
-                >
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-black text-slate-500 uppercase">
-                        {(r.fromUser?.name || "U")[0]}
-                      </div>
-                      <div>
-                        <div className="font-black text-slate-800 flex items-center gap-2">
-                          {r.fromUser?.name || "مستخدم"}
-                          <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${r.role === "buyer_to_seller" ? "bg-blue-50 text-blue-600 border border-blue-100" : "bg-purple-50 text-purple-600 border border-purple-100"}`}>
-                            {r.role === "buyer_to_seller" ? "مشتري" : "بائع"}
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-slate-400 mt-0.5 font-medium">إلى: {r.toUser?.name}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-0.5 text-amber-400">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star key={i} className={`w-4 h-4 ${i < r.score ? "fill-current" : "fill-slate-200 text-slate-200"}`} />
-                      ))}
-                    </div>
-                  </div>
-
-                  {r.comment && (
-                    <p className="text-slate-600 text-sm font-medium mb-4 pr-1">
-                      "{r.comment}"
-                    </p>
-                  )}
-
-                  {r.reasons?.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {r.reasons.map((rs: string, i: number) => {
-                        const key = rs.toLowerCase();
-                        const label = ratingReasonMap[key] || rs;
-                        return (
-                          <span
-                            key={i}
-                            className={`px-3 py-1 text-[11px] font-bold rounded-lg border bg-slate-50 text-slate-600 border-slate-200`}
-                          >
-                            {label}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ))}
             </div>
           </div>
         )}
       </div>
-      {/* ===== نهاية عرض التقييمات ===== */}
-      {/* ===== Courier Modal ===== */}
-      {showCourierModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-md rounded-[2.5rem] bg-white p-8 shadow-2xl relative overflow-hidden border border-slate-100">
-
-            <div className="flex items-center justify-between mb-8">
-              <div className="text-xl font-black text-slate-800 flex items-center gap-2">
-                <span className="bg-emerald-100 p-2 rounded-xl text-emerald-600">
-                  <Package className="w-5 h-5" />
-                </span>
-                اختيار شركة التوصيل
-              </div>
-              <button
-                onClick={() => setShowCourierModal(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {courierErr && (
-              <div className="mb-6 rounded-2xl border border-rose-200/50 bg-rose-50/80 backdrop-blur-sm p-4 text-rose-600 text-sm font-bold flex gap-2">
-                <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-                <span>{courierErr}</span>
-              </div>
-            )}
-
-            <div className="space-y-6">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-2 ml-1">الشركة المتاحة للتوصيل المباشر</label>
-                <div className="relative">
-                  <select
-                    value={selectedCompanyId}
-                    onChange={(e) => setSelectedCompanyId(e.target.value)}
-                    className="w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 py-4 font-bold text-slate-800 appearance-none focus:outline-none focus:border-emerald-500 focus:bg-white transition-all shadow-sm"
-                  >
-                    <option value="" disabled>اختر شركة توصيل...</option>
-                    {courierCompanies.map(c => (
-                      <option key={c._id} value={c._id}>
-                        {c.name}{c.phone ? ` - ${c.phone}` : ""}{` - أجرة: ${Number(c.deliveryFee || 0).toLocaleString()} د.ع`}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                    <ChevronDown className="w-5 h-5" />
-                  </div>
-                </div>
-              </div>
-
-              <button
-                disabled={!selectedCompanyId || courierLoading}
-                onClick={async () => {
-                  setCourierLoading(true);
-                  setCourierErr(null);
-                  try {
-                    await api.post(`/courier/orders/${auction._id}/create`, { companyId: selectedCompanyId });
-                    setShowCourierModal(false);
-                    setSelectedCompanyId("");
-                    await refreshAuction();
-                  } catch (e: any) {
-                    setCourierErr(e?.response?.data?.message || "فشل إنشاء طلب التوصيل");
-                  } finally {
-                    setCourierLoading(false);
-                  }
-                }}
-                className="w-full rounded-2xl bg-slate-900 hover:bg-slate-800 text-white py-4 font-black transition-all shadow-lg shadow-slate-900/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none active:scale-95 flex items-center justify-center gap-2"
-              >
-                {courierLoading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                ) : (
-                  <>
-                    <Check className="w-5 h-5" /> <span>تأكيد إنشاء طلب التوصيل</span>
-                  </>
-                )}
-              </button>
-
-              <div className="text-center">
-                <span className="text-[11px] font-bold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg inline-block border border-slate-100">
-                  🔒 سيتم إنشاء رموز OTP آمنة للمشتري وللبائع لضمان الاستلام.
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {lightboxOpen && hasImages && (
-        <div
-          className="fixed inset-0 z-[70] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setLightboxOpen(false)}
-        >
-          <button
-            type="button"
-            onClick={() => setLightboxOpen(false)}
-            className="absolute top-4 left-4 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center"
-          >
-            <X className="w-5 h-5" />
-          </button>
-
-          {totalImages > 1 && (
-            <>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  prevImage();
-                }}
-                className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center"
-              >
-                <ChevronRight className="w-6 h-6" />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  nextImage();
-                }}
-                className="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center"
-              >
-                <ChevronLeft className="w-6 h-6" />
-              </button>
-            </>
-          )}
-
-          <img
-            src={getImageUrl(auction.images?.[activeImageIndex] || auction.images?.[0])}
-            alt={auction.title}
-            className="max-h-[88vh] max-w-[94vw] object-contain rounded-2xl shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          />
-          <div className="absolute bottom-5 right-1/2 translate-x-1/2 text-white/90 text-sm font-black bg-white/10 px-3 py-1.5 rounded-full">
-            {activeImageIndex + 1} / {totalImages}
-          </div>
-        </div>
-      )}
-
-      {/* نافذة الموافقة على شروط المزايدة */}
-      {auction && (
-        <TermsModal
-          isOpen={showBidTermsModal}
-          onClose={() => setShowBidTermsModal(false)}
-          title="تأكيد شروط المزايدة"
-          description={
-            <>
-              بمجرد وضع المزايدة، سيتم اقتطاع وحجز <strong>عربون دخول</strong> بقيمة ({(auction.depositAmount || 0).toLocaleString()} د.ع) من محفظتك لضمان جديتك في هذا المزاد.
-            </>
-          }
-          termsList={[
-            "المزايدة تعتبر التزاماً قاطعاً بالشراء في حال رسو المزاد عليك.",
-            "سيتم خصم مبلغ العربون فور المزايدة ولن يتم استرداده إذا انسحبت بعد فوزك أو تهربت من إتمام عملية الدفع والتسليم عبر المنصة.",
-            "في حال خسارتك للمزاد، سيتم فك الحجز وإرجاع العربون إلى محفظتك فوراً.",
-            "يجب عليك الرد وإتمام الصفقة مع البائع خلال المدة المحددة بعد فوزك وإلا سيتم حظر حسابك ومصادرة العربون."
-          ]}
-          actionLabel={`موافق ومزايدة بـ ${(
-            (optimisticBid !== null ? optimisticBid : auction.currentPrice) + auction.increment
-          ).toLocaleString()} د.ع`}
-          onAccept={async () => {
-            const acceptedKey = `hasAcceptedBidTerms_${auction._id}`;
-            localStorage.setItem(acceptedKey, "true");
-            setShowBidTermsModal(false);
-            executeBid();
-          }}
-        />
-      )}
-      {/* Rejection Modal for Admins */}
-      {rejectModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg border border-slate-100 flex flex-col max-h-[90vh]">
-            <div className="p-8 overflow-y-auto custom-scrollbar">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 bg-rose-50 rounded-2xl flex items-center justify-center border border-rose-100">
-                  <XCircle className="w-6 h-6 text-rose-500" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-black text-slate-900">تحديد أسباب الرفض</h3>
-                  <p className="text-sm font-medium text-slate-500">سيتم إبلاغ البائع وإعادة العربون له</p>
-                </div>
-              </div>
-
-              <div className="space-y-4 mb-8">
-                {[
-                  "المزاد لا يصلح للنشر",
-                  "الصور غير واضحة أو غير كافية",
-                  "تفاصيل المزاد غير كاملة",
-                  "سعر المزاد غير منطقي",
-                  "محتوى مخالف للشروط والأحكام"
-                ].map((reason) => (
-                  <label key={reason} className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
-                    <input
-                      type="checkbox"
-                      className="w-5 h-5 rounded border-slate-300 text-primary focus:ring-primary"
-                      checked={rejectionReasons.includes(reason)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setRejectionReasons([...rejectionReasons, reason]);
-                        } else {
-                          setRejectionReasons(rejectionReasons.filter(r => r !== reason));
-                        }
-                      }}
-                    />
-                    <span className="font-bold text-slate-700">{reason}</span>
-                  </label>
-                ))}
-              </div>
-
-              <div className="space-y-2 mb-8">
-                <label className="text-xs font-black text-slate-500 uppercase tracking-widest">ملاحظة إضافية (اختياري)</label>
-                <textarea
-                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all font-bold text-slate-700 h-24 resize-none"
-                  placeholder="اكتب ملاحظات إضافية للبائع هنا..."
-                  value={rejectionNote}
-                  onChange={(e) => setRejectionNote(e.target.value)}
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={handleReject}
-                  disabled={adminActionLoading || (rejectionReasons.length === 0 && !rejectionNote.trim())}
-                  className="flex-1 py-4 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-black shadow-lg shadow-rose-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {adminActionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                  تأكيد الرفض وإعادة العربون
-                </button>
-                <button
-                  onClick={() => setRejectModalOpen(false)}
-                  disabled={adminActionLoading}
-                  className="px-6 py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-black transition-all active:scale-95 disabled:opacity-50"
-                >
-                  إلغاء
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

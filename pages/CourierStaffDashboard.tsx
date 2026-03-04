@@ -130,6 +130,7 @@ export default function CourierStaffDashboard() {
   const [nowMs, setNowMs] = useState(Date.now());
   const [showFailedArchive, setShowFailedArchive] = useState(false);
   const [expandedByOrder, setExpandedByOrder] = useState<Record<string, boolean>>({});
+  const [showFailForm, setShowFailForm] = useState<Record<string, boolean>>({});
 
   const loadOrders = async () => {
     setLoadingOrders(true);
@@ -463,40 +464,46 @@ export default function CourierStaffDashboard() {
                 <RotateCcw className="w-4 h-4 text-amber-500" /> تراجع عن الفشل
               </button>
 
-              <div className="relative group/fail">
+              <div className="flex flex-col gap-2">
                 <button
+                  onClick={() => setShowFailForm((p) => ({ ...p, [o._id]: !p[o._id] }))}
                   disabled={!canFail || isBusy}
-                  className="w-full h-full rounded-xl border border-rose-200 bg-rose-50 py-3 text-xs font-bold text-rose-700 hover:bg-rose-100 hover:border-rose-300 disabled:opacity-50 transition-all inline-flex items-center justify-center gap-2"
+                  className={`w-full h-full rounded-xl border py-3 text-xs font-bold transition-all inline-flex items-center justify-center gap-2 ${showFailForm[o._id]
+                    ? "border-rose-400 bg-rose-100 text-rose-800"
+                    : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                    } disabled:opacity-50`}
                 >
                   <AlertTriangle className="w-4 h-4 shrink-0" /> الإبلاغ عن فشل الطلب
                 </button>
 
-                <div className="absolute bottom-full mb-3 right-0 w-72 bg-white border border-slate-200 shadow-2xl rounded-2xl p-4 hidden group-focus-within/fail:block z-20 tooltip-arrow">
-                  <div className="text-[11px] text-slate-500 uppercase font-black mb-3">تفاصيل فشل التوصيل</div>
-                  <select
-                    value={reasonByOrder[o._id] || ""}
-                    onChange={(e) => setReasonByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
-                    className="w-full rounded-xl border-slate-200 text-xs font-bold mb-2.5 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 bg-slate-50 p-2.5 outline-none"
-                  >
-                    <option value="">اختر السبب الرئيسي لفشل التوصيل...</option>
-                    {failureReasons.map((r) => (
-                      <option key={r.value} value={r.value}>{r.label}</option>
-                    ))}
-                  </select>
-                  <input
-                    value={noteByOrder[o._id] || ""}
-                    onChange={(e) => setNoteByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
-                    className="w-full rounded-xl border-slate-200 text-xs mb-3 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 bg-slate-50 p-2.5 outline-none"
-                    placeholder="أضف ملاحظة توضيحية (اختياري)"
-                  />
-                  <button
-                    onClick={() => onFailed(o._id)}
-                    disabled={!canFail || isBusy || !reasonByOrder[o._id]}
-                    className="w-full rounded-xl bg-rose-600 py-2.5 text-xs font-bold text-white shadow-md hover:bg-rose-700 disabled:opacity-50 transition-all active:scale-95"
-                  >
-                    تأكيد فشل الطلب وإغلاقه
-                  </button>
-                </div>
+                {showFailForm[o._id] && (
+                  <div className="bg-white border border-rose-200 shadow-sm rounded-2xl p-4 w-full animate-in fade-in slide-in-from-top-2 mt-1">
+                    <div className="text-[11px] text-slate-500 uppercase font-black mb-3">تفاصيل فشل التوصيل</div>
+                    <select
+                      value={reasonByOrder[o._id] || ""}
+                      onChange={(e) => setReasonByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
+                      className="w-full rounded-xl border-slate-200 text-xs font-bold mb-2.5 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 bg-slate-50 p-2.5 outline-none shadow-sm"
+                    >
+                      <option value="">اختر السبب...</option>
+                      {failureReasons.map((r) => (
+                        <option key={r.value} value={r.value}>{r.label}</option>
+                      ))}
+                    </select>
+                    <input
+                      value={noteByOrder[o._id] || ""}
+                      onChange={(e) => setNoteByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
+                      className="w-full rounded-xl border-slate-200 text-xs mb-2.5 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 bg-slate-50 p-2.5 outline-none shadow-sm"
+                      placeholder="ملاحظات توضيحية للإدارة..."
+                    />
+                    <button
+                      onClick={() => onFailed(o._id)}
+                      disabled={!canFail || isBusy || !reasonByOrder[o._id]}
+                      className="w-full rounded-xl bg-rose-600 py-2.5 text-xs font-bold text-white shadow-md hover:bg-rose-700 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      تأكيد المشكلة
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

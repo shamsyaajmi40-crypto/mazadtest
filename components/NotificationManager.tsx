@@ -30,7 +30,9 @@ const NotificationManager = () => {
   // Socket.io Real-time connection
   useEffect(() => {
     let socket: Socket | null = null;
+    let isMounted = true;
     let handleNotification = (notification: any) => {
+      if (!isMounted) return;
       setNotifications((prev) => [notification, ...prev]);
 
       // ✅ منع ظهور التوست إذا كنا داخل نفس المزاد (لتجنب التكرار مع توست المزايدة المحلي)
@@ -94,8 +96,10 @@ const NotificationManager = () => {
     }
 
     return () => {
+      isMounted = false;
       if (socket) {
         socket.off("new_notification", handleNotification);
+        socket.disconnect();
       }
     };
   }, [user]);

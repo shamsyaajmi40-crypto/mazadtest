@@ -103,9 +103,13 @@ const AdminDashboard = () => {
 
     // ربط بالـ Socket.io لتحديث البيانات بمجرد ورود مزاد جديد
     let socket: any = null;
-    let refreshHandler = () => loadAdminData();
+    let isMounted = true;
+    let refreshHandler = () => {
+      if (isMounted) loadAdminData();
+    };
 
     import("socket.io-client").then(({ io }) => {
+      if (!isMounted) return;
       const session = localStorage.getItem("app_session");
       const token = session ? JSON.parse(session)?.token : null;
       socket = io(import.meta.env.VITE_API_URL || "http://localhost:5000", {
@@ -117,7 +121,11 @@ const AdminDashboard = () => {
     });
 
     return () => {
-      if (socket) socket.off("admin_refresh", refreshHandler);
+      isMounted = false;
+      if (socket) {
+        socket.off("admin_refresh", refreshHandler);
+        socket.disconnect();
+      }
     };
   }, [pendingPage, activeReviewSubTab]);
 

@@ -74,9 +74,13 @@ export default function TopBar() {
 
     // ربط بالـ Socket.io
     let socket: any = null;
-    let refreshHandler = () => fetchCounters();
+    let isMounted = true;
+    let refreshHandler = () => {
+      if (isMounted) fetchCounters();
+    };
 
     import("socket.io-client").then(({ io }) => {
+      if (!isMounted) return;
       const session = localStorage.getItem("app_session");
       const token = session ? JSON.parse(session)?.token : null;
       socket = io(import.meta.env.VITE_API_URL, {
@@ -88,8 +92,12 @@ export default function TopBar() {
     });
 
     return () => {
+      isMounted = false;
       window.removeEventListener("focus", onFocus);
-      if (socket) socket.off("admin_refresh", refreshHandler);
+      if (socket) {
+        socket.off("admin_refresh", refreshHandler);
+        socket.disconnect();
+      }
     };
   }, [user]);
 
@@ -115,9 +123,13 @@ export default function TopBar() {
 
     // ربط بالـ Socket.io للمستخدم العادي
     let socket: any = null;
-    let refreshDealsHandler = () => fetchOpenDeals();
+    let isMounted = true;
+    let refreshDealsHandler = () => {
+      if (isMounted) fetchOpenDeals();
+    };
 
     import("socket.io-client").then(({ io }) => {
+      if (!isMounted) return;
       const session = localStorage.getItem("app_session");
       const token = session ? JSON.parse(session)?.token : null;
       socket = io(import.meta.env.VITE_API_URL, {
@@ -129,7 +141,11 @@ export default function TopBar() {
     });
 
     return () => {
-      if (socket) socket.off("user_refresh", refreshDealsHandler);
+      isMounted = false;
+      if (socket) {
+        socket.off("user_refresh", refreshDealsHandler);
+        socket.disconnect();
+      }
     };
   }, [user]);
 

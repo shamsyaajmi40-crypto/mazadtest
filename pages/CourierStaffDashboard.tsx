@@ -129,6 +129,7 @@ export default function CourierStaffDashboard() {
   const [noteByOrder, setNoteByOrder] = useState<Record<string, string>>({});
   const [nowMs, setNowMs] = useState(Date.now());
   const [showFailedArchive, setShowFailedArchive] = useState(false);
+  const [showDoneArchive, setShowDoneArchive] = useState(false);
   const [expandedByOrder, setExpandedByOrder] = useState<Record<string, boolean>>({});
   const [showFailForm, setShowFailForm] = useState<Record<string, boolean>>({});
 
@@ -396,11 +397,11 @@ export default function CourierStaffDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-50/50 p-3 rounded-xl border border-slate-100/80 mb-3">
               <div className="space-y-2">
                 <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">تعيين مندوب التوصيل</div>
-                <div className="flex gap-1.5">
+                <div className="flex flex-col gap-2">
                   <select
                     value={assignAgentByOrder[o._id] || ""}
                     onChange={(e) => setAssignAgentByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
-                    className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold shadow-sm focus:ring-2 focus:ring-slate-900 focus:border-slate-900 transition-all outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold shadow-sm focus:ring-2 focus:ring-slate-900 focus:border-slate-900 transition-all outline-none"
                   >
                     <option value="">اختر مندوباً للنقل...</option>
                     {agents
@@ -414,34 +415,34 @@ export default function CourierStaffDashboard() {
                   <button
                     onClick={() => onAssignAgent(o._id)}
                     disabled={!canAssign || isBusy || !assignAgentByOrder[o._id]}
-                    className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50 transition-all active:scale-95 whitespace-nowrap"
+                    className="w-full rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
                   >
-                    تعيين
+                    تعيين المندوب
                   </button>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">تأكيد دفع السيولة (البائع)</div>
-                <div className="flex flex-col sm:flex-row gap-1.5">
+                <div className="flex flex-col gap-2">
                   <input
                     value={otpByOrder[o._id] || ""}
                     onChange={(e) => setOtpByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
-                    className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-center text-xs tracking-widest font-black shadow-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                     placeholder="OTP الدفع للبائع"
                   />
                   <input
                     value={receiptByOrder[o._id] || ""}
                     onChange={(e) => setReceiptByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
-                    className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm focus:ring-2 focus:ring-emerald-500 outline-none w-full sm:w-auto"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs shadow-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                     placeholder="رقم الوصل (اختياري)"
                   />
                   <button
                     onClick={() => onCodPaid(o._id)}
                     disabled={!canCodPaid || isBusy}
-                    className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 transition-all active:scale-95 whitespace-nowrap inline-flex items-center justify-center gap-1.5"
+                    className="w-full rounded-xl bg-emerald-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
                   >
-                    <Wallet className="w-3.5 h-3.5" /> تأكيد
+                    <Wallet className="w-3.5 h-3.5" /> تأكيد الدفع
                   </button>
                 </div>
               </div>
@@ -658,11 +659,22 @@ export default function CourierStaffDashboard() {
           </div>
         </div>
 
-        <section className="space-y-4 pt-2">
-          <div className="inline-flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)] animate-pulse" />
-            <h2 className="text-lg font-black text-slate-800">طلبات قيد التنفيذ</h2>
-            <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-600">{filteredOrders.active.length}</span>
+        <section className="space-y-4 pt-4 relative">
+          <div className="absolute -inset-2 rounded-3xl bg-blue-50/50 border border-blue-100/50 -z-10" />
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border-2 border-blue-500 shadow-sm relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-1.5 h-full bg-blue-500" />
+            <div className="inline-flex items-center gap-3">
+              <div className="relative flex h-3.5 w-3.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-blue-500"></span>
+              </div>
+              <h2 className="text-xl font-black text-blue-900 tracking-tight">الطلبات الجارية (الأهم - قيد التنفيذ)</h2>
+            </div>
+            <span className="rounded-xl bg-blue-500 px-4 py-1.5 text-sm font-bold text-white shadow-sm flex items-center gap-2 w-max ring-4 ring-blue-50">
+              <Truck className="w-4 h-4" />
+              {filteredOrders.active.length} طلبات
+            </span>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
             {filteredOrders.active.length === 0 ? (
@@ -694,22 +706,37 @@ export default function CourierStaffDashboard() {
           </section>
         )}
 
-        <section className="space-y-4 pt-4">
-          <div className="inline-flex items-center gap-2 border-t-2 border-dashed border-slate-200 w-full pt-6">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-            <h2 className="text-lg font-black text-slate-800">طلبات منتهية ومكتملة</h2>
-            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">{filteredOrders.done.length}</span>
+        <section className="rounded-3xl border border-slate-200/60 bg-white p-2.5 shadow-sm flex items-center justify-between px-5 mt-6">
+          <div className="text-sm font-black text-slate-700 flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+            أرشيف الطلبات المكتملة حديثاً
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 opacity-80 hover:opacity-100 transition-opacity duration-300">
-            {filteredOrders.done.length === 0 ? (
-              <div className="col-span-full rounded-3xl border-2 border-dashed border-slate-200 bg-white/50 p-10 text-center text-slate-400 font-medium">
-                لا توجد طلبات منتهية في قائمة اليوم.
-              </div>
-            ) : (
-              filteredOrders.done.map(renderOrderCard)
-            )}
-          </div>
+          <button
+            onClick={() => setShowDoneArchive((v) => !v)}
+            className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors ${showDoneArchive
+              ? "bg-slate-900 text-white"
+              : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+              }`}
+          >
+            {showDoneArchive
+              ? "إخفاء"
+              : `عرض (${filteredOrders.done.length})`}
+          </button>
         </section>
+
+        {showDoneArchive && (
+          <section className="space-y-4 pt-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 opacity-90 hover:opacity-100 transition-opacity duration-300">
+              {filteredOrders.done.length === 0 ? (
+                <div className="col-span-full rounded-3xl border-2 border-dashed border-slate-200 bg-white/50 p-10 text-center text-slate-400 font-medium">
+                  لا توجد طلبات منتهية في قائمة اليوم.
+                </div>
+              ) : (
+                filteredOrders.done.map(renderOrderCard)
+              )}
+            </div>
+          </section>
+        )}
 
         {showAgentModal && (
           <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">

@@ -296,18 +296,18 @@ export default function CourierAgentDashboard() {
                 <Truck className="w-5 h-5 text-emerald-400" /> تأكيد استلام البضاعة من البائع
               </button>
 
-              <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm flex flex-col sm:flex-row gap-2">
+              <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm flex flex-col gap-2">
                 <input
                   value={otpByOrder[o._id] || ""}
                   onChange={(e) => setOtpByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
-                  className="flex-1 rounded-xl border-slate-200 bg-slate-50 px-4 py-3 text-center text-lg tracking-widest font-black shadow-inner focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors outline-none"
+                  className="w-full rounded-xl border-slate-200 bg-slate-50 px-4 py-3 text-center text-lg tracking-widest font-black shadow-inner focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors outline-none"
                   placeholder="رمز OTP المشتري"
                   inputMode="numeric"
                 />
                 <button
                   onClick={() => onDelivered(o._id)}
                   disabled={!canDeliver || isBusy}
-                  className="w-full sm:w-auto rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-md hover:bg-emerald-700 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2 min-w-[140px]"
+                  className="w-full rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-md hover:bg-emerald-700 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
                   <CheckCircle2 className="w-5 h-5" /> تسليم
                 </button>
@@ -320,8 +320,8 @@ export default function CourierAgentDashboard() {
                   onClick={() => setShowFailForm((p) => ({ ...p, [o._id]: !p[o._id] }))}
                   disabled={!canFail || isBusy}
                   className={`w-full h-full rounded-xl border-2 py-3.5 text-xs font-bold transition-all flex items-center justify-center gap-2 ${showFailForm[o._id]
-                      ? "border-rose-500 bg-rose-50 text-rose-800"
-                      : "border-rose-200 bg-white text-rose-700 hover:bg-rose-50"
+                    ? "border-rose-500 bg-rose-50 text-rose-800"
+                    : "border-rose-200 bg-white text-rose-700 hover:bg-rose-50"
                     } disabled:opacity-50`}
                 >
                   <AlertTriangle className="w-4 h-4 shrink-0" /> الإبلاغ عن مشكلة / فشل التوصيل

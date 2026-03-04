@@ -1,4 +1,4 @@
-import { Bell, Trophy, XCircle, CheckCircle } from "lucide-react";
+import { Bell, Trophy, XCircle, CheckCircle, Info, AlertTriangle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import api from "../services/api";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -6,6 +6,7 @@ import { useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { io, Socket } from "socket.io-client";
 import { toast } from "react-hot-toast";
+import { motion, AnimatePresence } from "framer-motion";
 
 const NotificationManager = () => {
   const [open, setOpen] = useState(false);
@@ -174,73 +175,120 @@ const NotificationManager = () => {
       </button>
 
       {/* القائمة المنسدلة المقاومة للقص (Responsive) بتصميم زجاجي */}
-      {open && (
-        <div className="absolute left-[-10px] sm:left-0 top-full mt-3 w-[85vw] max-w-[380px] bg-white/95 backdrop-blur-xl rounded-[1.5rem] border border-slate-200/60 shadow-2xl z-50 overflow-hidden origin-top-left animate-in fade-in slide-in-from-top-2">
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 15, scale: 0.95, transformOrigin: "top right" }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 350, damping: 25 }}
+            className="absolute left-[-10px] sm:left-auto sm:right-0 top-full mt-3 w-[85vw] max-w-[380px] bg-white/95 backdrop-blur-xl rounded-[1.5rem] border border-slate-200/60 shadow-2xl z-50 overflow-hidden origin-top-right"
+          >
 
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-            <span className="font-black text-slate-800 text-lg">الإشعارات</span>
-            {unreadCount > 0 && (
-              <button onClick={markAllAsRead} className="text-xs font-bold text-primary hover:text-primary-dark transition-colors flex items-center gap-1">
-                <CheckCircle className="w-3.5 h-3.5" />
-                تحديد كـ مقروء
-              </button>
-            )}
-          </div>
-
-          {notifications.length === 0 ? (
-            <div className="p-10 flex flex-col items-center justify-center text-slate-400 gap-3">
-              <div className="p-4 bg-slate-50 rounded-full border border-slate-100">
-                <Bell className="w-8 h-8 opacity-50" />
-              </div>
-              <p className="font-bold text-sm">لا توجد إشعارات حالياً</p>
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <span className="font-black text-slate-800 text-lg">الإشعارات</span>
+              {unreadCount > 0 && (
+                <button onClick={markAllAsRead} className="text-xs font-bold text-primary hover:text-primary-dark transition-colors flex items-center gap-1">
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  تحديد كـ مقروء
+                </button>
+              )}
             </div>
-          ) : (
-            <ul className="max-h-[60vh] overflow-y-auto block scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-              {notifications.map((n) => (
-                <li
-                  key={n._id}
-                  onClick={() => markAsRead(n._id, n.auction._id)}
-                  className={`flex gap-4 p-4 cursor-pointer border-b border-slate-50 transition-colors
-                    ${n.isRead ? "bg-white hover:bg-slate-50" : "bg-primary/5 hover:bg-primary/10"}
-                  `}
+
+            {notifications.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="p-10 flex flex-col items-center justify-center text-slate-400 gap-3"
+              >
+                <motion.div
+                  animate={{ y: [0, -5, 0] }}
+                  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                  className="p-4 bg-slate-50 rounded-full border border-slate-100"
                 >
-                  {/* أيقونة */}
-                  <div className="flex-shrink-0 mt-1">
-                    {n.type === "WIN" || n.event === "WIN" ? (
-                      <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-sm">
-                        <Trophy className="w-5 h-5" />
-                      </div>
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center shadow-sm">
-                        <XCircle className="w-5 h-5" />
-                      </div>
-                    )}
-                  </div>
+                  <Bell className="w-8 h-8 opacity-50" />
+                </motion.div>
+                <p className="font-bold text-sm">لا توجد إشعارات حالياً</p>
+              </motion.div>
+            ) : (
+              <motion.ul
+                initial="hidden"
+                animate="visible"
+                variants={{
+                  hidden: {},
+                  visible: {
+                    transition: {
+                      staggerChildren: 0.05,
+                    },
+                  },
+                }}
+                className="max-h-[60vh] overflow-y-auto block scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent"
+              >
+                {notifications.map((n) => {
+                  // Dynamic colors based on notification type/event
+                  let iconColorClass = "bg-blue-50 text-blue-500 border-blue-100";
+                  let IconComponent = Info;
 
-                  {/* النص */}
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm truncate pr-2 ${n.isRead ? "font-bold text-slate-700" : "font-black text-slate-900"}`}>
-                      {n.title}
-                    </p>
-                    <p className={`text-xs mt-1 leading-relaxed ${n.isRead ? "text-slate-500 font-medium" : "text-slate-700 font-bold"}`}>
-                      {n.message}
-                    </p>
-                    <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-wider">
-                      {new Date(n.createdAt).toLocaleString("ar-IQ", { dateStyle: "medium", timeStyle: "short" })}
-                    </p>
-                  </div>
+                  if (n.type === "WIN" || n.event === "WIN") {
+                    iconColorClass = "bg-emerald-50 text-emerald-500 border-emerald-100";
+                    IconComponent = Trophy;
+                  } else if (n.event === "OUTBID") {
+                    iconColorClass = "bg-orange-50 text-orange-500 border-orange-100";
+                    IconComponent = AlertTriangle;
+                  } else if (n.event === "DISPUTE_REJECTED" || n.event === "AUCTION_REJECTED") {
+                    iconColorClass = "bg-rose-50 text-rose-500 border-rose-100";
+                    IconComponent = XCircle;
+                  } else if (n.event === "AUCTION_APPROVED" || n.event === "DISPUTE_ACCEPTED") {
+                    iconColorClass = "bg-emerald-50 text-emerald-500 border-emerald-100";
+                    IconComponent = CheckCircle;
+                  }
 
-                  {!n.isRead && (
-                    <div className="flex-shrink-0 flex items-center justify-center">
-                      <span className="w-2.5 h-2.5 bg-primary rounded-full shadow-sm shadow-primary/30" />
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+                  return (
+                    <motion.li
+                      key={n._id}
+                      variants={{
+                        hidden: { opacity: 0, x: 20 },
+                        visible: { opacity: 1, x: 0 },
+                      }}
+                      whileHover={{ scale: 1.01, backgroundColor: "rgb(248 250 252)" }} // hover:bg-slate-50 equivalent
+                      onClick={() => markAsRead(n._id, n.auction?._id)}
+                      className={`flex gap-4 p-4 cursor-pointer border-b border-slate-50 transition-colors
+                    ${n.isRead ? "bg-white" : "bg-primary/5"}
+                  `}
+                    >
+                      {/* أيقونة */}
+                      <div className="flex-shrink-0 mt-1">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center border shadow-sm ${iconColorClass}`}>
+                          <IconComponent className="w-5 h-5" />
+                        </div>
+                      </div>
+
+                      {/* النص */}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm pr-2 ${n.isRead ? "font-bold text-slate-700" : "font-black text-slate-900"}`}>
+                          {n.title}
+                        </p>
+                        <p className={`text-xs mt-1 leading-relaxed ${n.isRead ? "text-slate-500 font-medium" : "text-slate-700 font-bold"}`}>
+                          {n.message}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-wider">
+                          {new Date(n.createdAt).toLocaleString("ar-IQ", { dateStyle: "medium", timeStyle: "short" })}
+                        </p>
+                      </div>
+
+                      {!n.isRead && (
+                        <div className="flex-shrink-0 flex items-center justify-center">
+                          <span className="w-2.5 h-2.5 bg-primary rounded-full shadow-sm shadow-primary/30" />
+                        </div>
+                      )}
+                    </motion.li>
+                  );
+                })}
+              </motion.ul>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

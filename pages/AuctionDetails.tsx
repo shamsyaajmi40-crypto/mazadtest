@@ -90,15 +90,13 @@ const AuctionDetails = () => {
     if (!loading) {
       setTimeout(() => {
         const panel = document.getElementById("bidding-panel");
-        // Only scroll to panel on mobile/tablet (less than 1024px width) where the image stacks on top
-        if (panel && window.innerWidth < 1024) {
-          const y = panel.getBoundingClientRect().top + window.scrollY - 80; // offset for sticky navbar
+        if (panel) {
+          const y = panel.getBoundingClientRect().top + window.scrollY - 80;
           window.scrollTo({ top: y, behavior: 'smooth' });
         } else {
-          // Default to top if Desktop or panel missing
           window.scrollTo(0, 0);
         }
-      }, 100);
+      }, 300); // زيادة الوقت لضمان بناء الواجهة وعناصر الـ DOM
     }
 
     if (location.hash === "#rating-section" && !loading) {

@@ -1127,7 +1127,7 @@ const AuctionDetails = () => {
                   </div>
 
                   <div className="flex items-baseline gap-1 relative z-10">
-                    <span className={`text-xl sm:text-2xl font-black tracking-tight leading-none truncate ${isHotAuction ? 'text-orange-900' : 'text-indigo-900'}`}>{displayedPrice.toLocaleString()}</span>
+                    <span className={`text-xl sm:text-2xl font-black tracking-tight leading-none whitespace-nowrap ${isHotAuction ? 'text-orange-900' : 'text-indigo-900'}`}>{displayedPrice.toLocaleString()}</span>
                     <span className={`text-[9px] sm:text-[10px] font-bold shrink-0 ${isHotAuction ? 'text-orange-400' : 'text-indigo-400'}`}>د.ع</span>
                   </div>
 

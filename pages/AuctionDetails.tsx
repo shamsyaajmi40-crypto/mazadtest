@@ -86,8 +86,20 @@ const AuctionDetails = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    // التمرير إلى أعلى الصفحة دائماً عند فتح المزاد
-    window.scrollTo(0, 0);
+    // التمرير مباشرة إلى واجهة المزايدة بدلاً من أعلى الصفحة إذا تم تحميل المزاد
+    if (!loading) {
+      setTimeout(() => {
+        const panel = document.getElementById("bidding-panel");
+        // Only scroll to panel on mobile/tablet (less than 1024px width) where the image stacks on top
+        if (panel && window.innerWidth < 1024) {
+          const y = panel.getBoundingClientRect().top + window.scrollY - 80; // offset for sticky navbar
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        } else {
+          // Default to top if Desktop or panel missing
+          window.scrollTo(0, 0);
+        }
+      }, 100);
+    }
 
     if (location.hash === "#rating-section" && !loading) {
       setTimeout(() => {
@@ -1073,7 +1085,7 @@ const AuctionDetails = () => {
           </div>
 
           {/* القسم الأيسر: المزايدة والحالة */}
-          <div className="lg:col-span-5 relative mt-4 md:mt-0">
+          <div id="bidding-panel" className="lg:col-span-5 relative mt-4 md:mt-0">
             <div className="bg-white/90 backdrop-blur-2xl p-5 sm:p-8 rounded-3xl border border-white shadow-[0_10px_40px_rgb(0,0,0,0.08)] sticky top-24 h-fit flex flex-col z-20">
               {/* ===== PREMIUM ACTION PANEL ===== */}
               <div className="bg-white border border-slate-100 rounded-[2rem] p-5 sm:p-6 shadow-xl shadow-slate-200/30 relative overflow-hidden mb-6">

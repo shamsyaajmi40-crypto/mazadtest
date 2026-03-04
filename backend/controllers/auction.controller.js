@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Auction from "../models/Auction.js";
 import Bid from "../models/Bid.js";
 import User from "../models/User.js";

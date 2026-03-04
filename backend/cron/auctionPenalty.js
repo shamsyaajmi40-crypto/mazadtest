@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Auction from "../models/Auction.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";

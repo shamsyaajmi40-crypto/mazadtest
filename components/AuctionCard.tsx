@@ -392,35 +392,35 @@ const AuctionCard: React.FC<{ auction: Auction; archived?: boolean; compact?: bo
                 </div>
               )}
 
-              <div className={`flex justify-between items-center gap-2 mt-0.5`}>
-                <span className={`font-bold tracking-widest uppercase text-slate-400 flex items-center gap-1 ${compact ? 'text-[9px]' : 'text-[11px]'}`}>
-                  <Clock className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} ${isScheduled ? "text-blue-500" : "text-rose-500"}`} />
-                  {isScheduled ? "يبدأ بعد" : "الوقت المتبقي"}
+              <div className={`flex justify-between items-center gap-2 mt-1.5`}>
+                <span className={`font-bold tracking-widest uppercase text-slate-500 flex items-center gap-1 ${compact ? 'text-[10px]' : 'text-xs'}`}>
+                  <Clock className={`${compact ? 'w-3.5 h-3.5' : 'w-4 h-4'} ${isScheduled ? "text-blue-500" : "text-rose-500"}`} />
+                  {isScheduled ? "يبدأ بعد" : "متبقي"}
                 </span>
 
                 {remaining && (
                   <div className="flex items-center justify-end">
                     <div
-                      className={`flex items-baseline justify-center gap-[2px] rounded-lg border font-black tabular-nums transition-all duration-300
+                      className={`flex items-baseline justify-center gap-[1px] sm:gap-[3px] rounded-xl border font-black tabular-nums transition-all duration-300
                         ${isVeryUrgent
                           ? "bg-red-50 text-red-700 border-red-200 animate-[pulse_1s_infinite]"
                           : isUrgent
-                            ? "bg-rose-50/50 text-rose-600 border-rose-100"
-                            : "bg-white text-slate-700 border-slate-200 shadow-sm"
-                        } ${compact ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-[12px]'}`}
+                            ? "bg-rose-50 text-rose-600 border-rose-100"
+                            : "bg-slate-50/80 text-slate-800 border-slate-200 shadow-sm"
+                        } ${compact ? 'px-2 py-1 text-[11px] sm:text-xs' : 'px-3 py-1.5 text-sm sm:text-[15px]'}`}
                     >
                       {remaining.days > 0 && (
                         <>
-                          <span>{remaining.days}</span>
-                          <span className={`text-slate-400 mr-0.5 ml-1 ${compact ? 'text-[8px]' : 'text-[9px]'}`}>ي</span>
+                          <span className={`${compact ? 'text-[13px] sm:text-[14px]' : 'text-[15px] sm:text-[17px]'}`}>{remaining.days}</span>
+                          <span className={`text-slate-500 mr-0.5 ml-1 pt-0.5 font-bold ${compact ? 'text-[9px]' : 'text-[10px]'}`}>يوم</span>
                         </>
                       )}
 
                       <span>{remaining.hours.toString().padStart(2, "0")}</span>
-                      <span className={`opacity-70 mr-[1px] ml-[2px] ${compact ? 'text-[8px]' : 'text-[9px]'}`}>:</span>
+                      <span className={`opacity-60 mr-0.5 ml-1 font-bold ${compact ? 'text-[10px]' : 'text-[11px]'}`}>:</span>
 
                       <span>{remaining.minutes.toString().padStart(2, "0")}</span>
-                      <span className={`opacity-70 mr-[1px] ml-[2px] ${compact ? 'text-[8px]' : 'text-[9px]'}`}>:</span>
+                      <span className={`opacity-60 mr-0.5 ml-1 font-bold ${compact ? 'text-[10px]' : 'text-[11px]'}`}>:</span>
 
                       <span className={isUrgent ? "text-red-600" : "text-slate-500"}>{remaining.seconds.toString().padStart(2, "0")}</span>
                     </div>

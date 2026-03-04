@@ -361,14 +361,17 @@ const AuctionCard: React.FC<{ auction: Auction; archived?: boolean; compact?: bo
         )}
 
         <div className={`mt-auto bg-slate-50/80 rounded-[1rem] border border-slate-100 ${compact ? "p-2 mt-1.5" : "p-3 mt-3"}`}>
-          <div className={`flex flex-col ${compact ? 'gap-1.5' : 'gap-3'}`}>
-            {/* Price Row */}
-            <div className={`flex justify-between items-end border-b border-slate-200/60 ${compact ? 'pb-1.5' : 'pb-3'}`}>
-              <span className={`uppercase tracking-widest text-slate-400 font-bold flex flex-col gap-0.5 sm:gap-1 ${compact ? 'text-[9px]' : 'text-[11px]'}`}>
-                <span className="flex items-center gap-1.5"><Tag className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-primary`} /> السعر الحالي</span>
+          <div className={`flex flex-col ${compact ? 'gap-2.5' : 'gap-4'}`}>
+            {/* Price Box */}
+            <div className={`bg-white rounded-[1.25rem] border-2 border-emerald-100/50 shadow-sm flex justify-between items-center overflow-hidden ${compact ? 'p-2' : 'p-3'}`}>
+              <span className={`uppercase tracking-widest text-slate-500 font-bold flex items-center gap-1.5 ${compact ? 'text-[9px]' : 'text-[11px]'}`}>
+                <div className={`${compact ? 'p-1' : 'p-1.5'} bg-emerald-50 rounded-lg`}>
+                  <Tag className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} text-emerald-600`} />
+                </div>
+                السعر الحالي
               </span>
-              <span className={`font-black text-emerald-600 tracking-tight leading-none bg-emerald-50 rounded-xl text-right inline-block whitespace-nowrap overflow-hidden text-ellipsis max-w-full ${compact ? 'px-2 py-1 text-sm' : 'px-3 py-1.5 text-lg sm:text-xl'}`}>
-                {Number(auction.currentPrice || 0).toLocaleString()} <span className={`text-emerald-600/70 ${compact ? 'text-[8px]' : 'text-[10px]'}`}>د.ع</span>
+              <span className={`font-black text-emerald-600 tracking-tight leading-none text-right whitespace-nowrap overflow-hidden text-ellipsis max-w-full ${compact ? 'text-sm sm:text-base' : 'text-xl sm:text-2xl'}`}>
+                {Number(auction.currentPrice || 0).toLocaleString()} <span className={`text-emerald-600/60 font-bold ${compact ? 'text-[8px]' : 'text-[11px]'}`}>د.ع</span>
               </span>
             </div>
 

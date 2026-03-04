@@ -89,9 +89,10 @@ const AuctionDetails = () => {
     // التمرير مباشرة إلى واجهة المزايدة بدلاً من أعلى الصفحة إذا تم تحميل المزاد
     if (!loading) {
       setTimeout(() => {
-        const panel = document.getElementById("bidding-panel");
-        if (panel) {
-          panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const grid = document.getElementById("auction-grid");
+        if (grid) {
+          const y = grid.getBoundingClientRect().top + window.scrollY - 80;
+          window.scrollTo({ top: y, behavior: 'smooth' });
         } else {
           window.scrollTo(0, 0);
         }
@@ -995,7 +996,7 @@ const AuctionDetails = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-10">
+        <div id="auction-grid" className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-10">
           {/* القسم الأيمن: الصور والوصف */}
           <div className="lg:col-span-7 space-y-6">
             <div

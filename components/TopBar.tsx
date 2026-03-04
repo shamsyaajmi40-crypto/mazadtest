@@ -77,7 +77,12 @@ export default function TopBar() {
     let refreshHandler = () => fetchCounters();
 
     import("socket.io-client").then(({ io }) => {
-      socket = io(import.meta.env.VITE_API_URL);
+      const session = localStorage.getItem("app_session");
+      const token = session ? JSON.parse(session)?.token : null;
+      socket = io(import.meta.env.VITE_API_URL, {
+        transports: ["websocket"],
+        auth: { token },
+      });
       socket.emit("admin:join");
       socket.on("admin_refresh", refreshHandler);
     });
@@ -113,7 +118,12 @@ export default function TopBar() {
     let refreshDealsHandler = () => fetchOpenDeals();
 
     import("socket.io-client").then(({ io }) => {
-      socket = io(import.meta.env.VITE_API_URL);
+      const session = localStorage.getItem("app_session");
+      const token = session ? JSON.parse(session)?.token : null;
+      socket = io(import.meta.env.VITE_API_URL, {
+        transports: ["websocket"],
+        auth: { token },
+      });
       socket.emit("user:join", user._id);
       socket.on("user_refresh", refreshDealsHandler);
     });

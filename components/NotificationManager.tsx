@@ -78,7 +78,12 @@ const NotificationManager = () => {
 
     if (user) {
       // Initialize Socket connection
-      socket = io(import.meta.env.VITE_API_URL);
+      const session = localStorage.getItem("app_session");
+      const token = session ? JSON.parse(session)?.token : null;
+      socket = io(import.meta.env.VITE_API_URL, {
+        transports: ["websocket"],
+        auth: { token },
+      });
 
       // Join the user's specific room
       socket.emit("user:join", user._id);

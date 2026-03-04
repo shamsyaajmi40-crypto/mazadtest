@@ -376,8 +376,8 @@ const HomeData = () => {
           </div>
         </div>
 
-        {/* ===== Unified Highlights Sections (Hot + Ending Soon) ===== */}
-        <div className="space-y-10 mb-12">
+        {/* ===== Mobile Alerts (Hot + Ending Soon) - يظهر فقط في الهاتف ===== */}
+        <div className="lg:hidden space-y-10 mb-12">
           {/* 🔥 Hot */}
           {hotAuctions.length > 0 && (
             <section>
@@ -413,107 +413,141 @@ const HomeData = () => {
               </div>
             </section>
           )}
-
-          {/* 📅 Upcoming */}
-          {upcoming.length > 0 && filters.status !== AUCTION_STATUS.UPCOMING && (
-            <section>
-              <div className="flex items-center justify-between mb-4 px-2">
-                <h3 className="text-xl sm:text-2xl font-black text-slate-800 flex items-center gap-2">
-                  <span className="p-2 bg-blue-100 text-blue-600 rounded-xl">📅</span> تبدأ قريباً
-                </h3>
-              </div>
-              <div className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar px-2">
-                {upcoming.map((auction) => (
-                  <div key={auction._id} className="min-w-[280px] sm:min-w-[320px] snap-start">
-                    <AuctionCard auction={auction} compact />
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
         </div>
 
+        {/* 📅 Upcoming - يظهر دائما في الأعلى للكل */}
+        {upcoming.length > 0 && filters.status !== AUCTION_STATUS.UPCOMING && (
+          <section className="mb-12">
+            <div className="flex items-center justify-between mb-4 px-2">
+              <h3 className="text-xl sm:text-2xl font-black text-slate-800 flex items-center gap-2">
+                <span className="p-2 bg-blue-100 text-blue-600 rounded-xl">📅</span> تبدأ قريباً
+              </h3>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar px-2">
+              {upcoming.map((auction) => (
+                <div key={auction._id} className="min-w-[280px] sm:min-w-[320px] snap-start">
+                  <AuctionCard auction={auction} compact />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
-        {/* ================= Main Grid ================= */}
-        <div>
-          <div className="mb-8 flex items-center justify-between px-2">
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-3">
-              الموافقات الحالية
-              <span className="bg-slate-200 text-slate-600 text-sm px-3.5 py-1 rounded-full font-bold">
-                {auctions.length}
-              </span>
-            </h2>
+        {/* ================= Layout ================= */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+
+          {/* ===== العمود الرئيسي ===== */}
+          <div className="lg:col-span-3">
+            <div className="mb-8 flex items-center justify-between px-2">
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-3">
+                المزادات المتاحة
+                <span className="bg-slate-200 text-slate-600 text-sm px-3.5 py-1 rounded-full font-bold">
+                  {auctions.length}
+                </span>
+              </h2>
+            </div>
+
+            {loading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                {Array.from({ length: 9 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="bg-white rounded-[2rem] h-[340px] animate-pulse border-2 border-slate-100 shadow-sm"
+                  />
+                ))}
+              </div>
+            ) : displayedAuctions.length === 0 ? (
+              <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-slate-200 shadow-sm">
+                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Search className="w-8 h-8 text-slate-300" />
+                </div>
+                <h3 className="text-2xl font-black text-slate-800 mb-2">عذراً، لم نجد ما تبحث عنه</h3>
+                <p className="text-slate-500 font-medium">حاول تغيير كلمات البحث أو تخفيف الفلاتر المستخدمة</p>
+                <button
+                  onClick={resetFilters}
+                  className="mt-6 font-bold text-primary hover:text-indigo-600 bg-primary/5 hover:bg-primary/10 px-6 py-2.5 rounded-full transition-colors"
+                >
+                  تحديث الفلاتر
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                {displayedAuctions.map((auction) => (
+                  <AuctionCard key={auction._id} auction={auction} compact />
+                ))}
+              </div>
+            )}
+
+            {/* Pagination */}
+            {pagination && pagination.totalPages > 1 && (
+              <div className="flex flex-wrap justify-center items-center gap-2 mt-16 pb-8">
+                <button
+                  disabled={!pagination.hasPrev}
+                  onClick={() => setPage((p) => p - 1)}
+                  className="px-4 sm:px-6 py-3 rounded-2xl border-2 border-slate-100 font-black text-sm sm:text-base disabled:opacity-40 disabled:cursor-not-allowed hover:border-slate-300 hover:bg-slate-50 transition-colors"
+                >
+                  السابق
+                </button>
+
+                {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
+                  .slice(
+                    Math.max(0, pagination.page - 3),
+                    pagination.page + 2
+                  )
+                  .map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      className={`min-w-[48px] px-3 sm:px-4 py-3 rounded-2xl font-black border-2 border-transparent text-sm sm:text-base transition-all ${p === pagination.page
+                        ? "bg-slate-900 text-white shadow-md hover:bg-slate-800"
+                        : "bg-white text-slate-600 hover:bg-slate-50 border-slate-100 hover:border-slate-200"
+                        }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+
+                <button
+                  disabled={!pagination.hasNext}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="px-4 sm:px-6 py-3 rounded-2xl border-2 border-slate-100 font-black text-sm sm:text-base disabled:opacity-40 disabled:cursor-not-allowed hover:border-slate-300 hover:bg-slate-50 transition-colors"
+                >
+                  التالي
+                </button>
+              </div>
+            )}
           </div>
 
-          {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="bg-white rounded-[2rem] h-[380px] animate-pulse border-2 border-slate-100 shadow-sm"
-                />
-              ))}
-            </div>
-          ) : displayedAuctions.length === 0 ? (
-            <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-slate-200 shadow-sm">
-              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Search className="w-8 h-8 text-slate-300" />
+          {/* ===== Sidebar (Desktop Only) ===== */}
+          <aside className="hidden lg:block lg:col-span-1 space-y-10">
+            {/* 🔥 Hot */}
+            {hotAuctions.length > 0 && (
+              <div>
+                <h3 className="text-lg font-black text-slate-800 mb-4 flex items-center gap-2">
+                  <span className="p-1.5 bg-red-100 text-red-600 rounded-lg text-sm">🔥</span> مزادات ساخنة
+                </h3>
+                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                  {hotAuctions.map((auction) => (
+                    <AuctionSidebarCard key={auction._id} auction={auction} />
+                  ))}
+                </div>
               </div>
-              <h3 className="text-2xl font-black text-slate-800 mb-2">عذراً، لم نجد ما تبحث عنه</h3>
-              <p className="text-slate-500 font-medium">حاول تغيير كلمات البحث أو تخفيف الفلاتر المستخدمة</p>
-              <button
-                onClick={resetFilters}
-                className="mt-6 font-bold text-primary hover:text-indigo-600 bg-primary/5 hover:bg-primary/10 px-6 py-2.5 rounded-full transition-colors"
-              >
-                تحديث الفلاتر
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8 lg:gap-10">
-              {displayedAuctions.map((auction) => (
-                <AuctionCard key={auction._id} auction={auction} />
-              ))}
-            </div>
-          )}
+            )}
 
-          {/* Pagination */}
-          {pagination && pagination.totalPages > 1 && (
-            <div className="flex flex-wrap justify-center items-center gap-2 mt-16 pb-8">
-              <button
-                disabled={!pagination.hasPrev}
-                onClick={() => setPage((p) => p - 1)}
-                className="px-4 sm:px-6 py-3 rounded-2xl border-2 border-slate-100 font-black text-sm sm:text-base disabled:opacity-40 disabled:cursor-not-allowed hover:border-slate-300 hover:bg-slate-50 transition-colors"
-              >
-                السابق
-              </button>
-
-              {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
-                .slice(
-                  Math.max(0, pagination.page - 3),
-                  pagination.page + 2
-                )
-                .map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setPage(p)}
-                    className={`min-w-[48px] px-3 sm:px-4 py-3 rounded-2xl font-black border-2 border-transparent text-sm sm:text-base transition-all ${p === pagination.page
-                      ? "bg-slate-900 text-white shadow-md hover:bg-slate-800"
-                      : "bg-white text-slate-600 hover:bg-slate-50 border-slate-100 hover:border-slate-200"
-                      }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-
-              <button
-                disabled={!pagination.hasNext}
-                onClick={() => setPage((p) => p + 1)}
-                className="px-4 sm:px-6 py-3 rounded-2xl border-2 border-slate-100 font-black text-sm sm:text-base disabled:opacity-40 disabled:cursor-not-allowed hover:border-slate-300 hover:bg-slate-50 transition-colors"
-              >
-                التالي
-              </button>
-            </div>
-          )}
+            {/* ⏳ Ending Soon */}
+            {endingSoonAuctions.length > 0 && (
+              <div>
+                <h3 className="text-lg font-black text-slate-800 mb-4 flex items-center gap-2">
+                  <span className="p-1.5 bg-amber-100 text-amber-600 rounded-lg text-sm">⏳</span> تنتهي قريبًا
+                </h3>
+                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                  {endingSoonAuctions.map((auction) => (
+                    <AuctionSidebarCard key={auction._id} auction={auction} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </aside>
         </div>
       </div>
     </div>

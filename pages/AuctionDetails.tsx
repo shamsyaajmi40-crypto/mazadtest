@@ -488,7 +488,7 @@ const AuctionDetails = () => {
         const retryAfter =
           err?.response?.data?.retryAfter ??
           Number(err?.response?.headers?.["retry-after"]) ??
-          3;
+          5;
 
         setBidCooldown(Number(retryAfter));
         setError(`يرجى الانتظار ${Number(retryAfter)} ثانية ثم أعد المحاولة`);

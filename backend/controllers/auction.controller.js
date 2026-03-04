@@ -17,7 +17,7 @@ import Subscription from "../models/Subscription.js";
 import { validateText, validateNumber, validateFutureDate } from "../utils/validation.js";
 import { uploadToR2 } from "../utils/r2.js";
 
-const BID_COOLDOWN_MS = 3000; // نخليها 3 ثواني
+const BID_COOLDOWN_MS = 5000; // نخليها 5 ثواني
 const DEPOSIT_POLICY_KEY = "deposit_policy";
 
 /* إنشاء مزاد */

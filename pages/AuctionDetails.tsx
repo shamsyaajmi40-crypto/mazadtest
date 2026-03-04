@@ -91,12 +91,11 @@ const AuctionDetails = () => {
       setTimeout(() => {
         const panel = document.getElementById("bidding-panel");
         if (panel) {
-          const y = panel.getBoundingClientRect().top + window.scrollY - 80;
-          window.scrollTo({ top: y, behavior: 'smooth' });
+          panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else {
           window.scrollTo(0, 0);
         }
-      }, 300); // زيادة الوقت لضمان بناء الواجهة وعناصر الـ DOM
+      }, 400); // زيادة الوقت لضمان بناء الواجهة وعناصر الـ DOM
     }
 
     if (location.hash === "#rating-section" && !loading) {

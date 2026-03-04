@@ -724,7 +724,7 @@ const AuctionDetails = () => {
   const isUpcoming = now < startTime && !isPending && !isRejected;
   const isActive = now >= startTime && now < endTime && normalizedStatus === "active";
   const isDealSuccess = normalizedStatus === "completed";
-  const isDealFailed = ["cancelled_by_winner", "cancelled_by_seller", "cancelled_by_both"].includes(normalizedStatus);
+  const isDealFailed = ["cancelled_by_winner", "cancelled_by_seller", "cancelled_by_both"].includes(normalizedStatus) || auction.deliveryOrder?.status === "DELIVERY_FAILED";
   const isDealResolved = isDealSuccess || isDealFailed;
   const isEnded = (now >= endTime || normalizedStatus === "ended" || isDealResolved) && !isPending && !isRejected;
 
@@ -1350,7 +1350,7 @@ const AuctionDetails = () => {
             {isOwner &&
               normalizedStatus === "ended" &&
               auction.deliveryMode === "courier" &&
-              !auction.payoutOtpCode && (
+              !auction.payoutOtpCode && !isDealResolved && (
                 <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/60 p-4 flex items-start gap-3">
                   <span className="text-2xl shrink-0 mt-0.5">📦</span>
                   <div>
@@ -1370,7 +1370,7 @@ const AuctionDetails = () => {
             {/* ===== Courier OTP (ظهر فقط لصاحبه من الباكند) ===== */}
             {normalizedStatus === "ended" &&
               auction.deliveryMode === "courier" &&
-              (isOwner || isWinner) && (
+              (isOwner || isWinner) && !isDealResolved && (
                 <div className="mt-4 rounded-2xl overflow-hidden border border-blue-100">
                   {/* Header */}
                   <div className="bg-gradient-to-l from-blue-600 to-indigo-600 px-4 py-3 flex items-center gap-2">

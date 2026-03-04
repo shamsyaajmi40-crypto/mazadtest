@@ -261,7 +261,7 @@ const AuctionCard: React.FC<{ auction: Auction; archived?: boolean; compact?: bo
 
   return (
     <div
-      className={`bg-surface rounded-2xl shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-500 overflow-hidden border border-slate-200/60 flex flex-col h-full group hover:-translate-y-1 ${archived ? "" : "cursor-pointer"}`}
+      className={`bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)] transition-all duration-500 overflow-hidden border-2 border-slate-100 hover:border-primary/20 flex flex-col h-full group hover:-translate-y-1.5 ${archived ? "opacity-75" : "cursor-pointer"}`}
       dir="rtl"
       role={archived ? undefined : "button"}
       tabIndex={archived ? -1 : 0}
@@ -277,7 +277,7 @@ const AuctionCard: React.FC<{ auction: Auction; archived?: boolean; compact?: bo
       }}
     >
 
-      <div className={`relative bg-slate-100 group overflow-hidden ${compact ? "h-32" : "h-40"}`}>
+      <div className={`relative bg-slate-100 group overflow-hidden ${compact ? "h-36" : "h-48"}`}>
         <img
           src={getImageUrl(auction.images?.[0])}
           alt={auction.title}
@@ -310,7 +310,7 @@ const AuctionCard: React.FC<{ auction: Auction; archived?: boolean; compact?: bo
       </div>
 
       {badge && (
-        <div className={`px-4 ${compact ? "mt-2" : "mt-3"}`}>
+        <div className={`px-5 ${compact ? "mt-3" : "mt-4"}`}>
           <span
             className={`inline-block px-3 py-1 text-[11px] font-bold rounded-full border ${badge.className.includes("bg-green") ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
               badge.className.includes("bg-red") ? "bg-rose-50 text-rose-700 border-rose-200" :
@@ -360,85 +360,86 @@ const AuctionCard: React.FC<{ auction: Auction; archived?: boolean; compact?: bo
           <p className="text-slate-500 text-sm line-clamp-2 mb-3 flex-grow font-medium leading-relaxed">{auction.description}</p>
         )}
 
-        <div className={`bg-slate-50 rounded-xl border border-slate-100/50 ${compact ? "space-y-2 p-2.5 mt-2" : "space-y-3 p-3"}`}>
-          <div className="flex justify-between items-center text-sm gap-2">
-            <span className="text-slate-500 flex items-center gap-1.5 font-bold"><Tag className="w-4 h-4 text-primary" /> السعر الحالي</span>
-
-            <span className="font-black text-emerald-600 text-base tracking-tight">{auction.currentPrice.toLocaleString()} <span className="text-[10px] text-emerald-600/70">د.ع</span></span>
-          </div>
-          {/* Progress bar */}
-          {!compact && !isEnded && !isScheduled && (
-            <div className="w-full h-1.5 bg-slate-200/60 rounded-full overflow-hidden mb-2">
-              <div
-                className="h-full rounded-full transition-all duration-1000 ease-out"
-                style={{
-                  width: `${progress}%`,
-                  backgroundColor:
-                    progress > 90
-                      ? "#f43f5e" // rose-500
-                      : progress > 70
-                        ? "#f59e0b" // amber-500
-                        : "#10b981", // emerald-500
-                }}
-              />
+        <div className={`mt-auto bg-slate-50/80 rounded-2xl border border-slate-100 ${compact ? "p-3 mt-3" : "p-4"}`}>
+          <div className="flex flex-col gap-3">
+            {/* Price Row */}
+            <div className="flex justify-between items-end pb-3 border-b border-slate-200/60">
+              <span className="text-[11px] uppercase tracking-widest text-slate-400 font-bold flex flex-col gap-1">
+                <span className="flex items-center gap-1.5"><Tag className="w-3.5 h-3.5 text-primary" /> السعر الحالي</span>
+              </span>
+              <span className="font-black text-emerald-600 text-lg sm:text-xl tracking-tight leading-none bg-emerald-50 px-3 py-1.5 rounded-xl text-right inline-block whitespace-nowrap overflow-hidden text-ellipsis max-w-full">
+                {Number(auction.currentPrice || 0).toLocaleString()} <span className="text-[10px] text-emerald-600/70">د.ع</span>
+              </span>
             </div>
-          )}
-          <div className="grid grid-cols-2 gap-3 items-center text-sm">
-            <span className="text-slate-500 flex items-center gap-1.5 font-bold">
-              <Clock className="w-4 h-4 text-rose-500" />
-              {isScheduled ? "يبدأ بعد" : "الوقت المتبقي"}
-            </span>
 
-
-            {/* ?¹?¯?§?¯ ?????§?¹?„?? (???´?¨?‡ ?µ???­?© ?§?„?????§?µ???„) */}
-            {remaining && (
-              <div className="flex items-center gap-1 text-xs font-bold text-rose-500 tabular-nums justify-end flex-wrap w-full">
-                <div
-                  className={`flex items-baseline gap-0.5 px-1.5 py-0.5 rounded shadow-sm border font-bold tabular-nums transition-all duration-300
-  ${isVeryUrgent
-                      ? "bg-red-100 text-red-700 border-red-300 animate-bounce"
-                      : isUrgent
-                        ? "bg-red-50 text-red-600 border-red-200 animate-pulse"
-                        : "bg-white text-rose-500 border-rose-100"
-                    }`}
-                >
-
-                  {remaining.days > 0 && (
-                    <>
-                      <span>{remaining.days}</span>
-                      <span>ي</span>
-                    </>
-                  )}
-
-                  <span>{remaining.hours.toString().padStart(2, "0")}</span>
-                  <span>س</span>
-
-                  <span>{remaining.minutes.toString().padStart(2, "0")}</span>
-                  <span>د</span>
-
-                  <span>{remaining.seconds.toString().padStart(2, "0")}</span>
-                  <span>ث</span>
-
+            {/* Time / Progress Row */}
+            <div>
+              {/* Progress bar */}
+              {!compact && !isEnded && !isScheduled && (
+                <div className="w-full h-1.5 bg-slate-200/60 rounded-full overflow-hidden mb-3">
+                  <div
+                    className="h-full rounded-full transition-all duration-1000 ease-out"
+                    style={{
+                      width: `${progress}%`,
+                      backgroundColor:
+                        progress > 90
+                          ? "#f43f5e" // rose-500
+                          : progress > 70
+                            ? "#f59e0b" // amber-500
+                            : "#10b981", // emerald-500
+                    }}
+                  />
                 </div>
-              </div>
-            )}
+              )}
 
+              <div className="flex justify-between items-center text-sm gap-2 mt-1">
+                <span className="text-[11px] font-bold tracking-widest uppercase text-slate-400 flex items-center gap-1.5">
+                  <Clock className={`w-3.5 h-3.5 ${isScheduled ? "text-blue-500" : "text-rose-500"}`} />
+                  {isScheduled ? "يبدأ بعد" : "الوقت المتبقي"}
+                </span>
+
+                {remaining && (
+                  <div className="flex items-center justify-end">
+                    <div
+                      className={`flex items-baseline justify-center gap-[2px] px-2 py-1 rounded-lg border font-black tabular-nums transition-all duration-300
+                        ${isVeryUrgent
+                          ? "bg-red-50 text-red-700 border-red-200 animate-[pulse_1s_infinite]"
+                          : isUrgent
+                            ? "bg-rose-50/50 text-rose-600 border-rose-100"
+                            : "bg-white text-slate-700 border-slate-200 shadow-sm"
+                        }`}
+                      style={{ fontSize: compact ? '11px' : '12px' }}
+                    >
+                      {remaining.days > 0 && (
+                        <>
+                          <span>{remaining.days}</span>
+                          <span className="text-[9px] text-slate-400 mr-0.5 ml-1">ي</span>
+                        </>
+                      )}
+
+                      <span>{remaining.hours.toString().padStart(2, "0")}</span>
+                      <span className="text-[9px] opacity-70 mr-[1px] ml-[2px]">:</span>
+
+                      <span>{remaining.minutes.toString().padStart(2, "0")}</span>
+                      <span className="text-[9px] opacity-70 mr-[1px] ml-[2px]">:</span>
+
+                      <span className={isUrgent ? "text-red-600" : "text-slate-500"}>{remaining.seconds.toString().padStart(2, "0")}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
-
         {archived && (
-          <div className="mt-5 block w-full text-center bg-slate-200 text-slate-500 py-3 rounded-xl text-sm font-black cursor-not-allowed border border-slate-300">
+          <div className="mt-5 block w-full text-center bg-slate-100 text-slate-500 py-3 rounded-xl text-[11px] uppercase tracking-widest font-black cursor-not-allowed border border-slate-200">
             مزاد مؤرشف
           </div>
         )}
-
       </div>
-
     </div>
-
   );
 };
 
 export default AuctionCard;
-

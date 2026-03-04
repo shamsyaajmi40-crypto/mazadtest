@@ -7,7 +7,7 @@ import AuctionCard from '../components/AuctionCard';
 import AuctionSidebarCard from "../components/AuctionSidebarCard";
 import {
   Car, Smartphone, Home as HomeIcon, LayoutGrid, Search,
-  Filter, MapPin, Tag, ChevronDown, RefreshCw,
+  Filter, MapPin, Tag, ChevronDown, RefreshCw, Sparkles
 } from 'lucide-react';
 import { Link } from "react-router-dom";
 import { AUCTION_STATUS } from "../types";
@@ -53,9 +53,9 @@ const HomeData = () => {
         minPrice: filters.minPrice,
         maxPrice: filters.maxPrice,
         searchTerm: filters.searchTerm,
-       status: filters.status === "ALL" ? undefined : filters.status,
+        status: filters.status === "ALL" ? undefined : filters.status,
       });
-      
+
       setPagination(res.data.pagination);
       setAuctions(
         res.data.auctions.map((a: any) => ({
@@ -78,7 +78,7 @@ const HomeData = () => {
         minPrice: filters.minPrice,
         maxPrice: filters.maxPrice,
         searchTerm: filters.searchTerm,
-          status: filters.status === "ALL" ? undefined : filters.status,
+        status: filters.status === "ALL" ? undefined : filters.status,
       });
 
       setAuctions((prev) =>
@@ -116,11 +116,11 @@ const HomeData = () => {
 
   // تحميل كامل عند تغيير الفلاتر فقط
   useEffect(() => {
-  loadAuctions();
-}, [filters, page]);
-useEffect(() => {
-  setPage(1);
-}, [filters]);
+    loadAuctions();
+  }, [filters, page]);
+  useEffect(() => {
+    setPage(1);
+  }, [filters]);
 
   // تحديث صامت كل 15 ثانية
   useEffect(() => {
@@ -228,306 +228,293 @@ useEffect(() => {
     : auctions;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 animate-in fade-in duration-500">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-br from-slate-900 via-primary-dark to-primary rounded-[2rem] sm:rounded-[2.5xl] p-6 sm:p-10 mb-8 sm:mb-10 text-white shadow-2xl relative overflow-hidden group">
-        {/* Decorative Blur Circles */}
-        <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary-light/30 rounded-full blur-3xl group-hover:bg-primary-light/40 transition-colors duration-700"></div>
-        <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-secondary/20 rounded-full blur-3xl group-hover:bg-secondary/30 transition-colors duration-700"></div>
+    <div className="min-h-screen bg-slate-50/50 pb-20 animate-in fade-in duration-500">
 
-        <div className="relative z-10">
-          <h1 className="text-3xl sm:text-4xl md:text-6xl font-black mb-3 sm:mb-4 tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-200">
-            mazad - مزاد
+      {/* ===== Premium Hero Section ===== */}
+      <div className="relative pt-10 pb-32 sm:pt-16 sm:pb-40 overflow-hidden bg-white border-b border-slate-200/50">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50 via-white to-white"></div>
+        <div className="absolute top-0 right-0 w-[800px] h-[600px] bg-primary/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-rose-100/40 rounded-full blur-[100px] translate-y-1/3 -translate-x-1/3 pointer-events-none"></div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary font-black text-sm mb-6 sm:mb-8 shadow-sm border border-primary/20 backdrop-blur-md">
+            <Sparkles className="w-4 h-4" /> المنصة الأسرع نمواً
+          </div>
+          <h1 className="text-4xl sm:text-5xl md:text-7xl font-black mb-6 tracking-tighter text-slate-900 leading-[1.1]">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-indigo-600">mazad - مزاد</span>
           </h1>
-          <p className="text-blue-100 text-base sm:text-lg md:text-xl max-w-2xl font-medium leading-relaxed">
-            الوجهة الموثوقة للمزايدة المباشرة في العراق
+          <p className="text-slate-500 text-lg sm:text-xl md:text-2xl max-w-3xl mx-auto font-medium leading-relaxed">
+            الوجهة الموثوقة للمزايدة المباشرة في العراق. تصفح آلاف العروض وشارك في المزادات الحية الآن.
           </p>
         </div>
       </div>
-      {/* البحث والتصفية */}
-      <div className="bg-surface rounded-3xl shadow-sm border border-slate-200/60 p-6 mb-10">
-        <form onSubmit={handleSearchSubmit} className="space-y-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-grow group">
-              <Search className="h-5 w-5 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-primary transition-colors" />
-              <input
-                type="text"
-                className="block w-full pr-12 pl-4 py-4 border-2 border-slate-100 rounded-2xl bg-slate-50 focus:ring-4 focus:ring-primary/10 focus:border-primary focus:bg-white outline-none transition-all duration-300 font-bold text-slate-700 placeholder:text-slate-400"
-                placeholder="ابحث بالعنوان (مثال: تويوتا، آيفون، منزل...)"
-                value={filters.searchTerm}
-                onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value })}
-              />
-            </div>
 
-            <div className="flex gap-2 w-full md:w-auto">
-              <button
-                type="button"
-                onClick={() => setShowFilters(!showFilters)}
-                className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 sm:px-6 py-3 sm:py-4 rounded-2xl font-black transition-all border-2 ${showFilters ? 'bg-primary/10 text-primary border-primary/20' : 'bg-white text-slate-600 border-slate-100 hover:border-primary/30 hover:bg-slate-50'
-                  }`}
-              >
-                <Filter className="w-5 h-5" />
-                <span>تصفية</span>
-              </button>
-              <button
-                type="submit"
-                className="flex-1 md:flex-none bg-slate-900 text-white px-5 sm:px-8 py-3 sm:py-4 rounded-2xl font-black hover:bg-slate-800 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-slate-900/20 transition-all active:scale-95"
-              >
-                بحث
-              </button>
-            </div>
-          </div>
-
-          {/* لوحة التصفية المتقدمة */}
-          {showFilters && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 pt-6 border-t border-slate-100 animate-in fade-in slide-in-from-top-4 duration-300">
-              {/* المحافظة */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                  <MapPin className="w-3 h-3" /> المحافظة
-                </label>
-                <div className="relative">
-                  <select
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl appearance-none outline-none focus:ring-2 focus:ring-primary font-bold text-slate-700"
-                    value={filters.governorate}
-                    onChange={(e) => setFilters({ ...filters, governorate: e.target.value })}
-                  >
-                    {GOVERNORATES.map(g => <option key={g} value={g}>{g}</option>)}
-                  </select>
-                  <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20 -mt-24 sm:-mt-28 mb-16">
+        {/* ===== Floating Search & Filter Island ===== */}
+        <div className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-white p-4 sm:p-6 mb-12 transform transition-all">
+          <form onSubmit={handleSearchSubmit} className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col md:flex-row gap-3 sm:gap-4">
+              <div className="relative flex-grow group">
+                <Search className="h-5 w-5 text-slate-400 absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-primary transition-colors" />
+                <input
+                  type="text"
+                  className="block w-full pr-14 pl-5 py-4 border-2 border-slate-100 rounded-[1.5rem] bg-slate-50/50 focus:ring-4 focus:ring-primary/10 focus:border-primary focus:bg-white outline-none transition-all duration-300 font-bold text-slate-700 placeholder:text-slate-400 text-base shadow-inner"
+                  placeholder="ابحث بالعنوان (مثال: تويوتا، آيفون، منزل...)"
+                  value={filters.searchTerm}
+                  onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value })}
+                />
               </div>
 
-              {/* السعر */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                  <Tag className="w-3 h-3" /> نطاق السعر (د.ع)
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    placeholder="من"
-                    className="w-1/2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary font-bold text-sm"
-                    value={filters.minPrice}
-                    onChange={(e) => setFilters({ ...filters, minPrice: e.target.value })}
-                  />
-                  <input
-                    type="number"
-                    placeholder="إلى"
-                    className="w-1/2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary font-bold text-sm"
-                    value={filters.maxPrice}
-                    onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              {/* حالة المزاد */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                  <RefreshCw className="w-3 h-3" /> حالة المزاد
-                </label>
-                <select
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary font-bold text-slate-700"
-                  value={filters.status}
-                  onChange={(e) => setFilters({ ...filters, status: e.target.value as any })}
-                >
-                  <option value={AUCTION_STATUS.ACTIVE}>نشط حالياً</option>
-                  <option value={AUCTION_STATUS.UPCOMING}>تبدأ قريباً</option>
-                  <option value="ALL">الكل</option>
-                </select>
-              </div>
-
-              {/* أزرار الإجراءات */}
-              <div className="flex items-end">
+              <div className="flex gap-2 sm:gap-3 w-full md:w-auto">
                 <button
                   type="button"
-                  onClick={resetFilters}
-                  className="w-full py-3 text-sm font-black text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-5 sm:px-8 py-4 rounded-[1.5rem] font-black transition-all border-2 shadow-sm ${showFilters ? 'bg-primary/10 text-primary border-primary/20 shadow-primary/5' : 'bg-white text-slate-600 border-slate-100 hover:border-slate-300 hover:bg-slate-50'
+                    }`}
                 >
-                  إعادة ضبط الفلاتر
+                  <Filter className="w-5 h-5" />
+                  <span>تصفية</span>
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 md:flex-none bg-gradient-to-r from-primary to-indigo-600 text-white px-6 sm:px-10 py-4 rounded-[1.5rem] font-black hover:shadow-lg hover:shadow-primary/30 hover:-translate-y-0.5 transition-all duration-300 active:scale-95"
+                >
+                  بحث
                 </button>
               </div>
             </div>
-          )}
-        </form>
 
-        {/* فئات سريعة */}
-        <div className="flex overflow-x-auto gap-3 mt-6 no-scrollbar pb-2 pt-2">
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setFilters({ ...filters, category: cat.id as any })}
-              className={`flex items-center gap-3 px-6 py-4 rounded-2xl whitespace-nowrap transition-all duration-300 border-2 ${filters.category === cat.id ? 'bg-primary text-white border-primary shadow-lg shadow-primary/30 -translate-y-1 scale-[1.02]' : 'bg-white text-slate-600 border-slate-100 hover:border-primary/30 hover:bg-slate-50 hover:-translate-y-0.5'
-                }`}
-            >
-              <cat.icon className={`w-5 h-5 ${filters.category === cat.id ? 'text-white' : 'text-primary'}`} />
-              <span className="font-black text-sm">{cat.name}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-      {/* ===== Mobile Alerts (Hot + Ending Soon) ===== */}
-      <div className="lg:hidden space-y-6 mb-8">
-        {/* 🔥 Hot */}
-        {hotAuctions.length > 0 && (
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
-                🔥 مزادات ساخنة
-              </h3>
-            </div>
-
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {hotAuctions.map((auction) => (
-                <div key={auction._id} className="min-w-[200px] sm:min-w-[220px]">
-                  <AuctionSidebarCard auction={auction} />
+            {/* لوحة التصفية المتقدمة */}
+            {showFilters && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 pt-6 border-t border-slate-100 animate-in fade-in slide-in-from-top-4 duration-300">
+                {/* المحافظة */}
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 ml-1">
+                    <MapPin className="w-3.5 h-3.5" /> المحافظة
+                  </label>
+                  <div className="relative">
+                    <select
+                      className="w-full px-5 py-3.5 bg-slate-50 border-2 border-slate-100 rounded-2xl appearance-none outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary font-bold text-slate-700 transition-all cursor-pointer"
+                      value={filters.governorate}
+                      onChange={(e) => setFilters({ ...filters, governorate: e.target.value })}
+                    >
+                      {GOVERNORATES.map(g => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                    <ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
 
-        {/* ⏳ Ending Soon */}
-        {endingSoonAuctions.length > 0 && (
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
-                ⏳ تنتهي قريبًا
-              </h3>
-            </div>
-
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {endingSoonAuctions.map((auction) => (
-                <div key={auction._id} className="min-w-[200px] sm:min-w-[220px]">
-                  <AuctionSidebarCard auction={auction} />
+                {/* السعر */}
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 ml-1">
+                    <Tag className="w-3.5 h-3.5" /> نطاق السعر (د.ع)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      placeholder="من"
+                      className="w-1/2 px-4 py-3.5 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary font-bold text-sm transition-all"
+                      value={filters.minPrice}
+                      onChange={(e) => setFilters({ ...filters, minPrice: e.target.value })}
+                    />
+                    <input
+                      type="number"
+                      placeholder="إلى"
+                      className="w-1/2 px-4 py-3.5 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary font-bold text-sm transition-all"
+                      value={filters.maxPrice}
+                      onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })}
+                    />
+                  </div>
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
-      </div>
-      {upcoming.length > 0 && (
-        <section className="mb-10">
-          <h2 className="text-xl font-black mb-4">
-            مزادات تبدأ قريباً
-          </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-5">
-            {upcoming.map((auction) => (
-              <AuctionCard key={auction._id} auction={auction} compact />
+                {/* حالة المزاد */}
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 ml-1">
+                    <RefreshCw className="w-3.5 h-3.5" /> حالة المزاد
+                  </label>
+                  <div className="relative">
+                    <select
+                      className="w-full px-5 py-3.5 bg-slate-50 border-2 border-slate-100 rounded-2xl appearance-none outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary font-bold text-slate-700 transition-all cursor-pointer"
+                      value={filters.status}
+                      onChange={(e) => setFilters({ ...filters, status: e.target.value as any })}
+                    >
+                      <option value={AUCTION_STATUS.ACTIVE}>نشط حالياً</option>
+                      <option value={AUCTION_STATUS.UPCOMING}>تبدأ قريباً</option>
+                      <option value="ALL">الكل</option>
+                    </select>
+                    <ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* أزرار الإجراءات */}
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="w-full py-3.5 text-sm font-black text-slate-500 hover:text-rose-500 hover:bg-rose-50 rounded-2xl transition-all border-2 border-transparent hover:border-rose-100"
+                  >
+                    إعادة ضبط الفلاتر
+                  </button>
+                </div>
+              </div>
+            )}
+          </form>
+
+          {/* فئات سريعة */}
+          <div className="flex overflow-x-auto gap-3 mt-4 sm:mt-6 no-scrollbar pb-2 pt-2 -mx-2 px-2">
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setFilters({ ...filters, category: cat.id as any })}
+                className={`flex items-center gap-2.5 px-6 py-3 rounded-[1.25rem] whitespace-nowrap transition-all duration-300 border-2 snap-start ${filters.category === cat.id ? 'bg-slate-900 text-white border-slate-900 shadow-md shadow-slate-900/20 scale-[1.02]' : 'bg-white text-slate-600 border-slate-100 hover:border-slate-300 hover:bg-slate-50 hover:-translate-y-0.5'
+                  }`}
+              >
+                <cat.icon className={`w-4 h-4 ${filters.category === cat.id ? 'text-white' : 'text-slate-400'}`} />
+                <span className="font-black text-sm">{cat.name}</span>
+              </button>
             ))}
           </div>
-        </section>
-      )}
+        </div>
 
-      {/* ================= Layout ================= */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* ===== العمود الرئيسي ===== */}
-        <div className="lg:col-span-3">
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-              المزادات المتاحة
-              <span className="bg-slate-100 text-slate-500 text-xs px-3 py-1 rounded-full">
-                {auctions.length} نتيجة
+        {/* ===== Unified Highlights Sections (Hot + Ending Soon) ===== */}
+        <div className="space-y-10 mb-12">
+          {/* 🔥 Hot */}
+          {hotAuctions.length > 0 && (
+            <section>
+              <div className="flex items-center justify-between mb-4 px-2">
+                <h3 className="text-xl sm:text-2xl font-black text-slate-800 flex items-center gap-2">
+                  <span className="p-2 bg-red-100 text-red-600 rounded-xl">🔥</span> مزادات ساخنة
+                </h3>
+              </div>
+              <div className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar px-2">
+                {hotAuctions.map((auction) => (
+                  <div key={auction._id} className="min-w-[260px] sm:min-w-[300px] snap-start">
+                    <AuctionSidebarCard auction={auction} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ⏳ Ending Soon */}
+          {endingSoonAuctions.length > 0 && (
+            <section>
+              <div className="flex items-center justify-between mb-4 px-2">
+                <h3 className="text-xl sm:text-2xl font-black text-slate-800 flex items-center gap-2">
+                  <span className="p-2 bg-amber-100 text-amber-600 rounded-xl">⏳</span> تنتهي قريبًا
+                </h3>
+              </div>
+              <div className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar px-2">
+                {endingSoonAuctions.map((auction) => (
+                  <div key={auction._id} className="min-w-[260px] sm:min-w-[300px] snap-start">
+                    <AuctionSidebarCard auction={auction} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* 📅 Upcoming */}
+          {upcoming.length > 0 && filters.status !== AUCTION_STATUS.UPCOMING && (
+            <section>
+              <div className="flex items-center justify-between mb-4 px-2">
+                <h3 className="text-xl sm:text-2xl font-black text-slate-800 flex items-center gap-2">
+                  <span className="p-2 bg-blue-100 text-blue-600 rounded-xl">📅</span> تبدأ قريباً
+                </h3>
+              </div>
+              <div className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar px-2">
+                {upcoming.map((auction) => (
+                  <div key={auction._id} className="min-w-[280px] sm:min-w-[320px] snap-start">
+                    <AuctionCard auction={auction} compact />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+
+
+        {/* ================= Main Grid ================= */}
+        <div>
+          <div className="mb-8 flex items-center justify-between px-2">
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-3">
+              الموافقات الحالية
+              <span className="bg-slate-200 text-slate-600 text-sm px-3.5 py-1 rounded-full font-bold">
+                {auctions.length}
               </span>
             </h2>
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
-              {Array.from({ length: 6 }).map((_, i) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
+              {Array.from({ length: 8 }).map((_, i) => (
                 <div
                   key={i}
-                  className="bg-white rounded-[2rem] h-[340px] animate-pulse border border-slate-100"
+                  className="bg-white rounded-[2rem] h-[380px] animate-pulse border-2 border-slate-100 shadow-sm"
                 />
               ))}
-              
             </div>
           ) : displayedAuctions.length === 0 ? (
-            <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-slate-200">
-              <h3 className="text-2xl font-black text-slate-900 mb-2">لا توجد نتائج</h3>
-              <p className="text-slate-400">حاول تغيير البحث أو الفلاتر</p>
+            <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-slate-200 shadow-sm">
+              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Search className="w-8 h-8 text-slate-300" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-800 mb-2">عذراً، لم نجد ما تبحث عنه</h3>
+              <p className="text-slate-500 font-medium">حاول تغيير كلمات البحث أو تخفيف الفلاتر المستخدمة</p>
+              <button
+                onClick={resetFilters}
+                className="mt-6 font-bold text-primary hover:text-indigo-600 bg-primary/5 hover:bg-primary/10 px-6 py-2.5 rounded-full transition-colors"
+              >
+                تحديث الفلاتر
+              </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8 lg:gap-10">
               {displayedAuctions.map((auction) => (
-                <AuctionCard key={auction._id} auction={auction} compact />
+                <AuctionCard key={auction._id} auction={auction} />
               ))}
             </div>
           )}
+
+          {/* Pagination */}
           {pagination && pagination.totalPages > 1 && (
-  <div className="flex flex-wrap justify-center items-center gap-2 mt-8 sm:mt-10">
+            <div className="flex flex-wrap justify-center items-center gap-2 mt-16 pb-8">
+              <button
+                disabled={!pagination.hasPrev}
+                onClick={() => setPage((p) => p - 1)}
+                className="px-4 sm:px-6 py-3 rounded-2xl border-2 border-slate-100 font-black text-sm sm:text-base disabled:opacity-40 disabled:cursor-not-allowed hover:border-slate-300 hover:bg-slate-50 transition-colors"
+              >
+                السابق
+              </button>
 
-    <button
-      disabled={!pagination.hasPrev}
-      onClick={() => setPage((p) => p - 1)}
-      className="px-3 sm:px-4 py-2 rounded-lg border font-bold text-sm sm:text-base disabled:opacity-40"
-    >
-      السابق
-    </button>
+              {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
+                .slice(
+                  Math.max(0, pagination.page - 3),
+                  pagination.page + 2
+                )
+                .map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`min-w-[48px] px-3 sm:px-4 py-3 rounded-2xl font-black border-2 border-transparent text-sm sm:text-base transition-all ${p === pagination.page
+                      ? "bg-slate-900 text-white shadow-md hover:bg-slate-800"
+                      : "bg-white text-slate-600 hover:bg-slate-50 border-slate-100 hover:border-slate-200"
+                      }`}
+                  >
+                    {p}
+                  </button>
+                ))}
 
-    {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
-      .slice(
-        Math.max(0, pagination.page - 3),
-        pagination.page + 2
-      )
-      .map((p) => (
-        <button
-          key={p}
-          onClick={() => setPage(p)}
-          className={`px-3 sm:px-4 py-2 rounded-lg font-bold border text-sm sm:text-base ${
-            p === pagination.page
-              ? "bg-primary text-white"
-              : "bg-white"
-          }`}
-        >
-          {p}
-        </button>
-      ))}
-
-    <button
-      disabled={!pagination.hasNext}
-      onClick={() => setPage((p) => p + 1)}
-      className="px-3 sm:px-4 py-2 rounded-lg border font-bold text-sm sm:text-base disabled:opacity-40"
-    >
-      التالي
-    </button>
-
-  </div>
-)}
+              <button
+                disabled={!pagination.hasNext}
+                onClick={() => setPage((p) => p + 1)}
+                className="px-4 sm:px-6 py-3 rounded-2xl border-2 border-slate-100 font-black text-sm sm:text-base disabled:opacity-40 disabled:cursor-not-allowed hover:border-slate-300 hover:bg-slate-50 transition-colors"
+              >
+                التالي
+              </button>
+            </div>
+          )}
         </div>
-
-        {/* ===== Sidebar ===== */}
-        {/* Sidebar */}
-        <aside className="hidden lg:block lg:col-span-1 space-y-10">
-          {/* Hot scroll عمودي */}
-          {hotAuctions.length > 0 && (
-            <div>
-              <h3 className="text-sm font-black text-slate-800 mb-3 flex items-center gap-2">
-                🔥 مزادات ساخنة
-              </h3>
-              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-                {hotAuctions.map((auction) => (
-                  <AuctionSidebarCard key={auction._id} auction={auction} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Ending soon scroll عمودي */}
-          {endingSoonAuctions.length > 0 && (
-            <div>
-              <h3 className="text-sm font-black text-slate-800 mb-3 flex items-center gap-2">
-                ⏳ تنتهي قريبًا
-              </h3>
-              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-                {endingSoonAuctions.map((auction) => (
-                  <AuctionSidebarCard key={auction._id} auction={auction} />
-                ))}
-              </div>
-            </div>
-          )}
-        </aside>
       </div>
     </div>
   );

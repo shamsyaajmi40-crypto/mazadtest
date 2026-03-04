@@ -425,7 +425,7 @@ const HomeData = () => {
             </div>
             <div className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar px-2">
               {upcoming.map((auction) => (
-                <div key={auction._id} className="min-w-[280px] sm:min-w-[320px] snap-start">
+                <div key={auction._id} className="min-w-[220px] sm:min-w-[260px] snap-start">
                   <AuctionCard auction={auction} compact />
                 </div>
               ))}

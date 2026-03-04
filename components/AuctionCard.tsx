@@ -277,7 +277,7 @@ const AuctionCard: React.FC<{ auction: Auction; archived?: boolean; compact?: bo
       }}
     >
 
-      <div className={`relative bg-slate-100 group overflow-hidden ${compact ? "h-36" : "h-48"}`}>
+      <div className={`relative bg-slate-100 group overflow-hidden ${compact ? "h-[120px]" : "h-48"}`}>
         <img
           src={getImageUrl(auction.images?.[0])}
           alt={auction.title}
@@ -325,7 +325,7 @@ const AuctionCard: React.FC<{ auction: Auction; archived?: boolean; compact?: bo
 
         </div>
       )}
-      <div className={`flex-grow flex flex-col ${compact ? "p-3" : "p-4"}`}>
+      <div className={`flex-grow flex flex-col ${compact ? "p-2.5" : "p-4"}`}>
         <h3 className={`font-bold text-slate-900 line-clamp-1 transition-colors group-hover:text-primary ${compact ? "text-sm mb-0.5" : "text-base mb-1"}`}>{auction.title}</h3>
         {!compact && auction.owner && (
           <div className="flex flex-col items-start mb-2">
@@ -360,22 +360,22 @@ const AuctionCard: React.FC<{ auction: Auction; archived?: boolean; compact?: bo
           <p className="text-slate-500 text-sm line-clamp-2 mb-3 flex-grow font-medium leading-relaxed">{auction.description}</p>
         )}
 
-        <div className={`mt-auto bg-slate-50/80 rounded-2xl border border-slate-100 ${compact ? "p-3 mt-3" : "p-4"}`}>
-          <div className="flex flex-col gap-3">
+        <div className={`mt-auto bg-slate-50/80 rounded-2xl border border-slate-100 ${compact ? "p-2.5 mt-2" : "p-4"}`}>
+          <div className="flex flex-col gap-2.5">
             {/* Price Row */}
-            <div className="flex justify-between items-end pb-3 border-b border-slate-200/60">
-              <span className="text-[11px] uppercase tracking-widest text-slate-400 font-bold flex flex-col gap-1">
+            <div className="flex justify-between items-end pb-2.5 border-b border-slate-200/60">
+              <span className="text-[10px] sm:text-[11px] uppercase tracking-widest text-slate-400 font-bold flex flex-col gap-0.5 sm:gap-1">
                 <span className="flex items-center gap-1.5"><Tag className="w-3.5 h-3.5 text-primary" /> السعر الحالي</span>
               </span>
-              <span className="font-black text-emerald-600 text-lg sm:text-xl tracking-tight leading-none bg-emerald-50 px-3 py-1.5 rounded-xl text-right inline-block whitespace-nowrap overflow-hidden text-ellipsis max-w-full">
-                {Number(auction.currentPrice || 0).toLocaleString()} <span className="text-[10px] text-emerald-600/70">د.ع</span>
+              <span className={`font-black text-emerald-600 tracking-tight leading-none bg-emerald-50 px-2 py-1 sm:px-3 sm:py-1.5 rounded-xl text-right inline-block whitespace-nowrap overflow-hidden text-ellipsis max-w-full ${compact ? 'text-base sm:text-lg' : 'text-lg sm:text-xl'}`}>
+                {Number(auction.currentPrice || 0).toLocaleString()} <span className="text-[9px] sm:text-[10px] text-emerald-600/70">د.ع</span>
               </span>
             </div>
 
             {/* Time / Progress Row */}
             <div>
               {/* Progress bar */}
-              {!compact && !isEnded && !isScheduled && (
+              {!isEnded && !isScheduled && (
                 <div className="w-full h-1.5 bg-slate-200/60 rounded-full overflow-hidden mb-3">
                   <div
                     className="h-full rounded-full transition-all duration-1000 ease-out"
@@ -401,14 +401,14 @@ const AuctionCard: React.FC<{ auction: Auction; archived?: boolean; compact?: bo
                 {remaining && (
                   <div className="flex items-center justify-end">
                     <div
-                      className={`flex items-baseline justify-center gap-[2px] px-2 py-1 rounded-lg border font-black tabular-nums transition-all duration-300
+                      className={`flex items-baseline justify-center gap-[2px] px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg border font-black tabular-nums transition-all duration-300
                         ${isVeryUrgent
                           ? "bg-red-50 text-red-700 border-red-200 animate-[pulse_1s_infinite]"
                           : isUrgent
                             ? "bg-rose-50/50 text-rose-600 border-rose-100"
                             : "bg-white text-slate-700 border-slate-200 shadow-sm"
                         }`}
-                      style={{ fontSize: compact ? '11px' : '12px' }}
+                      style={{ fontSize: compact ? '10px' : '12px' }}
                     >
                       {remaining.days > 0 && (
                         <>

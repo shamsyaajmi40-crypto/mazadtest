@@ -171,8 +171,8 @@ export default function CourierStaffDashboard() {
     const q = search.trim().toLowerCase();
     const list = q
       ? orders.filter((o) =>
-          o._id.toLowerCase().includes(q) || (o.trackingCode || "").toLowerCase().includes(q)
-        )
+        o._id.toLowerCase().includes(q) || (o.trackingCode || "").toLowerCase().includes(q)
+      )
       : orders;
 
     return {
@@ -288,445 +288,466 @@ export default function CourierStaffDashboard() {
     const canRevert = reviewOpen;
 
     const cardTone = isDone
-      ? "border-emerald-200 bg-emerald-50/30"
+      ? "border-emerald-200/60 bg-white"
       : isFailed
-      ? "border-amber-200 bg-amber-50/30"
-      : "border-blue-200 bg-blue-50/20";
+        ? "border-rose-200/60 bg-white"
+        : "border-slate-200/60 bg-white";
 
     const badgeTone = isDone
-      ? "bg-emerald-100 text-emerald-700"
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-200 shadow-emerald-100/50"
       : isFailed
-      ? "bg-amber-100 text-amber-700"
-      : "bg-blue-100 text-blue-700";
+        ? "bg-rose-50 text-rose-700 ring-rose-200 shadow-rose-100/50"
+        : "bg-blue-50 text-blue-700 ring-blue-200 shadow-blue-100/50";
+
+    const indicatorColor = isDone ? "bg-emerald-500" : isFailed ? "bg-rose-500" : "bg-blue-500";
 
     return (
-      <div key={o._id} className={`rounded-xl border p-3 shadow-sm ${cardTone}`}>
-        <div className="flex items-center justify-between gap-2">
+      <div key={o._id} className={`group relative rounded-2xl border p-4 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden ${cardTone}`}>
+        <div className={`absolute top-0 right-0 w-1.5 h-full ${indicatorColor}`} />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pr-2">
           <div>
-            <div className="font-black text-sm text-slate-900">طلب #{o._id.slice(-6)}</div>
+            <div className="font-extrabold text-sm text-slate-900 tracking-tight">طلب #{o._id.slice(-6).toUpperCase()}</div>
+            <div className="text-[11px] font-medium text-slate-500 mt-0.5">
+              المندوب: {agentName(o.agentUser)}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${badgeTone}`}>
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ring-inset shadow-sm ${badgeTone}`}>
               {statusLabel[o.status] || o.status}
             </span>
             <button
               onClick={() => setExpandedByOrder((p) => ({ ...p, [o._id]: !expanded }))}
-              className="rounded-lg border border-slate-300 px-2 py-1 text-[11px] font-bold text-slate-700 inline-flex items-center gap-1"
+              className="rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors inline-flex items-center gap-1.5 shadow-sm"
             >
               {expanded ? (
-                <>
-                  إخفاء
-                  <ChevronUp className="w-3.5 h-3.5" />
-                </>
+                <>إخفاء <ChevronUp className="w-3.5 h-3.5" /></>
               ) : (
-                <>
-                  إظهار
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </>
+                <>تفاصيل <ChevronDown className="w-3.5 h-3.5" /></>
               )}
             </button>
           </div>
         </div>
 
         {expanded && (
-          <>
-            <div className="text-[11px] text-slate-500 mt-1">
-              {o.trackingCode ? `Tracking: ${o.trackingCode}` : "بدون Tracking"}
+          <div className="mt-4 pt-4 border-t border-slate-100 pr-2 animate-in fade-in zoom-in-95 duration-200">
+            <div className="text-[11px] text-slate-500 mb-3 bg-slate-50 p-2 rounded-lg inline-flex items-center gap-2 border border-slate-100">
+              <span className="font-bold text-slate-700">التتبع (Tracking):</span> <span className="font-mono">{o.trackingCode || "غير متوفر"}</span>
             </div>
 
-            <div className="mt-2 grid grid-cols-3 gap-1.5 text-[11px]">
-          <div className="rounded-lg bg-slate-50 p-2">
-            <div className="text-slate-500">المندوب</div>
-            <div className="font-black text-slate-800">{agentName(o.agentUser)}</div>
-          </div>
-          <div className="rounded-lg bg-slate-50 p-2">
-            <div className="text-slate-500">قيمة المزاد</div>
-            <div className="font-black text-slate-800">
-              {Number(o.auction?.currentPrice || 0).toLocaleString()} د.ع
-            </div>
-          </div>
-          <div className="rounded-lg bg-slate-50 p-2">
-            <div className="text-slate-500">مستحق البائع</div>
-            <div className="font-black text-slate-800">{sellerPayout(o).toLocaleString()} د.ع</div>
-          </div>
-        </div>
-
-            <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-1.5 text-[11px]">
-              <div className="rounded-lg border border-slate-200 bg-white p-2">
-                <div className="font-black text-slate-800 mb-1">بيانات المشتري</div>
-                <div className="text-slate-600">الاسم: {o.auction?.winner?.name || "-"}</div>
-                <div className="text-slate-600">الهاتف: {o.auction?.winner?.phone || "-"}</div>
-                <div className="text-slate-600">العنوان: {fullAddress(o.auction?.winner || null)}</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+              <div className="rounded-xl bg-slate-50 p-3 border border-slate-100/50">
+                <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 font-bold">المندوب المكلّف</div>
+                <div className="font-black text-slate-800 text-xs">{agentName(o.agentUser)}</div>
               </div>
-              <div className="rounded-lg border border-slate-200 bg-white p-2">
-                <div className="font-black text-slate-800 mb-1">بيانات البائع</div>
-                <div className="text-slate-600">الاسم: {o.auction?.seller?.name || "-"}</div>
-                <div className="text-slate-600">الهاتف: {o.auction?.seller?.phone || "-"}</div>
-                <div className="text-slate-600">العنوان: {fullAddress(o.auction?.seller || null)}</div>
+              <div className="rounded-xl bg-slate-50 p-3 border border-slate-100/50">
+                <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 font-bold">قيمة المزاد</div>
+                <div className="font-black text-slate-800 text-xs">{Number(o.auction?.currentPrice || 0).toLocaleString()} د.ع</div>
+              </div>
+              <div className="rounded-xl bg-emerald-50 p-3 border border-emerald-100/50">
+                <div className="text-[10px] text-emerald-600 uppercase tracking-wider mb-1 font-bold">المستحق للبائع</div>
+                <div className="font-black text-emerald-900 text-xs">{sellerPayout(o).toLocaleString()} د.ع</div>
+              </div>
+              <div className="rounded-xl bg-indigo-50 p-3 border border-indigo-100/50">
+                <div className="text-[10px] text-indigo-600 uppercase tracking-wider mb-1 font-bold">حالة الطلب</div>
+                <div className="font-black text-indigo-900 text-[11px] truncate">{statusLabel[o.status] || "-"}</div>
               </div>
             </div>
 
-        {o.status === "DELIVERY_FAILED" && (
-          <div className="mt-3 space-y-2">
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs font-bold text-amber-800">
-              سبب الفشل: {failureReasonLabel[o.failureReason || ""] || o.failureReason || "-"}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+              <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm hover:border-blue-200 transition-colors">
+                <div className="font-black text-slate-800 mb-2 text-xs flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
+                  بيانات التسليم (المشتري)
+                </div>
+                <div className="space-y-1.5">
+                  <div className="text-xs text-slate-600 flex items-start gap-1"><span className="text-slate-400 font-medium w-12 shrink-0">الاسم:</span> <span className="font-bold text-slate-800">{o.auction?.winner?.name || "-"}</span></div>
+                  <div className="text-xs text-slate-600 flex items-start gap-1"><span className="text-slate-400 font-medium w-12 shrink-0">الهاتف:</span> <span className="font-mono font-bold text-slate-800">{o.auction?.winner?.phone || "-"}</span></div>
+                  <div className="text-xs text-slate-600 flex items-start gap-1"><span className="text-slate-400 font-medium w-12 shrink-0">العنوان:</span> <span>{fullAddress(o.auction?.winner || null)}</span></div>
+                </div>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm hover:border-amber-200 transition-colors">
+                <div className="font-black text-slate-800 mb-2 text-xs flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
+                  بيانات الاستلام (البائع)
+                </div>
+                <div className="space-y-1.5">
+                  <div className="text-xs text-slate-600 flex items-start gap-1"><span className="text-slate-400 font-medium w-12 shrink-0">الاسم:</span> <span className="font-bold text-slate-800">{o.auction?.seller?.name || "-"}</span></div>
+                  <div className="text-xs text-slate-600 flex items-start gap-1"><span className="text-slate-400 font-medium w-12 shrink-0">الهاتف:</span> <span className="font-mono font-bold text-slate-800">{o.auction?.seller?.phone || "-"}</span></div>
+                  <div className="text-xs text-slate-600 flex items-start gap-1"><span className="text-slate-400 font-medium w-12 shrink-0">العنوان:</span> <span>{fullAddress(o.auction?.seller || null)}</span></div>
+                </div>
+              </div>
             </div>
-            <div
-              className={`rounded-xl p-2 text-xs font-black ${
-                reviewOpen
-                  ? "border border-blue-200 bg-blue-50 text-blue-800"
-                  : "border border-rose-200 bg-rose-50 text-rose-700"
-              }`}
-            >
-              {reviewOpen
-                ? `المهلة المتبقية للتراجع: ${formatRemaining(deadlineMs - nowMs)}`
-                : "انتهت مهلة المراجعة، سيتم/تم تطبيق العقوبة."}
-            </div>
-          </div>
-        )}
 
-        <div className="mt-3 space-y-2">
-          <div className="rounded-lg border border-slate-200 p-2.5">
-            <div className="text-[11px] text-slate-500 mb-1.5">تعيين مندوب</div>
-            <div className="grid grid-cols-2 gap-1.5">
-              <select
-                value={assignAgentByOrder[o._id] || ""}
-                onChange={(e) => setAssignAgentByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
-                className="rounded-lg border px-2.5 py-1.5 text-xs font-bold"
-              >
-                <option value="">اختر مندوباً</option>
-                {agents
-                  .filter((a) => a.isCourierActive !== false)
-                  .map((a) => (
-                    <option key={a._id} value={a._id}>
-                      {a.name} - {a.phone}
-                    </option>
-                  ))}
-              </select>
+            {o.status === "DELIVERY_FAILED" && (
+              <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 shadow-sm">
+                <div className="text-xs font-bold text-rose-800 mb-1 flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  سبب الفشل: {failureReasonLabel[o.failureReason || ""] || o.failureReason || "-"}
+                </div>
+                <div className={`text-[11px] font-black mt-1 ${reviewOpen ? "text-rose-600" : "text-rose-900"}`}>
+                  {reviewOpen
+                    ? `المهلة المتبقية للتراجع عن الفشل: ${formatRemaining(deadlineMs - nowMs)}`
+                    : "انتهت مهلة المراجعة، تم إغلاق الطلب وتطبيق العقوبة (إن وجدت)."}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-50/50 p-3 rounded-xl border border-slate-100/80 mb-3">
+              <div className="space-y-2">
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">تعيين مندوب التوصيل</div>
+                <div className="flex gap-1.5">
+                  <select
+                    value={assignAgentByOrder[o._id] || ""}
+                    onChange={(e) => setAssignAgentByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
+                    className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold shadow-sm focus:ring-2 focus:ring-slate-900 focus:border-slate-900 transition-all outline-none"
+                  >
+                    <option value="">اختر مندوباً للنقل...</option>
+                    {agents
+                      .filter((a) => a.isCourierActive !== false)
+                      .map((a) => (
+                        <option key={a._id} value={a._id}>
+                          {a.name} - {a.phone}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    onClick={() => onAssignAgent(o._id)}
+                    disabled={!canAssign || isBusy || !assignAgentByOrder[o._id]}
+                    className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50 transition-all active:scale-95 whitespace-nowrap"
+                  >
+                    تعيين
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">تأكيد دفع السيولة (البائع)</div>
+                <div className="flex flex-col sm:flex-row gap-1.5">
+                  <input
+                    value={otpByOrder[o._id] || ""}
+                    onChange={(e) => setOtpByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
+                    className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-center text-xs tracking-widest font-black shadow-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                    placeholder="OTP الدفع للبائع"
+                  />
+                  <input
+                    value={receiptByOrder[o._id] || ""}
+                    onChange={(e) => setReceiptByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
+                    className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm focus:ring-2 focus:ring-emerald-500 outline-none w-full sm:w-auto"
+                    placeholder="رقم الوصل (اختياري)"
+                  />
+                  <button
+                    onClick={() => onCodPaid(o._id)}
+                    disabled={!canCodPaid || isBusy}
+                    className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 transition-all active:scale-95 whitespace-nowrap inline-flex items-center justify-center gap-1.5"
+                  >
+                    <Wallet className="w-3.5 h-3.5" /> تأكيد
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-transparent">
               <button
-                onClick={() => onAssignAgent(o._id)}
-                disabled={!canAssign || isBusy || !assignAgentByOrder[o._id]}
-                className="rounded-lg bg-slate-900 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                onClick={() => onPickedUp(o._id)}
+                disabled={!canPickUp || isBusy}
+                className="w-full rounded-xl bg-slate-900 py-3 text-xs font-bold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50 transition-all active:scale-95 inline-flex items-center justify-center gap-2"
               >
-                تعيين
+                <Truck className="w-4 h-4 text-emerald-400" /> البائع سلّم البضاعة
               </button>
+
+              <button
+                onClick={() => onRevertFailed(o._id)}
+                disabled={!canRevert || isBusy}
+                className="w-full rounded-xl border border-slate-300 bg-white py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-400 disabled:opacity-50 transition-all active:scale-95 inline-flex items-center justify-center gap-2"
+              >
+                <RotateCcw className="w-4 h-4 text-amber-500" /> تراجع عن الفشل
+              </button>
+
+              <div className="relative group/fail">
+                <button
+                  disabled={!canFail || isBusy}
+                  className="w-full h-full rounded-xl border border-rose-200 bg-rose-50 py-3 text-xs font-bold text-rose-700 hover:bg-rose-100 hover:border-rose-300 disabled:opacity-50 transition-all inline-flex items-center justify-center gap-2"
+                >
+                  <AlertTriangle className="w-4 h-4 shrink-0" /> الإبلاغ عن فشل الطلب
+                </button>
+
+                <div className="absolute bottom-full mb-3 right-0 w-72 bg-white border border-slate-200 shadow-2xl rounded-2xl p-4 hidden group-focus-within/fail:block z-20 tooltip-arrow">
+                  <div className="text-[11px] text-slate-500 uppercase font-black mb-3">تفاصيل فشل التوصيل</div>
+                  <select
+                    value={reasonByOrder[o._id] || ""}
+                    onChange={(e) => setReasonByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
+                    className="w-full rounded-xl border-slate-200 text-xs font-bold mb-2.5 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 bg-slate-50 p-2.5 outline-none"
+                  >
+                    <option value="">اختر السبب الرئيسي لفشل التوصيل...</option>
+                    {failureReasons.map((r) => (
+                      <option key={r.value} value={r.value}>{r.label}</option>
+                    ))}
+                  </select>
+                  <input
+                    value={noteByOrder[o._id] || ""}
+                    onChange={(e) => setNoteByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
+                    className="w-full rounded-xl border-slate-200 text-xs mb-3 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 bg-slate-50 p-2.5 outline-none"
+                    placeholder="أضف ملاحظة توضيحية (اختياري)"
+                  />
+                  <button
+                    onClick={() => onFailed(o._id)}
+                    disabled={!canFail || isBusy || !reasonByOrder[o._id]}
+                    className="w-full rounded-xl bg-rose-600 py-2.5 text-xs font-bold text-white shadow-md hover:bg-rose-700 disabled:opacity-50 transition-all active:scale-95"
+                  >
+                    تأكيد فشل الطلب وإغلاقه
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-1.5">
-            <button
-              onClick={() => onPickedUp(o._id)}
-              disabled={!canPickUp || isBusy}
-              className="rounded-lg bg-slate-900 py-1.5 text-xs font-bold text-white disabled:opacity-50"
-            >
-              <span className="inline-flex items-center gap-2">
-                <Truck className="w-4 h-4" />
-                تأكيد الاستلام
-              </span>
-            </button>
-
-            <button
-              onClick={() => onRevertFailed(o._id)}
-              disabled={!canRevert || isBusy}
-              className="rounded-lg border border-slate-300 py-1.5 text-xs font-bold text-slate-700 disabled:opacity-50"
-            >
-              <span className="inline-flex items-center gap-2">
-                <RotateCcw className="w-4 h-4" />
-                التراجع عن الفشل
-              </span>
-            </button>
-          </div>
-
-          <div className="rounded-lg border border-slate-200 p-2.5">
-            <div className="text-[11px] text-slate-500 mb-1.5">تأكيد دفع COD للبائع</div>
-            <input
-              value={otpByOrder[o._id] || ""}
-              onChange={(e) => setOtpByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
-              className="w-full rounded-lg border px-2.5 py-1.5 text-center text-sm tracking-widest font-black"
-              placeholder="OTP البائع"
-            />
-            <input
-              value={receiptByOrder[o._id] || ""}
-              onChange={(e) => setReceiptByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
-              className="mt-1.5 w-full rounded-lg border px-2.5 py-1.5 text-xs"
-              placeholder="رقم الوصل (اختياري)"
-            />
-            <button
-              onClick={() => onCodPaid(o._id)}
-              disabled={!canCodPaid || isBusy}
-              className="mt-1.5 w-full rounded-lg bg-emerald-600 py-1.5 text-xs font-bold text-white disabled:opacity-50"
-            >
-              <span className="inline-flex items-center gap-2">
-                <Wallet className="w-4 h-4" />
-                تأكيد دفع COD
-              </span>
-            </button>
-          </div>
-
-          <div className="rounded-lg border border-slate-200 p-2.5">
-            <div className="text-[11px] text-slate-500 mb-1.5">تسجيل فشل التوصيل</div>
-            <select
-              value={reasonByOrder[o._id] || ""}
-              onChange={(e) => setReasonByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
-              className="w-full rounded-lg border px-2.5 py-1.5 text-xs font-bold"
-            >
-              <option value="">اختر السبب</option>
-              {failureReasons.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-            <input
-              value={noteByOrder[o._id] || ""}
-              onChange={(e) => setNoteByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
-              className="mt-1.5 w-full rounded-lg border px-2.5 py-1.5 text-xs"
-              placeholder="ملاحظة (اختياري)"
-            />
-            <button
-              onClick={() => onFailed(o._id)}
-              disabled={!canFail || isBusy}
-              className="mt-1.5 w-full rounded-lg bg-rose-600 py-1.5 text-xs font-bold text-white disabled:opacity-50"
-            >
-              <span className="inline-flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4" />
-                تسجيل فشل
-              </span>
-            </button>
-          </div>
-        </div>
-          </>
         )}
       </div>
     );
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-4 space-y-4">
-      <div className="rounded-3xl border border-slate-200 bg-white p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-2xl font-black text-slate-900">لوحة موظف الشركة</div>
-            <div className="text-sm text-slate-600 mt-1">
-              إدارة المندوبين وطلبات التوصيل والدفع.
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={loadOrders}
-              className="rounded-xl border px-3 py-2 font-bold inline-flex items-center gap-2"
-            >
-              <RefreshCcw className={`w-4 h-4 ${loadingOrders ? "animate-spin" : ""}`} />
-              تحديث الطلبات
-            </button>
-            <button
-              onClick={logout}
-              className="rounded-xl border px-3 py-2 font-bold inline-flex items-center gap-2"
-            >
-              <LogOut className="w-4 h-4" />
-              خروج
-            </button>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-slate-50 relative pb-20 font-sans">
+      {/* Background decoration */}
+      <div className="absolute top-0 inset-x-0 h-64 bg-gradient-to-br from-slate-900 to-slate-800 -z-0 rounded-b-[40px] md:rounded-b-[80px]" />
 
-      {error && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-700">
-          {error}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <div className="rounded-2xl border bg-white p-3 text-center">
-          <div className="text-xs text-slate-500">مندوبون فعّالون</div>
-          <div className="text-2xl font-black text-emerald-700">
-            {agents.filter((a) => a.isCourierActive !== false).length}
-          </div>
-        </div>
-        <div className="rounded-2xl border bg-white p-3 text-center">
-          <div className="text-xs text-slate-500">طلبات فعالة</div>
-          <div className="text-2xl font-black text-slate-900">{filteredOrders.active.length}</div>
-        </div>
-        <div className="rounded-2xl border bg-white p-3 text-center">
-          <div className="text-xs text-slate-500">طلبات فاشلة (مخفية)</div>
-          <div className="text-2xl font-black text-amber-700">{filteredOrders.failed.length}</div>
-        </div>
-        <div className="rounded-2xl border bg-white p-3 text-center">
-          <div className="text-xs text-slate-500">طلبات منتهية</div>
-          <div className="text-2xl font-black text-emerald-700">{filteredOrders.done.length}</div>
-        </div>
-      </div>
-
-      <div className="rounded-3xl border border-slate-200 bg-white p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="font-black text-slate-900 inline-flex items-center gap-2">
-            <UserCog className="w-5 h-5" />
-            إدارة المندوبين
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={loadAgents}
-              className="rounded-xl border px-3 py-2 text-sm font-bold"
-              disabled={loadingAgents}
-            >
-              {loadingAgents ? "..." : "تحديث"}
-            </button>
-            <button
-              onClick={() => setShowAgentModal(true)}
-              className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-bold text-white inline-flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              إضافة مندوب
-            </button>
-          </div>
-        </div>
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
-          {agents.length === 0 ? (
-            <div className="rounded-2xl border border-dashed p-4 text-center text-slate-500">
-              لا يوجد مندوبون بعد.
-            </div>
-          ) : (
-            agents.map((a) => (
-              <div key={a._id} className="rounded-2xl border p-3 flex items-center justify-between">
-                <div>
-                  <div className="font-bold text-slate-800">{a.name}</div>
-                  <div className="text-xs text-slate-500">{a.phone}</div>
-                </div>
-                <button
-                  onClick={() => onToggleAgent(a._id)}
-                  className={`rounded-xl px-3 py-2 text-xs font-bold border ${
-                    a.isCourierActive === false
-                      ? "bg-rose-50 text-rose-700 border-rose-200"
-                      : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  }`}
-                >
-                  {a.isCourierActive === false ? "معطّل" : "فعّال"}
-                </button>
+      <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 space-y-6 relative z-10">
+        <div className="rounded-3xl border border-white/20 bg-white/10 backdrop-blur-lg p-5 shadow-xl text-white">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="text-2xl md:text-3xl font-black tracking-tight">لوحة موظف الشركة</div>
+              <div className="text-sm text-slate-200 mt-1 font-medium">
+                إدارة المندوبين، مراقبة طلبات التوصيل، ومتابعة الدفعات النقدية (COD)
               </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      <div className="rounded-3xl border border-slate-200 bg-white p-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border pl-9 pr-3 py-2"
-            placeholder="بحث بالـ orderId أو tracking"
-          />
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-slate-200 bg-white p-3">
-        <div className="flex items-center justify-between">
-          <div className="text-sm font-black text-slate-700">أرشيف الطلبات الفاشلة</div>
-          <button
-            onClick={() => setShowFailedArchive((v) => !v)}
-            className="rounded-xl border px-3 py-1.5 text-xs font-bold text-slate-700"
-          >
-            {showFailedArchive
-              ? "إخفاء الأرشيف"
-              : `عرض الأرشيف (${filteredOrders.failed.length})`}
-          </button>
-        </div>
-      </div>
-
-      <section>
-        <div className="mb-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 inline-flex items-center gap-2">
-          <Siren className="w-4 h-4 text-rose-600" />
-          <span className="text-sm font-black text-rose-700">طلبات قيد التنفيذ - تحتاج انتباه</span>
-        </div>
-        <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-2.5">
-          {filteredOrders.active.length === 0 ? (
-            <div className="rounded-2xl border border-dashed bg-white p-6 text-center text-slate-500">
-              لا توجد طلبات قيد التنفيذ.
             </div>
-          ) : (
-            filteredOrders.active.map(renderOrderCard)
-          )}
-        </div>
-      </section>
-
-      {showFailedArchive && (
-        <section>
-          <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 inline-flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600" />
-            <span className="text-sm font-black text-amber-700">أرشيف الطلبات الفاشلة - للمراجعة</span>
+            <div className="flex gap-2.5">
+              <button
+                onClick={loadOrders}
+                className="rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 px-4 py-2 font-bold inline-flex items-center gap-2 transition-all active:scale-95"
+              >
+                <RefreshCcw className={`w-4 h-4 ${loadingOrders ? "animate-spin" : ""}`} />
+                <span className="hidden sm:inline">تحديث</span>
+              </button>
+              <button
+                onClick={logout}
+                className="rounded-xl bg-rose-500/90 hover:bg-rose-500 px-4 py-2 font-bold inline-flex items-center gap-2 transition-all active:scale-95"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">خروج</span>
+              </button>
+            </div>
           </div>
-          <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-2.5">
-            {filteredOrders.failed.length === 0 ? (
-              <div className="rounded-2xl border border-dashed bg-white p-6 text-center text-slate-500">
-                لا توجد طلبات فاشلة حالياً.
+        </div>
+
+        {error && (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700 shadow-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+            <AlertTriangle className="w-5 h-5 shrink-0" />
+            {error}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 lg:gap-4">
+          <div className="rounded-2xl border border-slate-200/60 bg-white p-4 text-center shadow-sm hover:shadow-md transition-shadow">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">مندوبون فعّالون</div>
+            <div className="text-3xl font-black text-indigo-600">
+              {agents.filter((a) => a.isCourierActive !== false).length}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-slate-200/60 bg-white p-4 text-center shadow-sm hover:shadow-md transition-shadow">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">طلبات فعالة</div>
+            <div className="text-3xl font-black text-slate-800">{filteredOrders.active.length}</div>
+          </div>
+          <div className="rounded-2xl border border-slate-200/60 bg-white p-4 text-center shadow-sm hover:shadow-md transition-shadow">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">طلبات فاشلة</div>
+            <div className="text-3xl font-black text-rose-600">{filteredOrders.failed.length}</div>
+          </div>
+          <div className="rounded-2xl border border-slate-200/60 bg-white p-4 text-center shadow-sm hover:shadow-md transition-shadow">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">طلبات منتهية</div>
+            <div className="text-3xl font-black text-emerald-600">{filteredOrders.done.length}</div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200/60 bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="font-extrabold text-slate-800 inline-flex items-center gap-2 text-lg">
+              <UserCog className="w-5 h-5 text-indigo-500" />
+              إدارة مناديب التوصيل
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={loadAgents}
+                className="rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 transition-colors"
+                disabled={loadingAgents}
+              >
+                {loadingAgents ? "..." : "تحديث"}
+              </button>
+              <button
+                onClick={() => setShowAgentModal(true)}
+                className="rounded-xl bg-indigo-600 hover:bg-indigo-700 px-4 py-2 text-sm font-bold text-white inline-flex items-center gap-2 transition-colors shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                إضافة مندوب
+              </button>
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {agents.length === 0 ? (
+              <div className="col-span-full rounded-2xl border-2 border-dashed border-slate-200 p-8 text-center text-slate-400 font-medium">
+                لا يوجد مندوبون بعد. انقر على "إضافة مندوب" للبدء.
               </div>
             ) : (
-              filteredOrders.failed.map(renderOrderCard)
+              agents.map((a) => (
+                <div key={a._id} className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 flex items-center justify-between group hover:border-slate-200 transition-colors">
+                  <div>
+                    <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                      {a.name}
+                      {a.isCourierActive === false && <span className="w-2 h-2 rounded-full bg-rose-500" />}
+                    </div>
+                    <div className="text-xs text-slate-500 font-mono mt-0.5">{a.phone}</div>
+                  </div>
+                  <button
+                    onClick={() => onToggleAgent(a._id)}
+                    className={`rounded-xl px-3 py-1.5 text-xs font-bold border transition-colors ${a.isCourierActive === false
+                      ? "bg-white text-rose-700 border-rose-200 hover:bg-rose-50"
+                      : "bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                      }`}
+                  >
+                    {a.isCourierActive === false ? "معطّل" : "فعّال"}
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="rounded-3xl border border-slate-200/60 bg-white p-2.5 shadow-sm">
+            <div className="relative">
+              <Search className="absolute right-4 top-3.5 w-4 h-4 text-slate-400" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-2xl bg-slate-50 hover:bg-slate-100 focus:bg-white border-0 py-3 pr-11 pl-4 text-sm font-medium transition-colors outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                placeholder="ابحث برقم الطلب (OrderId) أو التتبع (Tracking)..."
+              />
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200/60 bg-white p-2.5 shadow-sm flex items-center justify-between px-5">
+            <div className="text-sm font-black text-slate-700 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              أرشيف الطلبات الفاشلة
+            </div>
+            <button
+              onClick={() => setShowFailedArchive((v) => !v)}
+              className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors ${showFailedArchive
+                ? "bg-slate-900 text-white"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+            >
+              {showFailedArchive
+                ? "إخفاء الأرشيف"
+                : `عرض الأرشيف (${filteredOrders.failed.length})`}
+            </button>
+          </div>
+        </div>
+
+        <section className="space-y-4 pt-2">
+          <div className="inline-flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)] animate-pulse" />
+            <h2 className="text-lg font-black text-slate-800">طلبات قيد التنفيذ</h2>
+            <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-bold text-slate-600">{filteredOrders.active.length}</span>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
+            {filteredOrders.active.length === 0 ? (
+              <div className="col-span-full rounded-3xl border-2 border-dashed border-slate-200 bg-white/50 p-10 text-center text-slate-400 font-medium">
+                لا توجد طلبات قيد التنفيذ في الوقت الحالي.
+              </div>
+            ) : (
+              filteredOrders.active.map(renderOrderCard)
             )}
           </div>
         </section>
-      )}
 
-      <section>
-        <div className="mb-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 inline-flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-          <span className="text-sm font-black text-emerald-700">طلبات منتهية - لا تتطلب إجراء</span>
-        </div>
-        <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-2.5 opacity-90">
-          {filteredOrders.done.length === 0 ? (
-            <div className="rounded-2xl border border-dashed bg-white p-6 text-center text-slate-500">
-              لا توجد طلبات منتهية.
+        {showFailedArchive && (
+          <section className="space-y-4 pt-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <div className="inline-flex items-center gap-2 border-t-2 border-dashed border-slate-200 w-full pt-6">
+              <div className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+              <h2 className="text-lg font-black text-slate-800">الطلبات الفاشلة (للمراجعة)</h2>
+              <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">{filteredOrders.failed.length}</span>
             </div>
-          ) : (
-            filteredOrders.done.map(renderOrderCard)
-          )}
-        </div>
-      </section>
+            <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
+              {filteredOrders.failed.length === 0 ? (
+                <div className="col-span-full rounded-3xl border-2 border-dashed border-slate-200 bg-white/50 p-10 text-center text-slate-400 font-medium">
+                  لا توجد طلبات فاشلة حالياً.
+                </div>
+              ) : (
+                filteredOrders.failed.map(renderOrderCard)
+              )}
+            </div>
+          </section>
+        )}
 
-      {showAgentModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5">
-            <div className="flex items-center justify-between">
-              <div className="text-lg font-black text-slate-900">إضافة مندوب جديد</div>
-              <button
-                onClick={() => setShowAgentModal(false)}
-                className="rounded-xl border p-2 text-slate-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="mt-4 space-y-3">
-              <input
-                value={newAgentName}
-                onChange={(e) => setNewAgentName(e.target.value)}
-                className="w-full rounded-xl border px-3 py-2"
-                placeholder="اسم المندوب"
-              />
-              <input
-                value={newAgentPhone}
-                onChange={(e) => setNewAgentPhone(e.target.value)}
-                className="w-full rounded-xl border px-3 py-2"
-                placeholder="رقم الهاتف"
-                inputMode="tel"
-              />
-              <input
-                value={newAgentPassword}
-                onChange={(e) => setNewAgentPassword(e.target.value)}
-                className="w-full rounded-xl border px-3 py-2"
-                placeholder="كلمة المرور"
-                type="password"
-              />
-              <button
-                onClick={onCreateAgent}
-                className="w-full rounded-xl bg-slate-900 py-2 text-sm font-bold text-white"
-              >
-                إنشاء المندوب
-              </button>
+        <section className="space-y-4 pt-4">
+          <div className="inline-flex items-center gap-2 border-t-2 border-dashed border-slate-200 w-full pt-6">
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+            <h2 className="text-lg font-black text-slate-800">طلبات منتهية ومكتملة</h2>
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">{filteredOrders.done.length}</span>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 opacity-80 hover:opacity-100 transition-opacity duration-300">
+            {filteredOrders.done.length === 0 ? (
+              <div className="col-span-full rounded-3xl border-2 border-dashed border-slate-200 bg-white/50 p-10 text-center text-slate-400 font-medium">
+                لا توجد طلبات منتهية في قائمة اليوم.
+              </div>
+            ) : (
+              filteredOrders.done.map(renderOrderCard)
+            )}
+          </div>
+        </section>
+
+        {showAgentModal && (
+          <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
+            <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5">
+              <div className="flex items-center justify-between">
+                <div className="text-lg font-black text-slate-900">إضافة مندوب جديد</div>
+                <button
+                  onClick={() => setShowAgentModal(false)}
+                  className="rounded-xl border p-2 text-slate-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="mt-4 space-y-3">
+                <input
+                  value={newAgentName}
+                  onChange={(e) => setNewAgentName(e.target.value)}
+                  className="w-full rounded-xl border px-3 py-2"
+                  placeholder="اسم المندوب"
+                />
+                <input
+                  value={newAgentPhone}
+                  onChange={(e) => setNewAgentPhone(e.target.value)}
+                  className="w-full rounded-xl border px-3 py-2"
+                  placeholder="رقم الهاتف"
+                  inputMode="tel"
+                />
+                <input
+                  value={newAgentPassword}
+                  onChange={(e) => setNewAgentPassword(e.target.value)}
+                  className="w-full rounded-xl border px-3 py-2"
+                  placeholder="كلمة المرور"
+                  type="password"
+                />
+                <button
+                  onClick={onCreateAgent}
+                  className="w-full rounded-xl bg-slate-900 py-2 text-sm font-bold text-white"
+                >
+                  إنشاء المندوب
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

@@ -1030,6 +1030,8 @@ export const resolveDispute = async (req, res) => {
     const blamedUserId = isSellersBlame ? auction.seller : auction.winner;
     const otherUserId = isSellersBlame ? auction.winner : auction.seller;
 
+    const wsNotifications = [];
+
     const notifyUser = async (userId, title, message, event) => {
       if (!userId) return;
       await Notification.create([{
@@ -1041,8 +1043,7 @@ export const resolveDispute = async (req, res) => {
         auction: auction._id,
       }], { session });
 
-      const io = getIo();
-      if (io) io.to(userId.toString()).emit("new_notification", { title });
+      wsNotifications.push({ userId, title });
     };
 
     if (decision === "accept_courier") {
@@ -1058,6 +1059,11 @@ export const resolveDispute = async (req, res) => {
       );
 
       await session.commitTransaction();
+
+      const io = getIo();
+      if (io) {
+        wsNotifications.forEach(n => io.to(n.userId.toString()).emit("new_notification", { title: n.title }));
+      }
       return res.json({ message: "تم رفض عذر المستخدم. سيتم تطبيق العقوبة قريباً عبر الكرون.", auction });
     }
 
@@ -1131,6 +1137,11 @@ export const resolveDispute = async (req, res) => {
       );
 
       await session.commitTransaction();
+
+      const io = getIo();
+      if (io) {
+        wsNotifications.forEach(n => io.to(n.userId.toString()).emit("new_notification", { title: n.title }));
+      }
       return res.json({
         message: "تمت تبرئة المستخدم وإعادة عربونه إلى رصيده بنجاح.",
         refunded: depositToReturn,

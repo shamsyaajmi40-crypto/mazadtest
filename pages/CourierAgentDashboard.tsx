@@ -106,6 +106,7 @@ export default function CourierAgentDashboard() {
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(Date.now());
   const [showFailedArchive, setShowFailedArchive] = useState(false);
+  const [showDoneArchive, setShowDoneArchive] = useState(false);
   const [expandedByOrder, setExpandedByOrder] = useState<Record<string, boolean>>({});
 
   const grouped = useMemo(() => {
@@ -432,11 +433,22 @@ export default function CourierAgentDashboard() {
             </button>
           </section>
 
-          <section className="space-y-4">
-            <div className="inline-flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)] animate-pulse" />
-              <h2 className="text-lg font-black text-slate-800">الطلبات الحالية المراد تنفيذها</h2>
-              <span className="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-bold text-slate-600">{grouped.active.length}</span>
+          <section className="space-y-4 pt-4 relative">
+            <div className="absolute -inset-2 rounded-3xl bg-blue-50/50 border border-blue-100/50 -z-10" />
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border-2 border-blue-500 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-1.5 h-full bg-blue-500" />
+              <div className="inline-flex items-center gap-3">
+                <div className="relative flex h-3.5 w-3.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-blue-500"></span>
+                </div>
+                <h2 className="text-xl font-black text-blue-900 tracking-tight">الطلبات الجارية (الأهم - قيد التنفيذ)</h2>
+              </div>
+              <span className="rounded-xl bg-blue-500 px-4 py-1.5 text-sm font-bold text-white shadow-sm flex items-center gap-2 w-max ring-4 ring-blue-50">
+                <Truck className="w-4 h-4" />
+                {grouped.active.length} طلبات
+              </span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {grouped.active.length === 0 ? (
@@ -468,22 +480,35 @@ export default function CourierAgentDashboard() {
             </section>
           )}
 
-          <section className="space-y-4 pt-4">
-            <div className="inline-flex items-center gap-2 border-t border-slate-200 w-full pt-6">
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-              <h2 className="text-lg font-black text-slate-800">الطلبات المكتملة حديثاً</h2>
-              <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700">{grouped.done.length}</span>
+          <section className="rounded-3xl border border-slate-200/60 bg-white p-2.5 shadow-sm flex items-center justify-between px-5 mt-6">
+            <div className="text-sm font-black text-slate-700 flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+              الطلبات المكتملة حديثاً
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-80 hover:opacity-100 transition-opacity">
-              {grouped.done.length === 0 ? (
-                <div className="col-span-full rounded-3xl border-2 border-dashed border-slate-200 bg-white/50 p-10 text-center text-slate-400 font-medium">
-                  لم تكمل أي طلبات حتى الآن.
-                </div>
-              ) : (
-                grouped.done.map(renderCard)
-              )}
-            </div>
+            <button
+              onClick={() => setShowDoneArchive((v) => !v)}
+              className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors ${showDoneArchive
+                  ? "bg-slate-900 text-white"
+                  : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                }`}
+            >
+              {showDoneArchive ? "إخفاء" : `عرض (${grouped.done.length})`}
+            </button>
           </section>
+
+          {showDoneArchive && (
+            <section className="space-y-4 pt-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-90 hover:opacity-100 transition-opacity">
+                {grouped.done.length === 0 ? (
+                  <div className="col-span-full rounded-3xl border-2 border-dashed border-slate-200 bg-white/50 p-10 text-center text-slate-400 font-medium">
+                    لم تكمل أي طلبات حتى الآن.
+                  </div>
+                ) : (
+                  grouped.done.map(renderCard)
+                )}
+              </div>
+            </section>
+          )}
         </div>
       </div>
     </div>

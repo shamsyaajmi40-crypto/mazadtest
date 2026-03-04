@@ -18,8 +18,11 @@ import { rateAuctionUser, getAuctionRatings } from "../services/rating";
 import { getRemainingTime } from "../utils/helpers";
 import api from "../services/api";
 import { io, Socket } from "socket.io-client";
+import { playSound } from '../utils/audio';
 import TermsModal from "../components/TermsModal";
 import { canUserRate } from "../utils/canUserRate";
+import RatingStars from '../components/RatingStars';
+import RelatedAuctions from '../components/RelatedAuctions';
 import confetti from "canvas-confetti";
 import { approveAuction, rejectAuction } from "../services/admin";
 
@@ -2210,6 +2213,10 @@ const AuctionDetails = () => {
           </div>
         )}
       </div>
+
+      {/* ===== Related Auctions Section (Bottom) ===== */}
+      <RelatedAuctions currentAuctionId={auction._id} category={auction.category} />
+
     </div>
   );
 };

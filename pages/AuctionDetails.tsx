@@ -86,6 +86,9 @@ const AuctionDetails = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    // التمرير إلى أعلى الصفحة دائماً عند فتح المزاد
+    window.scrollTo(0, 0);
+
     if (location.hash === "#rating-section" && !loading) {
       setTimeout(() => {
         const el = document.getElementById("rating-section");
@@ -94,7 +97,7 @@ const AuctionDetails = () => {
         }
       }, 500);
     }
-  }, [location.hash, loading]);
+  }, [id, location.hash, loading]);
 
   const [timeLeft, setTimeLeft] = useState("");
   const timeRef = React.useRef<HTMLSpanElement | null>(null);

@@ -178,11 +178,11 @@ const NotificationManager = () => {
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: 15, scale: 0.95, transformOrigin: "top right" }}
+            initial={{ opacity: 0, y: 15, scale: 0.95, transformOrigin: "top left" }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 350, damping: 25 }}
-            className="absolute left-[-10px] sm:left-auto sm:right-0 top-full mt-3 w-[85vw] max-w-[380px] bg-white/95 backdrop-blur-xl rounded-[1.5rem] border border-slate-200/60 shadow-2xl z-50 overflow-hidden origin-top-right"
+            className="absolute left-[-10px] sm:left-0 top-full mt-3 w-[85vw] max-w-[380px] bg-white/95 backdrop-blur-xl rounded-[1.5rem] border border-slate-200/60 shadow-2xl z-50 overflow-hidden origin-top-left"
           >
 
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">

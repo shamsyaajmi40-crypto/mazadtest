@@ -602,7 +602,7 @@ const AuctionDetails = () => {
     const token = session ? JSON.parse(session)?.token : null;
 
     socketRef.current = io(import.meta.env.VITE_API_URL || "http://localhost:5000", {
-      transports: ["polling", "websocket"],
+      transports: ["websocket"],
       auth: { token },
     });
 

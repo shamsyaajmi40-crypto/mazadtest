@@ -109,6 +109,7 @@ const AdminDashboard = () => {
       const session = localStorage.getItem("app_session");
       const token = session ? JSON.parse(session)?.token : null;
       socket = io(import.meta.env.VITE_API_URL || "http://localhost:5000", {
+        transports: ["websocket"],
         auth: { token },
       });
       socket.emit("admin:join");

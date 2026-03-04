@@ -106,7 +106,11 @@ const AdminDashboard = () => {
     let refreshHandler = () => loadAdminData();
 
     import("socket.io-client").then(({ io }) => {
-      socket = io(import.meta.env.VITE_API_URL || "http://localhost:5000");
+      const session = localStorage.getItem("app_session");
+      const token = session ? JSON.parse(session)?.token : null;
+      socket = io(import.meta.env.VITE_API_URL || "http://localhost:5000", {
+        auth: { token },
+      });
       socket.emit("admin:join");
       socket.on("admin_refresh", refreshHandler);
     });

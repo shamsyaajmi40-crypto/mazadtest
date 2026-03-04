@@ -347,6 +347,7 @@ export const markFailed = async (req, res) => {
     await auction.save();
 
     if (SELLER_FAILURE_REASONS.has(reason)) {
+      // تنبيه المتهم (البائع)
       await notifyUser({
         userId: auction.seller,
         title: "⚠️ تنبيه عاجل: فشل التوصيل",
@@ -354,7 +355,18 @@ export const markFailed = async (req, res) => {
         auctionId: auction._id,
         event: "DELIVERY_FAILED_ACCUSED",
       });
+      // تنبيه الطرف الآخر (المشتري)
+      if (auction.winner) {
+        await notifyUser({
+          userId: auction.winner,
+          title: "تحديث: فشل توصيل المزاد",
+          message: "تعذر التوصيل بسبب إشكال من طرف البائع. عربونك في أمان حالياً ونحن بانتظار مراجعة الإدارة أو اعتراض البائع.",
+          auctionId: auction._id,
+          event: "DELIVERY_FAILED_INFO",
+        });
+      }
     } else if (BUYER_FAILURE_REASONS.has(reason) && auction.winner) {
+      // تنبيه المتهم (المشتري)
       await notifyUser({
         userId: auction.winner,
         title: "⚠️ تنبيه عاجل: رفض الاستلام",
@@ -362,6 +374,33 @@ export const markFailed = async (req, res) => {
         auctionId: auction._id,
         event: "DELIVERY_FAILED_ACCUSED",
       });
+      // تنبيه الطرف الآخر (البائع)
+      await notifyUser({
+        userId: auction.seller,
+        title: "تحديث: فشل توصيل المزاد",
+        message: "تعذر التوصيل بسبب إشكال من طرف المشتري. عربونك في أمان حالياً ونحن بانتظار مراجعة الإدارة أو اعتراض المشتري.",
+        auctionId: auction._id,
+        event: "DELIVERY_FAILED_INFO",
+      });
+    } else if (reason === "COURIER_ISSUE") {
+      // تنبيه الطرفين بمشكلة الشركة
+      const courierMsg = "فشل التوصيل بسبب مشكلة لوجستية من شركة التوصيل. لا توجد عقوبات بحق أي طرف، المزاد قيد المراجعة حالياً.";
+      await notifyUser({
+        userId: auction.seller,
+        title: "تحديث المزاد: مشكلة توصيل",
+        message: courierMsg,
+        auctionId: auction._id,
+        event: "DELIVERY_FAILED_INFO",
+      });
+      if (auction.winner) {
+        await notifyUser({
+          userId: auction.winner,
+          title: "تحديث المزاد: مشكلة توصيل",
+          message: courierMsg,
+          auctionId: auction._id,
+          event: "DELIVERY_FAILED_INFO",
+        });
+      }
     }
 
     return res.json({

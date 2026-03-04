@@ -699,20 +699,30 @@ export const deleteAuction = async (req, res) => {
 
 // وضع مزايدة
 export const placeBid = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const auction = await Auction.findOne({
       _id: req.params.id,
       status: "active",
-    });
+    }).session(session);
 
-    if (!auction) return res.status(400).json({ message: "Auction not active" });
+    if (!auction) {
+      await session.abortTransaction();
+      return res.status(400).json({ message: "Auction not active" });
+    }
 
     if (auction.seller.toString() === req.user._id.toString()) {
+      await session.abortTransaction();
       return res.status(400).json({ message: "Seller cannot bid" });
     }
 
-    const user = await User.findById(req.user._id);
-    if (!user) return res.status(401).json({ message: "User not found" });
+    const user = await User.findById(req.user._id).session(session);
+    if (!user) {
+      await session.abortTransaction();
+      return res.status(401).json({ message: "User not found" });
+    }
 
     // ✅ 1) cooldown atomic (3s)
     const cd = await enforceBidCooldown({
@@ -722,6 +732,7 @@ export const placeBid = async (req, res) => {
     });
 
     if (!cd.allowed) {
+      await session.abortTransaction();
       const retryAfterMs =
         cd.retryAfterMs || Math.max(0, new Date(cd.nextAllowedAt).getTime() - Date.now());
 
@@ -734,54 +745,82 @@ export const placeBid = async (req, res) => {
     }
 
     const amountVal = validateNumber(req.body.amount, { min: 1000, max: 1000000000, name: "مبلغ المزايدة" });
-    if (!amountVal.isValid) return res.status(400).json({ message: amountVal.message });
+    if (!amountVal.isValid) {
+      await session.abortTransaction();
+      await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
+      return res.status(400).json({ message: amountVal.message });
+    }
     const amount = amountVal.value;
 
     const minBid = auction.currentPrice + auction.increment;
     if (amount < minBid) {
+      await session.abortTransaction();
+      await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
       return res.status(400).json({
         message: `المبلغ قليل جداً. أقل مزايدة مسموحة هي ${minBid.toLocaleString()} دينار.`
       });
     }
 
     const now = new Date();
-    if (auction.endTime <= now) return res.status(400).json({ message: "انتهى المزاد" });
+    if (auction.endTime <= now) {
+      await session.abortTransaction();
+      await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
+      return res.status(400).json({ message: "انتهى المزاد" });
+    }
 
     // عربون المزايد
-    const existingBid = await Bid.findOne({ auction: auction._id, bidder: user._id });
+    const existingBid = await Bid.findOne({ auction: auction._id, bidder: user._id }).session(session);
+
+    // ✅ التحقق من الحد الأقصى للمزادات النشطة (منع استنزاف السيولة وتشتت المزايدات)
+    // نتحقق فقط إذا كانت هذه هي المزايدة الأولى للمستخدم في هذا المزاد
+    if (!existingBid) {
+      const MAX_ACTIVE_AUCTIONS = 10;
+      const activeParticipations = await Bid.aggregate([
+        { $match: { bidder: user._id } },
+        { $group: { _id: "$auction" } },
+        {
+          $lookup: {
+            from: "auctions",
+            localField: "_id",
+            foreignField: "_id",
+            as: "auc"
+          }
+        },
+        { $unwind: "$auc" },
+        { $match: { "auc.status": "active" } },
+        { $count: "count" }
+      ]).session(session);
+
+      const currentCount = activeParticipations.length > 0 ? activeParticipations[0].count : 0;
+
+      if (currentCount >= MAX_ACTIVE_AUCTIONS) {
+        await session.abortTransaction();
+        await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
+        return res.status(403).json({
+          message: `عذراً، لا يمكنك المزايدة في أكثر من ${MAX_ACTIVE_AUCTIONS} مزادات نشطة في وقت واحد.`
+        });
+      }
+    }
+
     const deposit = auction.depositAmount;
 
     if (!deposit || deposit <= 0) {
+      await session.abortTransaction();
+      await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
       return res.status(400).json({ message: "Bidding is not allowed without a deposit" });
     }
 
     if (!existingBid) {
-      const dbUser = await User.collection.findOne({ _id: user._id });
-      console.log(`[BID_DEBUG] raw DB balance type=${typeof dbUser.balance}, value=${dbUser.balance}`);
-
-      // Auto-fix if someone manually inserted it as a string
-      let currentBalance = dbUser.balance;
-      let currentHeld = dbUser.heldBalance;
-
-      if (typeof currentBalance === 'string' || typeof currentHeld === 'string') {
-        currentBalance = Number(currentBalance) || 0;
-        currentHeld = Number(currentHeld) || 0;
-        await User.collection.updateOne(
-          { _id: user._id },
-          { $set: { balance: currentBalance, heldBalance: currentHeld } }
-        );
-        console.log(`[BID_DEBUG] Auto-fixed string balance to Number in DB`);
-      }
-
-      // ⛔ تأكد أن الرصيد الفعلي يغطي العربون باستخدام عملية ذرية (Atomic)
+      // ⛔ تأكد أن الرصيد الفعلي يغطي العربون داخل المعاملة
       const updatedUser = await User.findOneAndUpdate(
         { _id: user._id, balance: { $gte: Number(deposit) } },
         { $inc: { balance: -Number(deposit), heldBalance: Number(deposit) } },
-        { new: true }
+        { new: true, session }
       );
 
       if (!updatedUser) {
-        console.log(`[BID_DEBUG] balance too low or concurrent update. Required: ${deposit}`);
+        await session.abortTransaction();
+        await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
         return res.status(403).json({ message: "رصيدك غير كافٍ لفتح عربون المزايدة في هذا المزاد" });
       }
     }
@@ -810,44 +849,49 @@ export const placeBid = async (req, res) => {
         },
         $inc: { bidCount: 1 },
       },
-      { new: true }
+      { new: true, session }
     );
 
     if (!updatedAuction) {
+      await session.abortTransaction();
       await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
-      if (!existingBid && deposit > 0) {
-        await User.updateOne(
-          { _id: user._id },
-          { $inc: { balance: deposit, heldBalance: -deposit } }
-        );
-      }
       return res.status(409).json({
         message: "Bid rejected (price changed or auction ended).",
       });
     }
 
     // سجل المزايدة
-    await Bid.create({
-      auction: updatedAuction._id,
-      bidder: user._id,
-      amount,
-      depositHeld: (!existingBid && deposit > 0) ? true : false,
-    });
+    await Bid.create(
+      [
+        {
+          auction: updatedAuction._id,
+          bidder: user._id,
+          amount,
+          depositHeld: !existingBid && deposit > 0,
+        },
+      ],
+      { session }
+    );
 
-    // ✅ إرسال إشعار للمتزايد السابق بأنه تم المزايدة عليه
+    // Commit changes
+    await session.commitTransaction();
+
+    // ✅ إرسال إشعار للمتزايد السابق بأنه تم المزايدة عليه (خارج المعاملة لضمان استقرار الإشعارات)
     if (auction.winner && auction.winner.toString() !== req.user._id.toString()) {
-      const outbidNotif = await Notification.create({
-        user: auction.winner,
-        type: "SYSTEM",
-        event: "OUTBID",
-        title: "تمت المزايدة عليك! ⚠️",
-        message: `لقد قام أحدهم بالمزايدة بمبلغ أعلى منك في مزاد "${auction.title}". قم بالمزايدة الآن للاحتفاظ بفرصة الفوز!`,
-        auction: auction._id,
-      });
+      try {
+        const outbidNotif = await Notification.create({
+          user: auction.winner,
+          type: "SYSTEM",
+          event: "OUTBID",
+          title: "تمت المزايدة عليك! ⚠️",
+          message: `لقد قام أحدهم بالمزايدة بمبلغ أعلى منك في مزاد "${auction.title}". قم بالمزايدة الآن للاحتفاظ بفرصة الفوز!`,
+          auction: auction._id,
+        });
 
-      const io = req.app.get("io");
-      if (io) {
-        io.to(auction.winner.toString()).emit("new_notification", outbidNotif);
+        const io = req.app.get("io");
+        if (io) io.to(auction.winner.toString()).emit("new_notification", outbidNotif);
+      } catch (notifErr) {
+        console.error("Outbid notification error:", notifErr);
       }
     }
 
@@ -869,8 +913,14 @@ export const placeBid = async (req, res) => {
       });
     }
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+    console.error("placeBid error:", err);
+    await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
+    return res.status(500).json({ message: "Server error" });
+  } finally {
+    session.endSession();
   }
 };
 

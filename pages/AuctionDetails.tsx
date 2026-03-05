@@ -2060,7 +2060,7 @@ const AuctionDetails = () => {
                     {(() => {
                       const company = courierCompanies.find(c => c._id === selectedCompanyId);
                       const sellerGov = typeof auction.owner === 'object' ? (auction.owner as any).governorate : '';
-                      const localBranches = company?.branches?.filter(b => b.governorate === sellerGov || b.governorate === "الكل") || [];
+                      const localBranches = company?.branches?.filter(b => b.governorate === sellerGov || b.governorate === "الكل" || b.governorate === "جميع المحافظات") || [];
 
                       if (localBranches.length === 0) {
                         return (

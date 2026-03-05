@@ -56,7 +56,7 @@ const AdminCourierManagement = () => {
   const GOVERNORATES = [
     "بغداد", "البصرة", "نينوى", "أربيل", "النجف", "كربلاء", "كركوك",
     "الأنبار", "ذي قار", "بابل", "صلاح الدين", "السليمانية", "دهوك",
-    "واسط", "ميسان", "الديوانية", "المثنى", "ديالى", "الكل"
+    "واسط", "ميسان", "الديوانية", "المثنى", "ديالى", "جميع المحافظات"
   ];
 
   // Create staff modal
@@ -674,7 +674,7 @@ const AdminCourierManagement = () => {
                           newCov[idx].to = e.target.value.split(",").map(s => s.trim()).filter(Boolean);
                           setEditingCoverage(newCov);
                         }}
-                        placeholder="بغداد, البصرة, أربيل (أو اكتب الكل)"
+                        placeholder="بغداد, البصرة, أربيل (أو اكتب جميع المحافظات)"
                         className="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm font-bold"
                       />
                     </div>
@@ -732,7 +732,7 @@ const AdminCourierManagement = () => {
                         className="w-full rounded-lg border-slate-200 bg-white p-2 text-sm font-bold"
                       >
                         <option value="">اختر...</option>
-                        {GOVERNORATES.filter(g => g !== 'الكل').map(gov => <option key={gov} value={gov}>{gov}</option>)}
+                        {GOVERNORATES.filter(g => g !== 'جميع المحافظات' && g !== 'الكل').map(gov => <option key={gov} value={gov}>{gov}</option>)}
                       </select>
                     </div>
                     <div>

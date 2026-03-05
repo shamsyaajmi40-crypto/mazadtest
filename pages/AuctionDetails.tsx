@@ -21,7 +21,7 @@ import { io, Socket } from "socket.io-client";
 import { playSound } from '../utils/audio';
 import TermsModal from "../components/TermsModal";
 import { canUserRate } from "../utils/canUserRate";
-import RatingStars from '../components/RatingStars';
+
 import RelatedAuctions from '../components/RelatedAuctions';
 import confetti from "canvas-confetti";
 import { approveAuction, rejectAuction } from "../services/admin";

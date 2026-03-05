@@ -9,7 +9,6 @@ import {
   Upload, Loader2, PlusCircle, X, Info,
   Type, LayoutGrid, Tag, TrendingUp, Clock,
   CalendarClock, MapPin, AlignRight, Image as ImageIcon,
-  CalendarClock, MapPin, AlignRight, Image as ImageIcon,
   CheckCircle2, ShieldCheck
 } from "lucide-react";
 import TermsModal from "../components/TermsModal";

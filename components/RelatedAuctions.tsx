@@ -35,15 +35,15 @@ const RelatedAuctions: React.FC<RelatedAuctionsProps> = ({ currentAuctionId, cat
                 const now = Date.now();
                 const endingSoonMatches = pool
                     .filter((a: Auction) => {
-                        if (!a.endsAt) return false;
-                        const diffMin = (new Date(a.endsAt).getTime() - now) / 60000;
+                        if (!a.endTime) return false;
+                        const diffMin = (new Date(a.endTime).getTime() - now) / 60000;
                         return diffMin > 0 && diffMin <= 60;
                     })
                     // Exclude ones already in 'similar' to avoid duplicate visual noise if possible
                     .filter((a: Auction) => !similarMatches.find((s: Auction) => s._id === a._id))
                     .sort((a: Auction, b: Auction) => {
-                        const tA = new Date(a.endsAt!).getTime();
-                        const tB = new Date(b.endsAt!).getTime();
+                        const tA = new Date(a.endTime!).getTime();
+                        const tB = new Date(b.endTime!).getTime();
                         return tA - tB; // Earliest ending first
                     })
                     .slice(0, 10);

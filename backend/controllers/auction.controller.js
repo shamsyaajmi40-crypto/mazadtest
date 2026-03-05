@@ -16,7 +16,7 @@ import { getIo } from "../utils/socket.js";
 import { enforceBidCooldown, rollbackBidCooldown } from "../utils/bidCooldown.js";
 import AuditLog from "../models/AuditLog.js";
 import Subscription from "../models/Subscription.js";
-import { validateText, validateNumber, validateFutureDate, isValidPhoneNumber } from "../utils/validation.js";
+import { validateText, validateNumber, validateFutureDate } from "../utils/validation.js";
 import { uploadToR2, deleteFromR2 } from "../utils/r2.js";
 import { generateReceiptId, signReceipt } from "../utils/receipt.js";
 import { sendReceiptEmail } from "../utils/email.js";

@@ -255,11 +255,14 @@ const AuctionDetails = () => {
     if (!id) return;
     try {
       const res = await getAuctionDetails(id);
+      if (!res?.data) return;
       applyAuctionUpdate(res.data);
-
-
-    } catch (e) {
-      navigate("/");
+    } catch (e: any) {
+      if (e?.response?.status === 404) {
+        navigate("/");
+      } else {
+        console.error("Auction refresh poll failed", e);
+      }
     }
   };
   useEffect(() => {

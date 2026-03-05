@@ -6,7 +6,8 @@ import Rating from "../models/Rating.js";
 import AuditLog from "../models/AuditLog.js";
 import DeliveryOrder from "../models/DeliveryOrder.js";
 import { getIo } from "../utils/socket.js";
-import { generateReceiptId } from "../utils/receipt.js";
+import { sendAppNotification } from "../utils/notification.js";
+import { generateReceiptId, signReceipt } from "../utils/receipt.js";
 import { sendReceiptEmail } from "../utils/email.js";
 /**
  * حركة مالية آمنة:
@@ -38,7 +39,7 @@ const COURIER_REASONS = new Set([
   "COURIER_ISSUE",
 ]);
 
-async function refundHeld({ userId, amount, reason, auctionId, source }) {
+async function transferHeldToBalance({ userId, amount, reason, auctionId, source }) {
   const amt = toNumber(amount);
   if (!userId || amt <= 0) return;
 
@@ -48,6 +49,10 @@ async function refundHeld({ userId, amount, reason, auctionId, source }) {
   );
 
   if (res.modifiedCount > 0) {
+    const receiptId = generateReceiptId();
+    const signData = { action: "REFUND", auction: String(auctionId), user: String(userId), amount: amt, receiptId };
+    const signature = signReceipt(signData);
+
     await AuditLog.create({
       action: "REFUND",
       auction: auctionId,
@@ -56,6 +61,8 @@ async function refundHeld({ userId, amount, reason, auctionId, source }) {
       reason: reason || "refunded",
       by: "SYSTEM",
       source: source || "OTHER",
+      receiptId,
+      meta: { signature }
     });
 
     const user = await User.findById(userId).select("name email");
@@ -63,12 +70,12 @@ async function refundHeld({ userId, amount, reason, auctionId, source }) {
       sendReceiptEmail({
         to: user.email,
         userName: user.name,
-        receiptId: "REF-" + Date.now(),
+        receiptId,
         amount: amt,
         type: "DEPOSIT_REFUND",
         date: new Date(),
         details: reason || "تم إرجاع العربون المحجوز"
-      });
+      }).catch(e => console.error("Email error:", e));
     }
   }
 }
@@ -140,6 +147,9 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
 
     // 3. توثيق العملية في السجل (AuditLog)
     receiptId = generateReceiptId();
+    const signData = { action: "CONFISCATE_OK", auction: String(auctionId), user: String(userId), amount: confiscatedAmount, receiptId };
+    const signature = signReceipt(signData);
+
     await AuditLog.create([{
       action: "CONFISCATE_OK",
       auction: auctionId,
@@ -154,6 +164,7 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
         requestedAmount: amt,
         confiscationRate,
         previousConfiscations30d: previousConfiscations,
+        signature
       },
     }], { session });
 
@@ -170,21 +181,17 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
 
 
 async function notifyUser({ userId, title, message, auctionId, event }) {
-  if (!userId) return;
-
-  // type ثابت SYSTEM، وتحديد الحدث في event
-  const notification = await Notification.create({
-    user: userId,
-    type: "SYSTEM",
-    event: event || "SYSTEM",
+  await sendAppNotification({
+    userId,
     title,
     message,
-    auction: auctionId,
+    event,
+    type: "SYSTEM",
+    auctionId,
   });
 
   const io = getIo();
   if (io) {
-    io.to(userId.toString()).emit("new_notification", notification);
     io.to(userId.toString()).emit("user_refresh"); // تحديث عداد الصفقات
   }
 }
@@ -325,14 +332,7 @@ const applyAuctionPenalty = async () => {
             source: "BUYER",
           });
 
-          await createAuditLog({
-            action: "REFUND",
-            auctionId: auction._id,
-            userId: winnerUser._id,
-            amount: auction.depositAmount,
-            reason: "إعادة عربون المشتري بعد فشل التوصيل بسبب البائع",
-            source: "BUYER",
-          });
+
 
           await notifyUser({
             userId: winnerUser._id,
@@ -441,14 +441,7 @@ const applyAuctionPenalty = async () => {
               source: "SELLER",
             });
 
-            await createAuditLog({
-              action: "REFUND",
-              auctionId: auction._id,
-              userId: sellerUser._id,
-              amount: auction.sellerDeposit,
-              reason: "إعادة عربون البائع بعد فشل التوصيل بسبب المشتري",
-              source: "SELLER",
-            });
+
 
             await notifyUser({
               userId: sellerUser._id,
@@ -643,13 +636,7 @@ const applyAuctionPenalty = async () => {
           auctionId: auction._id,
         });
 
-        await createAuditLog({
-          action: "REFUND",
-          auctionId: auction._id,
-          userId: sellerUser._id,
-          amount: sellerDeposit,
-          reason: "إعادة عربون البائع بعد تخلف الفائز",
-        });
+
 
         await notifyUser({
           userId: sellerUser._id,
@@ -702,13 +689,7 @@ const applyAuctionPenalty = async () => {
           auctionId: auction._id,
         });
 
-        await createAuditLog({
-          action: "REFUND",
-          auctionId: auction._id,
-          userId: winnerUser._id,
-          amount: depositAmount,
-          reason: "إعادة عربون المشتري بعد تخلف البائع",
-        });
+
 
         await notifyUser({
           userId: winnerUser._id,

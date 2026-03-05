@@ -2,8 +2,7 @@ import Plan from "../models/Plan.js";
 import Subscription from "../models/Subscription.js";
 import User from "../models/User.js";
 import PaymentTransaction from "../models/PaymentTransaction.js";
-import FinanceLog from "../models/FinanceLog.js";
-import Notification from "../models/Notification.js";
+import { sendAppNotification } from "../utils/notification.js";
 import { getIo } from "../utils/socket.js";
 
 import { createPayment, getPaymentStatus } from "../utils/zaincashV2.js";
@@ -300,15 +299,13 @@ export const zaincashRedirect = async (req, res) => {
       });
 
       // ✅ إشعار نجاح شحن المحفظة
-      const notif = await Notification.create({
-        user: tx.user,
-        type: "SYSTEM",
-        event: "WALLET_TOPUP_PAID",
+      await sendAppNotification({
+        userId: tx.user,
         title: "تم شحن المحفظة بنجاح 💰",
         message: `تم استلام مبلغ ${Number(tx.amountIQD).toLocaleString()} د.ع عبر زين كاش وإضافته لمتجرك.`,
+        event: "WALLET_TOPUP_PAID",
+        type: "SYSTEM",
       });
-      const io = getIo();
-      if (io) io.to(tx.user.toString()).emit("new_notification", notif);
 
       return res.redirect(
         `${FRONTEND_WALLET_SUCCESS_URL}&topup=1&orderId=${encodeURIComponent(orderId)}`
@@ -382,15 +379,13 @@ export const zaincashRedirect = async (req, res) => {
     });
 
     // ✅ إشعار نجاح الاشتراك/الترقية
-    const notif = await Notification.create({
-      user: tx.user,
-      type: "SYSTEM",
-      event: subWasExisting ? "SUBSCRIPTION_UPGRADED" : "SUBSCRIPTION_ACTIVATED",
+    await sendAppNotification({
+      userId: tx.user,
       title: subWasExisting ? "تمت ترقية اشتراكك! 🚀" : "تم تفعيل الاشتراك بنجاح! 🎉",
       message: `تم تفعيل باقة "${plan.name}" لحسابك بنجاح. استمتع بمميزات المنصة.`,
+      event: subWasExisting ? "SUBSCRIPTION_UPGRADED" : "SUBSCRIPTION_ACTIVATED",
+      type: "SYSTEM",
     });
-    const io = getIo();
-    if (io) io.to(tx.user.toString()).emit("new_notification", notif);
 
     return res.redirect(
       `${FRONTEND_SUCCESS_URL}&orderId=${encodeURIComponent(orderId)}`

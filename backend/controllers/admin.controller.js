@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import Auction from "../models/Auction.js";
-import Notification from "../models/Notification.js";
 import User from "../models/User.js";
 import BalanceRequest from "../models/BalanceRequest.js";
 import ExcelJS from "exceljs";
@@ -11,8 +10,9 @@ import PlatformSetting from "../models/PlatformSetting.js";
 import bcrypt from "bcryptjs";
 import { DEFAULT_DEPOSIT_POLICY, normalizeDepositPolicy } from "../utils/helpers.js";
 import { getIo } from "../utils/socket.js";
-import { generateReceiptId } from "../utils/receipt.js";
+import { generateReceiptId, signReceipt } from "../utils/receipt.js";
 import { sendReceiptEmail } from "../utils/email.js";
+import { sendAppNotification } from "../utils/notification.js";
 
 //
 const DEPOSIT_POLICY_KEY = "deposit_policy";
@@ -63,6 +63,9 @@ export const rejectAuction = async (req, res) => {
       // ✅ سجل AuditLog باستخدام action موجود عندك: REFUND
       const receiptId = generateReceiptId();
       try {
+        const signData = { action: "REFUND", auction: String(auction._id), user: String(auction.owner), amount: deposit, receiptId };
+        const signature = signReceipt(signData);
+
         await AuditLog.create({
           action: updated.modifiedCount > 0 ? "REFUND" : "REFUND_FAILED",
           auction: auction._id,
@@ -75,6 +78,7 @@ export const rejectAuction = async (req, res) => {
               : "Auction rejected - refund failed (insufficient heldBalance)",
           by: "ADMIN",
           source: "SELLER",
+          meta: { signature }
         });
 
         // ✅ إرسال بريد إلكتروني بالوصل المالي في حال النجاح
@@ -118,18 +122,16 @@ export const rejectAuction = async (req, res) => {
         reasonMsg += `\nملاحظة: ${rejectionNote}`;
       }
 
-      const rejectNotif = await Notification.create({
-        user: sellerId,
-        type: "SYSTEM",
-        event: "AUCTION_REJECTED",
+      await sendAppNotification({
+        userId: sellerId,
         title: "تم رفض المزاد ❌",
         message: `نعتذر، تم رفض المزاد الخاص بك "${auction.title}" من قبل الإدارة.${reasonMsg}`,
-        auction: auction._id,
+        event: "AUCTION_REJECTED",
+        type: "SYSTEM"
       });
       const io = getIo();
       if (io) {
         io.to("admin_room").emit("admin_refresh");
-        io.to(sellerId.toString()).emit("new_notification", rejectNotif);
       }
     } else {
       const io = getIo();
@@ -185,18 +187,16 @@ export const approveAuction = async (req, res) => {
 
     const sellerId = auction.owner || auction.seller;
     if (sellerId) {
-      const approveNotif = await Notification.create({
-        user: sellerId,
-        type: "SYSTEM",
-        event: "AUCTION_APPROVED",
+      await sendAppNotification({
+        userId: sellerId,
         title: "تم قبول المزاد! ✅",
         message: `تمت الموافقة على المزاد الخاص بك "${auction.title}" وهو جاهز للمنصة.`,
-        auction: auction._id,
+        event: "AUCTION_APPROVED",
+        type: "SYSTEM"
       });
       const io = getIo();
       if (io) {
         io.to("admin_room").emit("admin_refresh");
-        io.to(sellerId.toString()).emit("new_notification", approveNotif);
       }
     } else {
       const io = getIo();
@@ -1030,20 +1030,11 @@ export const resolveDispute = async (req, res) => {
     const blamedUserId = isSellersBlame ? auction.seller : auction.winner;
     const otherUserId = isSellersBlame ? auction.winner : auction.seller;
 
-    const wsNotifications = [];
-
-    const notifyUser = async (userId, title, message, event) => {
+    // سيتم إرسالها بعد اكتمال التحويلات
+    const notifyQueue = [];
+    const queueNotification = (userId, title, message, event) => {
       if (!userId) return;
-      await Notification.create([{
-        user: userId,
-        type: "SYSTEM",
-        event,
-        title,
-        message,
-        auction: auction._id,
-      }], { session });
-
-      wsNotifications.push({ userId, title });
+      notifyQueue.push({ userId, title, message, event });
     };
 
     if (decision === "accept_courier") {
@@ -1051,7 +1042,7 @@ export const resolveDispute = async (req, res) => {
       auction.confirmationDeadline = new Date(Date.now() - 1);
       await auction.save({ session });
 
-      await notifyUser(
+      queueNotification(
         blamedUserId,
         "تم رفض اعتراضك ❌",
         "تمت مراجعة الشكوى وقررت الإدارة رفض الاعتراض. سيتم تطبيق الغرامة ومصادرة العربون.",
@@ -1060,10 +1051,12 @@ export const resolveDispute = async (req, res) => {
 
       await session.commitTransaction();
 
-      const io = getIo();
-      if (io) {
-        wsNotifications.forEach(n => io.to(n.userId.toString()).emit("new_notification", { title: n.title }));
-      }
+      // إرسال الإشعارات بعد الانتهاء
+      await Promise.all(notifyQueue.map(n => sendAppNotification({
+        ...n,
+        type: "SYSTEM",
+        auctionId: auction._id
+      })));
       return res.json({ message: "تم رفض عذر المستخدم. سيتم تطبيق العقوبة قريباً عبر الكرون.", auction });
     }
 
@@ -1081,6 +1074,9 @@ export const resolveDispute = async (req, res) => {
 
         if (userUpdateRes.modifiedCount > 0) {
           const receiptId = generateReceiptId();
+          const signData = { action: "REFUND", auction: String(auction._id), user: String(blamedUserId), amount: depositToReturn, receiptId };
+          const signature = signReceipt(signData);
+
           await AuditLog.create([{
             action: "REFUND",
             auction: auction._id,
@@ -1090,6 +1086,7 @@ export const resolveDispute = async (req, res) => {
             reason: "إعادة عربون بعد قبول الاعتراض على نتيجة التوصيل",
             by: "ADMIN",
             source: isSellersBlame ? "SELLER" : "BUYER",
+            meta: { signature }
           }], { session });
 
           const user = await User.findById(blamedUserId).select("name email").session(session);
@@ -1122,14 +1119,14 @@ export const resolveDispute = async (req, res) => {
         );
       }
 
-      await notifyUser(
+      queueNotification(
         blamedUserId,
         "تم قبول اعتراضك ✅",
         "أصدرت الإدارة قراراً بقبول اعتراضك وتبرئتك. تم إعادة عربونك المحجوز إلى رصيدك.",
         "DISPUTE_ACCEPTED"
       );
 
-      await notifyUser(
+      queueNotification(
         otherUserId,
         "قرار إدارة المنصة بشأن شكوى التوصيل",
         "أصدرت الإدارة قراراً بتبرئة الطرف الآخر من سبب فشل التوصيل وإعادة عربونه.",
@@ -1138,10 +1135,12 @@ export const resolveDispute = async (req, res) => {
 
       await session.commitTransaction();
 
-      const io = getIo();
-      if (io) {
-        wsNotifications.forEach(n => io.to(n.userId.toString()).emit("new_notification", { title: n.title }));
-      }
+      // إرسال الإشعارات بعد الانتهاء
+      await Promise.all(notifyQueue.map(n => sendAppNotification({
+        ...n,
+        type: "SYSTEM",
+        auctionId: auction._id
+      })));
       return res.json({
         message: "تمت تبرئة المستخدم وإعادة عربونه إلى رصيده بنجاح.",
         refunded: depositToReturn,

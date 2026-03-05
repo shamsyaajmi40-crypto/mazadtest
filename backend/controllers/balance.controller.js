@@ -5,7 +5,7 @@ import RefundRequest from "../models/RefundRequest.js";
 import FinanceLog from "../models/FinanceLog.js";
 import { getIo } from "../utils/socket.js";
 import { validateNumber, validateText } from "../utils/validation.js";
-import { generateReceiptId } from "../utils/receipt.js";
+import { generateReceiptId, signReceipt } from "../utils/receipt.js";
 import { sendReceiptEmail } from "../utils/email.js";
 
 // ================= USER =================
@@ -277,6 +277,9 @@ export const adminApproveRefundRequest = async (req, res) => {
 
     // 4. توثيق السجل المالي
     const receiptId = generateReceiptId();
+    const signData = { type: "REFUND_REQUEST_APPROVED", user: String(rr.user), amountIQD: rr.amountIQD, receiptId };
+    const signature = signReceipt(signData);
+
     await FinanceLog.create({
       user: rr.user,
       type: "REFUND_REQUEST_APPROVED",
@@ -288,6 +291,7 @@ export const adminApproveRefundRequest = async (req, res) => {
         adminId: req.user._id,
         adminName: req.user?.name || "",
         adminNote: adminNote || "",
+        signature
       },
     });
 

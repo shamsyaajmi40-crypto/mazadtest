@@ -4,8 +4,11 @@ import DeliveryOrder from "../models/DeliveryOrder.js";
 import CourierCompany from "../models/CourierCompany.js";
 import Notification from "../models/Notification.js";
 import User from "../models/User.js";
+import AuditLog from "../models/AuditLog.js";
+import { sendAppNotification } from "../utils/notification.js";
 import bcrypt from "bcryptjs";
 import { getIo } from "../utils/socket.js";
+import { generateReceiptId, signReceipt } from "../utils/receipt.js";
 
 const FAILURE_REVIEW_MS = 24 * 60 * 60 * 1000; // 24 hours
 const DEFAULT_CONFIRMATION_MS = 4 * 24 * 60 * 60 * 1000; // 4 days
@@ -38,19 +41,17 @@ const ALL_FAILURE_REASONS = new Set([
 ]);
 
 const notifyUser = async ({ userId, title, message, auctionId, event }) => {
-  if (!userId) return;
-  const notification = await Notification.create({
-    user: userId,
-    type: "SYSTEM",
-    event: event || "SYSTEM",
+  await sendAppNotification({
+    userId,
     title,
     message,
-    auction: auctionId,
+    event,
+    auctionId,
+    type: "SYSTEM"
   });
 
   const io = getIo();
   if (io) {
-    io.to(userId.toString()).emit("new_notification", notification);
     io.to(userId.toString()).emit("user_refresh"); // تحديث عداد الصفقات
   }
 };
@@ -520,7 +521,7 @@ export const markCodPaidToSeller = async (req, res) => {
     auction.penaltyApplied = true;
     // 🔄 إعادة عربون المشتري
     if (auction.winner && auction.depositAmount > 0) {
-      await User.updateOne(
+      const buyerUpdate = await User.updateOne(
         { _id: auction.winner },
         {
           $inc: {
@@ -529,6 +530,25 @@ export const markCodPaidToSeller = async (req, res) => {
           },
         }
       );
+
+      if (buyerUpdate.modifiedCount > 0) {
+        const receiptId = generateReceiptId();
+        const signData = { action: "REFUND", auction: String(auction._id), user: String(auction.winner), amount: auction.depositAmount, receiptId };
+        const signature = signReceipt(signData);
+
+        await AuditLog.create({
+          action: "REFUND",
+          auction: auction._id,
+          user: auction.winner,
+          amount: auction.depositAmount,
+          receiptId,
+          reason: "إرجاع عربون المشتري بعد إتمام التوصيل والدفع",
+          by: "SYSTEM",
+          source: "BUYER",
+          meta: { signature }
+        });
+      }
+
       // ✅ إشعار إرجاع العربون للمشتري فوراً
       await notifyUser({
         userId: auction.winner,
@@ -549,7 +569,7 @@ export const markCodPaidToSeller = async (req, res) => {
     }
     // 🔄 إعادة عربون البائع
     if (auction.seller && auction.sellerDeposit > 0) {
-      await User.updateOne(
+      const sellerUpdate = await User.updateOne(
         { _id: auction.seller },
         {
           $inc: {
@@ -558,6 +578,24 @@ export const markCodPaidToSeller = async (req, res) => {
           },
         }
       );
+
+      if (sellerUpdate.modifiedCount > 0) {
+        const receiptId = generateReceiptId();
+        const signData = { action: "REFUND", auction: String(auction._id), user: String(auction.seller), amount: auction.sellerDeposit, receiptId };
+        const signature = signReceipt(signData);
+
+        await AuditLog.create({
+          action: "REFUND",
+          auction: auction._id,
+          user: auction.seller,
+          amount: auction.sellerDeposit,
+          receiptId,
+          reason: "إرجاع عربون البائع بعد استلام مبلغ الـ COD",
+          by: "SYSTEM",
+          source: "SELLER",
+          meta: { signature }
+        });
+      }
     }
     await auction.save();
 

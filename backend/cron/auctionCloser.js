@@ -1,9 +1,15 @@
+```
 import cron from "node-cron";
+import mongoose from "mongoose";
 import Auction from "../models/Auction.js";
 import Bid from "../models/Bid.js";
+import User from "../models/User.js";
 import Notification from "../models/Notification.js";
+import AuditLog from "../models/AuditLog.js";
 import applyAuctionPenalty from "./auctionPenalty.js";
 import { getIo } from "../utils/socket.js";
+import { generateReceiptId, signReceipt } from "../utils/receipt.js";
+import { sendReceiptEmail } from "../utils/email.js";
 
 const closeAuctions = () => {
   console.log("CRON INITIALIZED (Auction Closer - ATOMIC LOCK)");
@@ -55,32 +61,31 @@ const closeAuctions = () => {
         // إشعارات
         if (highestBid) {
           const winnerId = highestBid.bidder._id;
-          const winNotification = await Notification.create({
-            user: winnerId,
-            type: "WIN",
-            event: "WIN", // Added this field
+          await sendAppNotification({
+            userId: winnerId,
             title: "🎉 مبروك!",
             message: "فزت بالمزاد ✅ الحالة الآن: بانتظار تأكيد شركة التوصيل (OTP عند التسليم).",
-            auction: auction._id,
+            event: "WIN",
+            type: "WIN",
+            auctionId: auction._id,
           });
 
           const sellerId = auction.owner || auction.seller;
-          const sellerWinNotif = sellerId ? await Notification.create({
-            user: sellerId,
-            type: "SYSTEM",
-            event: "AUCTION_SOLD",
-            title: "تم بيع مزادك! 🎉",
-            message: `لقد رسا مزادك "${auction.title}" على أحد المزايدين. يرجى الاستعداد وتسليم الطلب.`,
-            auction: auction._id,
-          }) : null;
+          if (sellerId) {
+            await sendAppNotification({
+              userId: sellerId,
+              title: "تم بيع مزادك! 🎉",
+              message: `لقد رسا مزادك "${auction.title}" على أحد المزايدين.يرجى الاستعداد وتسليم الطلب.`,
+              event: "AUCTION_SOLD",
+              type: "SYSTEM",
+              auctionId: auction._id,
+            });
+          }
 
           const io = getIo();
           if (io) {
-            io.to(winnerId.toString()).emit("new_notification", winNotification);
             io.to(winnerId.toString()).emit("user_refresh"); // تحديث عداد الصفقات للفائز
-
             if (sellerId) {
-              if (sellerWinNotif) io.to(sellerId.toString()).emit("new_notification", sellerWinNotif);
               io.to(sellerId.toString()).emit("user_refresh"); // تحديث عداد الصفقات للبائع
             }
           }
@@ -99,28 +104,44 @@ const closeAuctions = () => {
               );
 
               if (refundRes.modifiedCount > 0) {
+                const receiptId = generateReceiptId();
+                const signData = { action: "REFUND", auction: String(auction._id), user: String(loserId), amount: auction.depositAmount, receiptId };
+                const signature = signReceipt(signData);
+
                 await AuditLog.create({
                   action: "REFUND",
                   auction: auction._id,
                   user: loserId,
                   amount: auction.depositAmount,
+                  receiptId,
                   reason: "Bidder deposit refund (lost auction)",
                   by: "SYSTEM",
+                  meta: { signature }
                 });
+
+                const loserUser = await User.findById(loserId).select("name email");
+                if (loserUser && loserUser.email) {
+                  sendReceiptEmail({
+                    to: loserUser.email,
+                    userName: loserUser.name,
+                    receiptId,
+                    amount: auction.depositAmount,
+                    type: "DEPOSIT_REFUND",
+                    date: new Date(),
+                    details: "إرجاع عربون دخول المزاد بعد انتهاء المزاد وعدم فوزك."
+                  }).catch(e => console.error("Email error:", e));
+                }
               }
             }
 
-            const loseNotification = await Notification.create({
-              user: loserId,
-              type: "LOSE",
-              event: "LOSE",
+            await sendAppNotification({
+              userId: loserId,
               title: "انتهى المزاد",
               message: "للأسف، لم تفز في هذا المزاد، وقد تمت إعادة العربون إلى رصيدك المتاح.",
-              auction: auction._id,
+              event: "LOSE",
+              type: "LOSE",
+              auctionId: auction._id,
             });
-
-            const io = getIo();
-            if (io) io.to(loserId.toString()).emit("new_notification", loseNotification);
           }
         } else {
           // اختياري: NO_BIDS للبائع
@@ -134,28 +155,47 @@ const closeAuctions = () => {
               );
 
               if (refundRes.modifiedCount > 0) {
+                const receiptId = generateReceiptId();
+                const signData = { action: "REFUND", auction: String(auction._id), user: String(sellerId), amount: auction.sellerDeposit, receiptId };
+                const signature = signReceipt(signData);
+
                 await AuditLog.create({
                   action: "REFUND",
                   auction: auction._id,
                   user: sellerId,
                   amount: auction.sellerDeposit,
+                  receiptId,
                   reason: "Seller deposit refund (no bids)",
                   by: "SYSTEM",
+                  meta: { signature }
                 });
+
+                const sellerUser = await User.findById(sellerId).select("name email");
+                if (sellerUser && sellerUser.email) {
+                  sendReceiptEmail({
+                    to: sellerUser.email,
+                    userName: sellerUser.name,
+                    receiptId,
+                    amount: auction.sellerDeposit,
+                    type: "DEPOSIT_REFUND",
+                    date: new Date(),
+                    details: "إرجاع عربون المزاد لعدم وجود مزايدين."
+                  }).catch(e => console.error("Email error:", e));
+                }
               }
             }
 
-            const noBidsNotif = await Notification.create({
-              user: sellerId,
-              type: "SYSTEM",
-              event: "AUCTION_NO_BIDS",
+            await sendAppNotification({
+              userId: sellerId,
               title: "انتهى المزاد بدون فائز 😔",
-              message: `للأسف، انتهى الوقت المخصص لمزادك "${auction.title}" دون تلقي أي مزايدات فعالة. تمت إعادة عربون النشر إلى رصيدك.`,
-              auction: auction._id,
+              message: `للأسف، انتهى الوقت المخصص لمزادك "${auction.title}" دون تلقي أي مزايدات فعالة.تمت إعادة عربون النشر إلى رصيدك.`,
+              event: "AUCTION_NO_BIDS",
+              type: "SYSTEM",
+              auctionId: auction._id,
             });
+
             const io = getIo();
             if (io) {
-              io.to(sellerId.toString()).emit("new_notification", noBidsNotif);
               io.to(sellerId.toString()).emit("user_refresh");
             }
           }

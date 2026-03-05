@@ -2,7 +2,7 @@ import Plan from "../models/Plan.js";
 import Subscription from "../models/Subscription.js";
 import SubscriptionRequest from "../models/SubscriptionRequest.js";
 import User from "../models/User.js";
-import Notification from "../models/Notification.js";
+import { sendAppNotification } from "../utils/notification.js";
 import { getIo } from "../utils/socket.js";
 import { uploadToR2 } from "../utils/r2.js";
 import { generateReceiptId } from "../utils/receipt.js";
@@ -134,15 +134,13 @@ export const approveRequest = async (req, res) => {
     await request.save();
 
     // ✅ إشعار الموافقة على طلب الترقية
-    const notif = await Notification.create({
-      user: request.user,
-      type: "SYSTEM",
-      event: "SUBSCRIPTION_REQUEST_APPROVED",
+    await sendAppNotification({
+      userId: request.user._id,
       title: "تهانينا! تمت ترقية حسابك ✅",
       message: `تمت الموافقة على طلبك لترقية الحساب إلى باقة "${request.plan.name}".`,
+      event: "SUBSCRIPTION_REQUEST_APPROVED",
+      type: "SYSTEM",
     });
-    const io = getIo();
-    if (io) io.to(request.user._id.toString()).emit("new_notification", notif);
 
     // ✅ Audit & Receipt
     const receiptId = generateReceiptId();
@@ -201,15 +199,13 @@ export const rejectRequest = async (req, res) => {
     await request.save();
 
     // ✅ إشعار رفض طلب الترقية
-    const notif = await Notification.create({
-      user: request.user,
-      type: "SYSTEM",
-      event: "SUBSCRIPTION_REQUEST_REJECTED",
+    await sendAppNotification({
+      userId: request.user,
       title: "تم رفض طلب الترقية ❌",
       message: `نعتذر، تم رفض طلب ترقية الحساب الخاص بك. ${note ? `السبب: ${note}` : ''}`,
+      event: "SUBSCRIPTION_REQUEST_REJECTED",
+      type: "SYSTEM",
     });
-    const io = getIo();
-    if (io) io.to(request.user.toString()).emit("new_notification", notif);
 
     return res.json({ message: "Rejected" });
   } catch (err) {

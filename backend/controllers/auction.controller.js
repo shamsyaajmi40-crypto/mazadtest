@@ -10,15 +10,20 @@ import {
   calculateSellerDeposit,
   normalizeDepositPolicy,
   DEFAULT_DEPOSIT_POLICY,
+  DEPOSIT_POLICY_KEY,
 } from "../utils/helpers.js";
+import { getIo } from "../utils/socket.js";
 import { enforceBidCooldown, rollbackBidCooldown } from "../utils/bidCooldown.js";
 import AuditLog from "../models/AuditLog.js";
 import Subscription from "../models/Subscription.js";
-import { validateText, validateNumber, validateFutureDate } from "../utils/validation.js";
-import { uploadToR2 } from "../utils/r2.js";
+import { validateText, validateNumber, validateFutureDate, isValidPhoneNumber } from "../utils/validation.js";
+import { uploadToR2, deleteFromR2 } from "../utils/r2.js";
+import { generateReceiptId, signReceipt } from "../utils/receipt.js";
+import { sendReceiptEmail } from "../utils/email.js";
+import { sendAppNotification } from "../utils/notification.js";
 
 const BID_COOLDOWN_MS = 5000; // نخليها 5 ثواني
-const DEPOSIT_POLICY_KEY = "deposit_policy";
+// DEPOSIT_POLICY_KEY is now imported from helpers.js
 
 /* إنشاء مزاد */
 export const createAuction = async (req, res) => {
@@ -135,10 +140,34 @@ export const createAuction = async (req, res) => {
         console.error("Failed to upload images to R2:", uploadErr);
         // في حال فشل الرفع، نُعيد العربون المحجوز (Rollback)
         if (lockedDeposit > 0 && sellerId) {
-          await User.updateOne(
+          const rbResult = await User.updateOne(
             { _id: sellerId, heldBalance: { $gte: lockedDeposit } },
             { $inc: { heldBalance: -lockedDeposit, balance: lockedDeposit } }
           );
+
+          if (rbResult.modifiedCount > 0) {
+            try {
+              await AuditLog.create({
+                action: "REFUND",
+                user: sellerId,
+                amount: lockedDeposit,
+                reason: "استرجاع عربون بائع بسبب فشل نشر رفع الصور (شبكة)",
+                by: "SYSTEM"
+              });
+
+              if (seller?.email) {
+                sendReceiptEmail({
+                  to: seller.email,
+                  userName: req.user?.name || "مستخدم مزاد",
+                  receiptId: "ERR-" + Date.now(),
+                  amount: lockedDeposit,
+                  type: "DEPOSIT_REFUND",
+                  date: new Date(),
+                  details: "إرجاع عربون إنشاء المزاد بسبب فشل رفع الصور (حالة استثنائية)."
+                }).catch(e => console.error("Email err:", e));
+              }
+            } catch (auditErr) { console.error("Audit log rb1 failed:", auditErr) }
+          }
         }
         return res.status(500).json({ message: "فشل رفع الصور، يرجى المحاولة لاحقاً" });
       }
@@ -194,15 +223,23 @@ export const createAuction = async (req, res) => {
     // ✅ Rollback إذا تم حجز عربون وفشل إنشاء المزاد لأي سبب
     if (lockedDeposit > 0 && sellerId) {
       try {
-        await User.updateOne(
+        const rbRes = await User.updateOne(
           { _id: sellerId, heldBalance: { $gte: lockedDeposit } },
           { $inc: { heldBalance: -lockedDeposit, balance: lockedDeposit } }
         );
+        if (rbRes.modifiedCount > 0) {
+          await AuditLog.create({
+            action: "REFUND",
+            user: sellerId,
+            amount: lockedDeposit,
+            reason: "استرجاع عربون إنشاء מזاد إثر خطأ برمجي بالنظام",
+            by: "SYSTEM"
+          });
+        }
       } catch (rbErr) {
         console.error("Rollback seller deposit failed:", rbErr);
       }
     }
-
 
     return res.status(500).json({ message: "Failed to create auction" });
   }
@@ -874,17 +911,13 @@ export const placeBid = async (req, res) => {
 
     // إشعار المتزايد السابق (بعد commit وخارج الـ session)
     if (auction.winner && auction.winner.toString() !== req.user._id.toString()) {
-      Notification.create({
-        user: auction.winner,
-        type: "SYSTEM",
-        event: "OUTBID",
+      sendAppNotification({
+        userId: auction.winner,
         title: "تمت المزايدة عليك! ⚠️",
         message: `لقد قام أحدهم بالمزايدة بمبلغ أعلى منك في مزاد "${auction.title}". قم بالمزايدة الآن للاحتفاظ بفرصة الفوز!`,
-        auction: auction._id,
-      }).then((notif) => {
-        const io = req.app.get("io");
-        if (io) io.to(auction.winner.toString()).emit("new_notification", notif);
-      }).catch((e) => console.error("Outbid notification error:", e));
+        event: "OUTBID",
+        type: "SYSTEM"
+      });
     }
 
     // بث WebSocket (بعد commit فقط)

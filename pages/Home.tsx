@@ -80,7 +80,7 @@ const HomeData = () => {
         searchTerm: filters.searchTerm,
         status: filters.status === "ALL" ? undefined : filters.status,
       });
-
+      if (!res?.data?.auctions) return;
       setAuctions((prev) =>
         prev.map((a) => {
           const updated = res.data.auctions.find((u: any) => u._id === a._id);

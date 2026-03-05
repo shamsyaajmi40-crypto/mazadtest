@@ -31,6 +31,15 @@ export default function Wallet() {
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
 
+  const showErr = (msg: string) => {
+    setErr(msg);
+    setTimeout(() => setErr(""), 4000);
+  };
+  const showOk = (msg: string) => {
+    setOk(msg);
+    setTimeout(() => setOk(""), 4000);
+  };
+
   const [logs, setLogs] = useState<any[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
 
@@ -61,19 +70,21 @@ export default function Wallet() {
   }, []);
 
   const startTopup = async () => {
-    setOk("");
+    showOk("");
+    showErr("");
     setErr("");
+    setOk("");
 
     const a = Number(topupAmount || 0);
-    if (!Number.isFinite(a) || a <= 0) return setErr("أدخل مبلغ تعبئة صحيح");
-    if (a < 1000) return setErr("الحد الأدنى للتعبئة 1000 د.ع");
+    if (!Number.isFinite(a) || a <= 0) return showErr("أدخل مبلغ تعبئة صحيح");
+    if (a < 1000) return showErr("الحد الأدنى للتعبئة 1000 د.ع");
 
     try {
       setSubmittingTopup(true);
       const { data } = await api.post("/payments/zaincash/topup/init", { amountIQD: a });
       window.location.href = data.paymentUrl;
     } catch (e: any) {
-      setErr(e?.response?.data?.message || e?.message || "فشل بدء التعبئة عبر زين كاش");
+      showErr(e?.response?.data?.message || e?.message || "فشل بدء التعبئة عبر زين كاش");
     } finally {
       setSubmittingTopup(false);
     }
@@ -84,10 +95,11 @@ export default function Wallet() {
     setErr("");
 
     const a = Number(refundAmount || 0);
-    if (!Number.isFinite(a) || a <= 0) return setErr("أدخل مبلغ استرجاع صحيح");
-    if (a > Number(user?.balance || 0)) return setErr("لا يمكنك استرجاع مبلغ أكبر من الرصيد المتاح");
-
-    if (!refundInfo.trim()) return setErr("أدخل معلومات الاسترجاع (رقم زين كاش / ملاحظة)");
+    if (!Number.isFinite(a) || a <= 0) return showErr("أدخل مبلغ استرجاع صحيح");
+    if (a < 1000) return showErr("الحد الأدنى للاسترجاع 1000 د.ع");
+    if (a > Number(user?.balance || 0)) return showErr("لا يمكنك استرجاع مبلغ أكبر من الرصيد المتاح");
+    if (!refundInfo.trim()) return showErr("أدخل معلومات الاسترجاع (رقم زين كاش / ملاحظة)");
+    if (refundInfo.trim().length < 10) return showErr("معلومات الاسترجاع يجب أن تكون 10 أحرف على الأقل");
 
     try {
       setSubmittingRefund(true);
@@ -95,12 +107,12 @@ export default function Wallet() {
         amountIQD: a,
         payoutInfo: refundInfo.trim(),
       });
-      setOk("تم إرسال طلب الاسترجاع للإدارة ✅");
+      showOk("تم إرسال طلب الاسترجاع للإدارة ✅");
       setRefundAmount(0);
       setRefundInfo("");
       refreshUser?.();
     } catch (e: any) {
-      setErr(e?.response?.data?.message || e?.message || "فشل إرسال طلب الاسترجاع");
+      showErr(e?.response?.data?.message || e?.message || "فشل إرسال طلب الاسترجاع");
     } finally {
       setSubmittingRefund(false);
     }
@@ -337,20 +349,29 @@ export default function Wallet() {
                   <tr key={log._id} className="hover:bg-slate-50 transition-colors group">
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-3">
-                        <span className={`w-2 h-2 rounded-full ${log.type.includes('TOPUP') || log.type.includes('REFUND') ? 'bg-emerald-500' : 'bg-rose-500'
+                        <span className={`w-2 h-2 rounded-full ${log.type === 'WALLET_TOPUP_PAID' || log.type === 'REFUND_REQUEST_APPROVED'
+                            ? 'bg-emerald-500'
+                            : 'bg-rose-500'
                           }`}></span>
                         <span className="font-black text-slate-700 text-sm">
                           {log.type === 'WALLET_TOPUP_PAID' ? 'تعبئة رصيد' :
-                            log.type === 'REFUND_REQUEST_APPROVED' ? 'استرجاع رصيد' :
-                              log.type === 'SUBSCRIPTION_ACTIVATED' ? 'اشتراك باقة' :
-                                log.type === 'SUBSCRIPTION_UPGRADED' ? 'ترقية باقة' : log.type}
+                            log.type === 'REFUND_REQUEST_APPROVED' ? 'استرجاع رصيد معتمد' :
+                              log.type === 'REFUND_REQUEST_CREATED' ? 'طلب استرجاع (قيد المراجعة)' :
+                                log.type === 'REFUND_REQUEST_REJECTED' ? 'طلب استرجاع مرفوض' :
+                                  log.type === 'SUBSCRIPTION_ACTIVATED' ? 'اشتراك باقة' :
+                                    log.type === 'SUBSCRIPTION_UPGRADED' ? 'ترقية باقة' : log.type}
                         </span>
                       </div>
                     </td>
                     <td className="px-8 py-5">
-                      <span className={`font-black text-sm ${log.type.includes('TOPUP') || log.type.includes('REFUND') ? 'text-emerald-600' : 'text-rose-600'
+                      <span className={`font-black text-sm ${log.type === 'WALLET_TOPUP_PAID' || log.type === 'REFUND_REQUEST_APPROVED'
+                          ? 'text-emerald-600'
+                          : log.type === 'REFUND_REQUEST_CREATED'
+                            ? 'text-slate-400'
+                            : 'text-rose-600'
                         }`}>
-                        {log.type.includes('TOPUP') || log.type.includes('REFUND') ? '+' : '-'} {formatCurrency(log.amount)}
+                        {log.type === 'WALLET_TOPUP_PAID' || log.type === 'REFUND_REQUEST_APPROVED' ? '+' :
+                          log.type === 'REFUND_REQUEST_CREATED' ? '' : '-'} {formatCurrency(log.amount)}
                       </span>
                     </td>
                     <td className="px-8 py-5 text-xs font-bold text-slate-500">

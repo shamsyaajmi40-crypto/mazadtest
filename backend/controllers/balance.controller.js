@@ -143,8 +143,8 @@ export const createRefundRequest = async (req, res) => {
     if (!payoutVal.isValid) return res.status(400).json({ message: payoutVal.message });
     const payoutInfo = payoutVal.text;
 
-    const noteVal = validateText(req.body?.note, { max: 500, name: "الملاحظة" });
-    if (!noteVal.isValid) return res.status(400).json({ message: noteVal.message });
+    const noteVal = validateText(req.body?.note || "", { max: 500, name: "الملاحظة" });
+    if (req.body?.note && !noteVal.isValid) return res.status(400).json({ message: noteVal.message });
     const note = noteVal.text;
 
     const u = await User.findById(req.user._id)
@@ -220,74 +220,64 @@ export const adminListRefundRequests = async (req, res) => {
 
 // POST /api/admin/refund-requests/:id/approve
 export const adminApproveRefundRequest = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
   try {
     const id = req.params.id;
     const adminNote = String(req.body?.adminNote || "").trim();
 
-    const rr = await RefundRequest.findById(id).session(session);
-    if (!rr) {
-      await session.abortTransaction();
-      return res.status(404).json({ message: "Refund request not found" });
-    }
-    if (rr.status !== "pending") {
-      await session.abortTransaction();
-      return res.status(400).json({ message: "Request is already processed" });
-    }
+    // 1. جلب الطلب وتأكيد أنه pending
+    const rr = await RefundRequest.findById(id);
+    if (!rr) return res.status(404).json({ message: "Refund request not found" });
+    if (rr.status !== "pending") return res.status(400).json({ message: "Request is already processed" });
 
-    /**
-     * مراجعة إدارية دقيقة:
-     * نتحقق من "الرصيد المتاح" (الرصيد الكلي - الرصيد المحجوز)
-     * لضمان أن المستخدم لا يسحب مبالغ محجوزة لمزادات قائمة.
-     */
-    const user = await User.findById(rr.user).session(session);
-    if (!user) {
-      await session.abortTransaction();
-      return res.status(404).json({ message: "User not found" });
-    }
+    // 2. التحقق من الرصيد المتاح بشكل ذري: نخصم فقط إذا كان الرصيد كافياً
+    const updatedUser = await User.findOneAndUpdate(
+      {
+        _id: rr.user,
+        balance: { $gte: rr.amountIQD }, // شرط ذري: رفض التحديث إذا كان الرصيد غير كافٍ
+      },
+      { $inc: { balance: -rr.amountIQD } },
+      { new: true }
+    );
 
-    const availableBalance = (user.balance || 0) - (user.heldBalance || 0);
+    if (!updatedUser) {
+      // إما المستخدم غير موجود أو الرصيد غير كافٍ — رفض تلقائي
+      const userCheck = await User.findById(rr.user).select("balance").lean();
+      if (!userCheck) return res.status(404).json({ message: "User not found" });
 
-    if (availableBalance < rr.amountIQD) {
-      // رفض تلقائي في حال نقص الرصيد وقت التنفيذ
+      // رفض الطلب تلقائياً
       rr.status = "rejected";
-      rr.adminNote = "Insufficient available balance at approval time";
+      rr.adminNote = "Insufficient balance at approval time";
       rr.rejectedBy = req.user._id;
       rr.rejectedAt = new Date();
-      await rr.save({ session });
+      await rr.save();
 
-      await FinanceLog.create([{
+      await FinanceLog.create({
         user: rr.user,
         type: "REFUND_REQUEST_REJECTED",
         amountIQD: rr.amountIQD,
         refModel: "RefundRequest",
         refId: rr._id,
-        meta: { adminId: req.user._id, reason: "Insufficient available balance at approval time" },
-      }], { session });
-
-      await session.commitTransaction();
+        meta: { adminId: req.user._id, reason: "Insufficient balance at approval time" },
+      });
 
       const io = getIo();
       if (io) io.to("admin_room").emit("admin_refresh");
 
-      return res.status(400).json({ message: "Insufficient available balance, request rejected automatically" });
+      return res.status(400).json({
+        message: `رصيد المستخدم (${userCheck.balance?.toLocaleString()} د.ع) غير كافٍ لاسترجاع ${rr.amountIQD?.toLocaleString()} د.ع — تم رفض الطلب تلقائياً`,
+      });
     }
 
-    // 1. خصم الرصيد
-    user.balance -= rr.amountIQD;
-    await user.save({ session });
-
-    // 2. تحديث الطلب
+    // 3. تحديث الطلب
     rr.status = "approved";
     rr.adminNote = adminNote;
     rr.approvedBy = req.user._id;
     rr.approvedAt = new Date();
-    await rr.save({ session });
+    await rr.save();
 
-    // 3. توثيق السجل المالي
+    // 4. توثيق السجل المالي
     const receiptId = generateReceiptId();
-    await FinanceLog.create([{
+    await FinanceLog.create({
       user: rr.user,
       type: "REFUND_REQUEST_APPROVED",
       amountIQD: rr.amountIQD,
@@ -296,24 +286,22 @@ export const adminApproveRefundRequest = async (req, res) => {
       receiptId,
       meta: {
         adminId: req.user._id,
-        adminName: req.user?.name || req.user?.username || "",
+        adminName: req.user?.name || "",
         adminNote: adminNote || "",
       },
-    }], { session });
+    });
 
-    await session.commitTransaction();
-
-    // إرسال البريد وتحديث السوكيت (بعد نجاح المعاملة)
-    if (user.email) {
+    // 5. إرسال البريد الإلكتروني (اختياري)
+    if (updatedUser.email) {
       sendReceiptEmail({
-        to: user.email,
-        userName: user.name,
+        to: updatedUser.email,
+        userName: updatedUser.name,
         receiptId,
         amount: rr.amountIQD,
         type: "WALLET_WITHDRAWAL",
         date: new Date(),
-        details: adminNote || "تمت الموافقة على طلب استرجاع الرصيد"
-      });
+        details: adminNote || "تمت الموافقة على طلب استرجاع الرصيد",
+      }).catch((e) => console.error("Email error:", e));
     }
 
     const io = getIo();
@@ -321,40 +309,29 @@ export const adminApproveRefundRequest = async (req, res) => {
 
     return res.json({ message: "Approved and balance deducted", refundRequest: rr });
   } catch (e) {
-    await session.abortTransaction();
     console.error("adminApproveRefundRequest error:", e);
     return res.status(500).json({ message: "Failed to approve refund request" });
-  } finally {
-    session.endSession();
   }
 };
 
 // POST /api/admin/refund-requests/:id/reject
 export const adminRejectRefundRequest = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
   try {
     const id = req.params.id;
     const adminNote = String(req.body?.adminNote || "").trim();
     const reason = String(req.body?.reason || "").trim();
 
-    const rr = await RefundRequest.findById(id).session(session);
-    if (!rr) {
-      await session.abortTransaction();
-      return res.status(404).json({ message: "Refund request not found" });
-    }
-    if (rr.status !== "pending") {
-      await session.abortTransaction();
-      return res.status(400).json({ message: "Request is already processed" });
-    }
+    const rr = await RefundRequest.findById(id);
+    if (!rr) return res.status(404).json({ message: "Refund request not found" });
+    if (rr.status !== "pending") return res.status(400).json({ message: "Request is already processed" });
 
     rr.status = "rejected";
     rr.adminNote = adminNote;
     rr.rejectedBy = req.user._id;
     rr.rejectedAt = new Date();
-    await rr.save({ session });
+    await rr.save();
 
-    await FinanceLog.create([{
+    await FinanceLog.create({
       user: rr.user,
       type: "REFUND_REQUEST_REJECTED",
       amountIQD: rr.amountIQD,
@@ -365,22 +342,18 @@ export const adminRejectRefundRequest = async (req, res) => {
         adminName: req.user?.name || "",
         reason: reason || adminNote || "",
       },
-    }], { session });
-
-    await session.commitTransaction();
+    });
 
     const io = getIo();
     if (io) io.to("admin_room").emit("admin_refresh");
 
     return res.json({ message: "Rejected", refundRequest: rr });
   } catch (e) {
-    await session.abortTransaction();
     console.error("adminRejectRefundRequest error:", e);
     return res.status(500).json({ message: "Failed to reject refund request" });
-  } finally {
-    session.endSession();
   }
 };
+
 // GET /api/admin/refund-logs?limit=200
 // GET /api/admin/refund-logs?limit=200
 export const adminRefundLogs = async (req, res) => {

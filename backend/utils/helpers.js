@@ -1,5 +1,6 @@
 // helpers.js
 
+export const DEPOSIT_POLICY_KEY = "deposit_policy";
 export const DEFAULT_DEPOSIT_POLICY = {
   bidder: {
     defaultRate: 0.02,

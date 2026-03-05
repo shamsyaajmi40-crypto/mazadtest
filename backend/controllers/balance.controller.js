@@ -236,7 +236,7 @@ export const adminApproveRefundRequest = async (req, res) => {
         balance: { $gte: rr.amountIQD }, // شرط ذري: رفض التحديث إذا كان الرصيد غير كافٍ
       },
       { $inc: { balance: -rr.amountIQD } },
-      { new: true }
+      { new: true, runValidators: false }
     );
 
     if (!updatedUser) {

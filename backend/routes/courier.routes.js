@@ -12,6 +12,7 @@ import {
   listCompanyOrders,
   listAgentOrders,
   listCourierCompanies,
+  getAvailableCouriers,
   listMyAgents,
   createAgentForMyCompany,
   toggleAgentActive,
@@ -46,6 +47,9 @@ router.get(
   requireRole("courier_staff", "admin", "superAdmin", "user")
   , listCourierCompanies
 );
+
+// Pbulic Endpoint for Filtering Drop-down couriers
+router.get("/companies/available", getAvailableCouriers);
 // موظف الشركة: يدير المندوبين
 router.get("/staff/agents", protect, requireRole("courier_staff"), listMyAgents);
 router.post("/staff/agents", protect, requireRole("courier_staff"), createAgentForMyCompany);

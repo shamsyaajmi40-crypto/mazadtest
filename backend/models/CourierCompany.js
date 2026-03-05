@@ -6,6 +6,23 @@ const courierCompanySchema = new mongoose.Schema(
     phone: { type: String, default: "" },
     deliveryFee: { type: Number, default: 0, min: 0 },
     isActive: { type: Boolean, default: true },
+
+    // التغطية الجغرافية: من أي محافظة يمكنها الشحن إلى أين
+    coverage: [
+      {
+        from: { type: String, required: true },
+        to: [{ type: String, required: true }],
+      }
+    ],
+
+    // الفروع المادية لاستلام البضائع من البائعين
+    branches: [
+      {
+        governorate: { type: String, required: true },
+        name: { type: String, required: true },
+        address: { type: String, required: true },
+      }
+    ]
   },
   { timestamps: true }
 );

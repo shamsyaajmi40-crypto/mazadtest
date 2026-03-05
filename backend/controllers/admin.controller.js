@@ -792,14 +792,14 @@ export const adminListCourierCompanies = async (req, res) => {
 
 export const adminCreateCourierCompany = async (req, res) => {
   try {
-    const { name, phone = "", isActive = true, deliveryFee = 0 } = req.body;
+    const { name, phone = "", isActive = true, deliveryFee = 0, coverage = [], branches = [] } = req.body;
     if (!name) return res.status(400).json({ message: "name required" });
     const feeNum = Number(deliveryFee);
     if (!Number.isFinite(feeNum) || feeNum < 0) {
       return res.status(400).json({ message: "deliveryFee must be a non-negative number" });
     }
 
-    const company = await CourierCompany.create({ name, phone, isActive, deliveryFee: feeNum });
+    const company = await CourierCompany.create({ name, phone, isActive, deliveryFee: feeNum, coverage, branches });
     return res.json(company);
   } catch (e) {
     console.error("adminCreateCourierCompany error:", e);
@@ -810,12 +810,14 @@ export const adminCreateCourierCompany = async (req, res) => {
 export const adminUpdateCourierCompany = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, phone, isActive, deliveryFee } = req.body;
+    const { name, phone, isActive, deliveryFee, coverage, branches } = req.body;
 
     const patch = {};
     if (name !== undefined) patch.name = name;
     if (phone !== undefined) patch.phone = phone;
     if (isActive !== undefined) patch.isActive = isActive;
+    if (coverage !== undefined) patch.coverage = coverage;
+    if (branches !== undefined) patch.branches = branches;
     if (deliveryFee !== undefined) {
       const feeNum = Number(deliveryFee);
       if (!Number.isFinite(feeNum) || feeNum < 0) {

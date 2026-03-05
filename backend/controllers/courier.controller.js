@@ -87,10 +87,50 @@ const ensureOrderAccess = async (reqUser, order) => {
 
 export const listCourierCompanies = async (req, res) => {
   const companies = await CourierCompany.find({ isActive: true })
-    .select("_id name phone deliveryFee")
+    .select("_id name phone deliveryFee coverage branches") // Include coverage and branches for admin visibility
     .sort({ createdAt: -1 });
 
   return res.json(companies);
+};
+
+// جلب شركات التوصيل المتاحة بناءً على المحافظة من وإلى
+export const getAvailableCouriers = async (req, res) => {
+  try {
+    const { from, to } = req.query;
+
+    // جلب كل الشركات الفعالة
+    const companies = await CourierCompany.find({ isActive: true })
+      .select("_id name phone deliveryFee coverage branches")
+      .sort({ createdAt: -1 });
+
+    // إذا لم يرسل فلتر، نرجعها كلها (أو نعيد خطأ حسب المطلوب، لكن الأفضل كلها للاحتياط)
+    if (!from || !to) {
+      return res.json(companies);
+    }
+
+    // فلترة الشركات بناءً على مصفوفة التغطية (coverage)
+    const filteredCompanies = companies.filter(company => {
+      // إذا كانت الشركة ليس لديها تغطية محددة، نعتبرها لا تدعم هذه الوجهة
+      if (!company.coverage || company.coverage.length === 0) return false;
+
+      // نبحث هل هناك قاعدة (route) يتطابق فيها "من" مع طلبنا
+      const matchedRoute = company.coverage.find(
+        route => route.from === from || route.from === "الكل" || route.from === "All"
+      );
+
+      // إذا لم نجد المسار "من"، إذن لا تدعم
+      if (!matchedRoute) return false;
+
+      // إذا وجدنا "من"، نتحقق من مصفوفة "إلى" 
+      // هل تحتوي المحافظة المطلوبة أو "الكل"
+      return matchedRoute.to.includes(to) || matchedRoute.to.includes("الكل") || matchedRoute.to.includes("All");
+    });
+
+    return res.json(filteredCompanies);
+  } catch (error) {
+    console.error("getAvailableCouriers error:", error);
+    return res.status(500).json({ message: "Failed to load available couriers" });
+  }
 };
 
 export const createDeliveryOrder = async (req, res) => {

@@ -6,7 +6,7 @@ import { AuthContext } from "../context/AuthContext";
 import {
   ArrowRight, Loader2, Gavel, FileText, AlertTriangle, History, Clock, ChevronLeft,
   ChevronRight, Image, Star, Check, MessageSquare, Package, X, ChevronDown, Eye,
-  Volume2, VolumeX, XCircle, CheckCircle, Settings
+  Volume2, VolumeX, XCircle, CheckCircle, Settings, MapPin
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -119,7 +119,7 @@ const AuctionDetails = () => {
   const [socketConnected, setSocketConnected] = useState(false);
   const optimisticBidRef = useRef<number | null>(null);
   const auctionRef = useRef<Auction | null>(null);
-  const [courierCompanies, setCourierCompanies] = useState<{ _id: string; name: string; phone?: string; deliveryFee?: number }[]>([]);
+  const [courierCompanies, setCourierCompanies] = useState<{ _id: string; name: string; phone?: string; deliveryFee?: number; coverage?: any[]; branches?: { governorate: string; name: string; address: string }[] }[]>([]);
   const [showCourierModal, setShowCourierModal] = useState(false);
   const [selectedCourierId, setSelectedCourierId] = useState("");
   const [courierNotes, setCourierNotes] = useState("");
@@ -188,10 +188,20 @@ const AuctionDetails = () => {
   };
   const loadCourierCompanies = async () => {
     try {
-      const res = await api.get("/courier/companies");
+      if (!auction || !auction.owner || !auction.winner) return;
+
+      const sellerGov = typeof auction.owner === 'object' ? (auction.owner as any).governorate : '';
+      const winnerGov = typeof auction.winner === 'object' ? (auction.winner as any).governorate : '';
+
+      const res = await api.get("/courier/companies/available", {
+        params: {
+          from: sellerGov,
+          to: winnerGov
+        }
+      });
       setCourierCompanies(res.data || []);
     } catch (e: any) {
-      setCourierErr(e?.response?.data?.message || "فشل جلب شركات التوصيل");
+      setCourierErr(e?.response?.data?.message || "فشل جلب شركات التوصيل المتاحة لمحافظتك");
     }
   };
   useEffect(() => {
@@ -2021,7 +2031,7 @@ const AuctionDetails = () => {
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-2 ml-1">الشركة المتاحة للتوصيل المباشر</label>
+                  <label className="block text-xs font-bold text-slate-500 mb-2 ml-1">الشركة المتاحة للتوصيل (من محافظتك إلى المشتري)</label>
                   <div className="relative">
                     <select
                       value={selectedCompanyId}
@@ -2040,6 +2050,39 @@ const AuctionDetails = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Branches Information */}
+                {selectedCompanyId && (
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                    <h4 className="text-sm font-black text-slate-800 flex items-center gap-2 mb-3">
+                      <MapPin className="w-4 h-4 text-emerald-500" /> فروع تسليم البضاعة (في محافظتك)
+                    </h4>
+                    {(() => {
+                      const company = courierCompanies.find(c => c._id === selectedCompanyId);
+                      const sellerGov = typeof auction.owner === 'object' ? (auction.owner as any).governorate : '';
+                      const localBranches = company?.branches?.filter(b => b.governorate === sellerGov || b.governorate === "الكل") || [];
+
+                      if (localBranches.length === 0) {
+                        return (
+                          <div className="text-xs font-bold text-slate-500 bg-white p-3 rounded-xl border border-dashed border-slate-200">
+                            لا توجد فروع محددة للشركة في محافظتك. سيتم التواصل معك من قبل الشركة لاستلام البضاعة.
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-2">
+                          {localBranches.map((branch, idx) => (
+                            <div key={idx} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex flex-col gap-1">
+                              <span className="text-sm font-black text-slate-700">{branch.name}</span>
+                              <span className="text-xs font-bold text-slate-500">{branch.address}</span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
 
                 <button
                   disabled={!selectedCompanyId || courierLoading}

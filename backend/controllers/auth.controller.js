@@ -77,10 +77,14 @@ export const register = async (req, res) => {
     }
 
     return res.status(201).json({
-      _id: user._id,
-      name: user.name,
-      phone: user.phone,
-      role: user.role,
+      user: {
+        _id: user._id,
+        name: user.name,
+        phone: user.phone,
+        role: user.role,
+        governorate: user.governorate,
+        address: user.address,
+      },
       token: generateToken(user._id),
     });
   } catch (err) {

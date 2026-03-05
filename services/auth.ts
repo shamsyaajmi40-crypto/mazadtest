@@ -38,10 +38,13 @@ export const register = async (
 ): Promise<User> => {
   const res = await api.post<AuthResponse>("/auth/register", payload);
 
+  const session = localStorage.getItem("app_session");
+  const parsed = session ? JSON.parse(session) : {};
+
   localStorage.setItem(
     "app_session",
     JSON.stringify({
-       ...parsed,
+      ...parsed,
       user: res.data.user,
       token: res.data.token,
     })

@@ -649,9 +649,9 @@ const AdminCourierManagement = () => {
                     <span className="font-bold text-slate-700">مسار {idx + 1}</span>
                     <button onClick={() => setEditingCoverage(prev => prev.filter((_, i) => i !== idx))} className="text-rose-500 text-sm font-bold flex items-center"><Trash2 className="w-4 h-4 ml-1" /> حذف المسار</button>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-4">
                     <div>
-                      <label className="text-xs font-bold text-slate-500 block mb-1">يستلم البضاعة من محافظة:</label>
+                      <label className="text-xs font-bold text-slate-500 block mb-2">يستلم البضاعة من محافظة:</label>
                       <select
                         value={route.from}
                         onChange={(e) => {
@@ -659,24 +659,85 @@ const AdminCourierManagement = () => {
                           newCov[idx].from = e.target.value;
                           setEditingCoverage(newCov);
                         }}
-                        className="w-full rounded-lg border-slate-200 bg-white p-2 text-sm font-bold"
+                        className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
                       >
-                        <option value="">اختر محافظة</option>
+                        <option value="">اختر محافظة...</option>
                         {GOVERNORATES.map(gov => <option key={gov} value={gov}>{gov}</option>)}
                       </select>
                     </div>
+
                     <div>
-                      <label className="text-xs font-bold text-slate-500 block mb-1">يوصلها إلى محافظات: (مفصولة بفاصلة)</label>
-                      <input
-                        value={route.to.join(", ")}
-                        onChange={(e) => {
-                          const newCov = [...editingCoverage];
-                          newCov[idx].to = e.target.value.split(",").map(s => s.trim()).filter(Boolean);
-                          setEditingCoverage(newCov);
-                        }}
-                        placeholder="بغداد, البصرة, أربيل (أو اكتب جميع المحافظات)"
-                        className="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm font-bold"
-                      />
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-bold text-slate-500 block">يوصل البضاعة إلى المحافظات التالية:</label>
+                        <button
+                          onClick={() => {
+                            const newCov = [...editingCoverage];
+                            // Toggle Select All
+                            if (route.to.includes("جميع المحافظات")) {
+                              newCov[idx].to = []; // Deselect all
+                            } else {
+                              newCov[idx].to = ["جميع المحافظات"]; // Select all
+                            }
+                            setEditingCoverage(newCov);
+                          }}
+                          className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg transition-colors border border-indigo-100"
+                        >
+                          {route.to.includes("جميع المحافظات") ? "إلغاء تحديد الكل" : "تحديد جميع المحافظات"}
+                        </button>
+                      </div>
+
+                      <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-4 rounded-xl border transition-colors ${route.to.includes('جميع المحافظات') ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-200'}`}>
+                        {GOVERNORATES.filter(g => g !== 'جميع المحافظات').map(gov => {
+                          const isSelected = route.to.includes('جميع المحافظات') || route.to.includes(gov);
+                          return (
+                            <label
+                              key={gov}
+                              className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all border ${isSelected ? 'bg-indigo-100/50 border-indigo-200 text-indigo-800' : 'hover:bg-slate-50 border-transparent text-slate-600'}`}
+                            >
+                              <div className="relative flex items-center justify-center">
+                                <input
+                                  type="checkbox"
+                                  className="peer sr-only"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    const newCov = [...editingCoverage];
+                                    let currentTo = [...newCov[idx].to];
+
+                                    if (e.target.checked) {
+                                      // If they check a specific one while "All" is selected, unselect "All" and select everything else MINUS the unselected ones
+                                      // Actually, the simpler UX: if "All" is active, and they uncheck one, remove "All" and add all others EXCEPT this one.
+                                      if (currentTo.includes('جميع المحافظات')) {
+                                        currentTo = GOVERNORATES.filter(g => g !== 'جميع المحافظات' && g !== gov);
+                                      } else {
+                                        currentTo.push(gov);
+                                      }
+                                    } else {
+                                      // Unchecking
+                                      if (currentTo.includes('جميع المحافظات')) {
+                                        currentTo = GOVERNORATES.filter(g => g !== 'جميع المحافظات' && g !== gov);
+                                      } else {
+                                        currentTo = currentTo.filter(g => g !== gov);
+                                      }
+                                    }
+
+                                    // If all individual ones are selected, just switch to "All"
+                                    if (currentTo.length === GOVERNORATES.length - 1 && !currentTo.includes('جميع المحافظات')) {
+                                      currentTo = ['جميع المحافظات'];
+                                    }
+
+                                    newCov[idx].to = currentTo;
+                                    setEditingCoverage(newCov);
+                                  }}
+                                />
+                                <div className={`w-4 h-4 rounded shadow-sm border flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-white border-slate-300'}`}>
+                                  {isSelected && <svg className="w-3 h-3" viewBox="0 0 14 14" fill="none"><path d="M3 8L6 11L11 3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                                </div>
+                              </div>
+                              <span className="text-xs font-bold select-none truncate">{gov}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -1,3 +1,5 @@
+import xss from 'xss';
+
 /**
  * يحقّق من صحة رقم الهاتف العراقي
  * التنسيق المتوقع: 07XXXXXXXXX (11 رقماً يبدأ بـ 07)
@@ -28,7 +30,9 @@ export const validatePhone = (phone) => {
  * يحقّق من طول النص ويقوم بتنظيفه
  */
 export const validateText = (text, { min = 0, max = 1000, name = "الحقل" } = {}) => {
-    const cleanText = String(text || "").trim();
+    // 🛡️ تنظيف النص من أكواد HTML/JavaScript (XSS)
+    const sanitizedText = xss(String(text || ""));
+    const cleanText = sanitizedText.trim();
 
     if (min > 0 && cleanText.length < min) {
         return {

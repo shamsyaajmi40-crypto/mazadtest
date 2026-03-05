@@ -704,6 +704,7 @@ export const placeBid = async (req, res) => {
   session.startTransaction();
 
   try {
+    // 1. جلب المزاد داخل الـ session
     const auction = await Auction.findOne({
       _id: req.params.id,
       status: "active",
@@ -719,13 +720,7 @@ export const placeBid = async (req, res) => {
       return res.status(400).json({ message: "Seller cannot bid" });
     }
 
-    const user = await User.findById(req.user._id).session(session);
-    if (!user) {
-      await session.abortTransaction();
-      return res.status(401).json({ message: "User not found" });
-    }
-
-    // ✅ 1) cooldown atomic (3s)
+    // 2. Cooldown ذري (خارج الـ session — Redis/DB خاص)
     const cd = await enforceBidCooldown({
       userId: req.user._id,
       auctionId: req.params.id,
@@ -736,7 +731,6 @@ export const placeBid = async (req, res) => {
       await session.abortTransaction();
       const retryAfterMs =
         cd.retryAfterMs || Math.max(0, new Date(cd.nextAllowedAt).getTime() - Date.now());
-
       return res.status(429).json({
         message: "يرجى الانتظار قبل إرسال مزايدة جديدة",
         retryAfter: Math.ceil(retryAfterMs / 1000),
@@ -745,6 +739,7 @@ export const placeBid = async (req, res) => {
       });
     }
 
+    // 3. التحقق من المبلغ
     const amountVal = validateNumber(req.body.amount, { min: 1000, max: 1000000000, name: "مبلغ المزايدة" });
     if (!amountVal.isValid) {
       await session.abortTransaction();
@@ -769,52 +764,49 @@ export const placeBid = async (req, res) => {
       return res.status(400).json({ message: "انتهى المزاد" });
     }
 
-    // عربون المزايد
-    const existingBid = await Bid.findOne({ auction: auction._id, bidder: user._id }).session(session);
+    // 4. هل سبق للمستخدم المزايدة في هذا المزاد؟ (داخل الـ session)
+    const existingBid = await Bid.findOne({
+      auction: auction._id,
+      bidder: req.user._id,
+    }).session(session);
 
-    // ✅ التحقق من الحد الأقصى للمزادات النشطة (منع استنزاف السيولة وتشتت المزايدات)
-    // نتحقق فقط إذا كانت هذه هي المزايدة الأولى للمستخدم في هذا المزاد
+    // 5. الحد الأقصى للمزادات النشطة (فقط للمزايدة الأولى)
     if (!existingBid) {
       const MAX_ACTIVE_AUCTIONS = 10;
       const activeParticipations = await Bid.aggregate([
-        { $match: { bidder: user._id } },
+        { $match: { bidder: req.user._id } },
         { $group: { _id: "$auction" } },
-        {
-          $lookup: {
-            from: "auctions",
-            localField: "_id",
-            foreignField: "_id",
-            as: "auc"
-          }
-        },
+        { $lookup: { from: "auctions", localField: "_id", foreignField: "_id", as: "auc" } },
         { $unwind: "$auc" },
         { $match: { "auc.status": "active" } },
-        { $count: "count" }
+        { $count: "count" },
       ]).session(session);
 
-      const currentCount = activeParticipations.length > 0 ? activeParticipations[0].count : 0;
-
+      const currentCount = activeParticipations[0]?.count || 0;
       if (currentCount >= MAX_ACTIVE_AUCTIONS) {
         await session.abortTransaction();
         await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
         return res.status(403).json({
-          message: `عذراً، لا يمكنك المزايدة في أكثر من ${MAX_ACTIVE_AUCTIONS} مزادات نشطة في وقت واحد.`
+          message: `عذراً، لا يمكنك المزايدة في أكثر من ${MAX_ACTIVE_AUCTIONS} مزادات نشطة في وقت واحد.`,
         });
       }
     }
 
     const deposit = auction.depositAmount;
-
     if (!deposit || deposit <= 0) {
       await session.abortTransaction();
       await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
       return res.status(400).json({ message: "Bidding is not allowed without a deposit" });
     }
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // العمليات المالية الثلاث داخل نفس الـ Transaction
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    // العملية 1: خصم العربون وحجزه (balance → heldBalance)
     if (!existingBid) {
-      // ⛔ تأكد أن الرصيد الفعلي يغطي العربون داخل المعاملة
       const updatedUser = await User.findOneAndUpdate(
-        { _id: user._id, balance: { $gte: Number(deposit) } },
+        { _id: req.user._id, balance: { $gte: Number(deposit) } },
         { $inc: { balance: -Number(deposit), heldBalance: Number(deposit) } },
         { new: true, session }
       );
@@ -826,14 +818,14 @@ export const placeBid = async (req, res) => {
       }
     }
 
-    // ✅ 2) حساب تمديد الوقت
-    let newEndTime = auction.endTime;
-    const remaining = auction.endTime.getTime() - now.getTime();
+    // تمديد وقت المزاد إذا كان ينتهي قريباً
+    let newEndTime = new Date(auction.endTime);
+    const remaining = newEndTime.getTime() - now.getTime();
     if (remaining <= 2 * 60 * 1000) {
-      newEndTime = new Date(auction.endTime.getTime() + 2 * 60 * 1000);
+      newEndTime = new Date(newEndTime.getTime() + 2 * 60 * 1000);
     }
 
-    // ✅ 3) atomic auction update (price + winner + endTime)
+    // العملية 2: تحديث المزاد (السعر + الفائز + الوقت)
     const updatedAuction = await Auction.findOneAndUpdate(
       {
         _id: auction._id,
@@ -856,17 +848,15 @@ export const placeBid = async (req, res) => {
     if (!updatedAuction) {
       await session.abortTransaction();
       await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
-      return res.status(409).json({
-        message: "Bid rejected (price changed or auction ended).",
-      });
+      return res.status(409).json({ message: "Bid rejected (price changed or auction ended)." });
     }
 
-    // سجل المزايدة
+    // العملية 3: إنشاء سجل المزايدة
     await Bid.create(
       [
         {
           auction: updatedAuction._id,
-          bidder: user._id,
+          bidder: req.user._id,
           amount,
           depositHeld: !existingBid && deposit > 0,
         },
@@ -874,51 +864,50 @@ export const placeBid = async (req, res) => {
       { session }
     );
 
-    // Commit changes
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Commit — يتم بعد نجاح العمليات الثلاث
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     await session.commitTransaction();
 
-    // ✅ إرسال إشعار للمتزايد السابق بأنه تم المزايدة عليه (خارج المعاملة لضمان استقرار الإشعارات)
-    if (auction.winner && auction.winner.toString() !== req.user._id.toString()) {
-      try {
-        const outbidNotif = await Notification.create({
-          user: auction.winner,
-          type: "SYSTEM",
-          event: "OUTBID",
-          title: "تمت المزايدة عليك! ⚠️",
-          message: `لقد قام أحدهم بالمزايدة بمبلغ أعلى منك في مزاد "${auction.title}". قم بالمزايدة الآن للاحتفاظ بفرصة الفوز!`,
-          auction: auction._id,
-        });
-
-        const io = req.app.get("io");
-        if (io) io.to(auction.winner.toString()).emit("new_notification", outbidNotif);
-      } catch (notifErr) {
-        console.error("Outbid notification error:", notifErr);
-      }
-    }
-
-    // (اختياري) لا ترجع bids كلها هنا، خلك خفيف
+    // الرد على المستخدم
     res.json({ message: "Bid placed", auction: updatedAuction });
 
-    // بث WS — نبعث المزاد + آخر 20 مزايدة لكل المشتركين في الغرفة
+    // إشعار المتزايد السابق (بعد commit وخارج الـ session)
+    if (auction.winner && auction.winner.toString() !== req.user._id.toString()) {
+      Notification.create({
+        user: auction.winner,
+        type: "SYSTEM",
+        event: "OUTBID",
+        title: "تمت المزايدة عليك! ⚠️",
+        message: `لقد قام أحدهم بالمزايدة بمبلغ أعلى منك في مزاد "${auction.title}". قم بالمزايدة الآن للاحتفاظ بفرصة الفوز!`,
+        auction: auction._id,
+      }).then((notif) => {
+        const io = req.app.get("io");
+        if (io) io.to(auction.winner.toString()).emit("new_notification", notif);
+      }).catch((e) => console.error("Outbid notification error:", e));
+    }
+
+    // بث WebSocket (بعد commit فقط)
     const io = req.app.get("io");
     if (io) {
-      const latestBids = await Bid.find({ auction: updatedAuction._id })
+      Bid.find({ auction: updatedAuction._id })
         .sort({ createdAt: -1 })
         .limit(20)
         .populate("bidder", "name")
-        .lean();
-
-      io.to(updatedAuction._id.toString()).emit("bid:new", {
-        auction: updatedAuction,
-        bids: latestBids,
-      });
+        .lean()
+        .then((latestBids) => {
+          io.to(updatedAuction._id.toString()).emit("bid:new", {
+            auction: updatedAuction,
+            bids: latestBids,
+          });
+        });
     }
   } catch (err) {
     if (session.inTransaction()) {
       await session.abortTransaction();
     }
     console.error("placeBid error:", err);
-    await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
+    await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id }).catch(() => { });
     return res.status(500).json({ message: "Server error" });
   } finally {
     session.endSession();

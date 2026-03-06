@@ -893,11 +893,31 @@ export const placeBid = async (req, res) => {
       }
     }
 
-    // تمديد وقت المزاد إذا كان ينتهي قريباً
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Dynamic Anti-Sniping Extension
+    // Extension window shrinks as more bidders join, keeping the auction fair
+    // but preventing indefinite extensions when competition is high.
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const uniqueBidderIds = await Bid.distinct("bidder", { auction: auction._id }).session(session);
+    const uniqueBidderCount = uniqueBidderIds.length;
+
+    // 1–2 bidders → 60s | 3–4 bidders → 40s | 5+ bidders → 30s
+    let extensionWindowMs;
+    if (uniqueBidderCount <= 2) {
+      extensionWindowMs = 60 * 1000;
+    } else if (uniqueBidderCount <= 4) {
+      extensionWindowMs = 40 * 1000;
+    } else {
+      extensionWindowMs = 30 * 1000;
+    }
+
+    const remaining = new Date(auction.endTime).getTime() - now.getTime();
+
+    // Only extend if the remaining time is within the extension window
+    // Set newEndTime from NOW (not += endTime) to prevent runaway extensions
     let newEndTime = new Date(auction.endTime);
-    const remaining = newEndTime.getTime() - now.getTime();
-    if (remaining <= 2 * 60 * 1000) {
-      newEndTime = new Date(newEndTime.getTime() + 2 * 60 * 1000);
+    if (remaining <= extensionWindowMs) {
+      newEndTime = new Date(now.getTime() + extensionWindowMs);
     }
 
     // العملية 2: تحديث المزاد (السعر + الفائز + الوقت)

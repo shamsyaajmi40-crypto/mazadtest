@@ -10,6 +10,7 @@ import applyAuctionPenalty from "./auctionPenalty.js";
 import { getIo } from "../utils/socket.js";
 import { generateReceiptId, signReceipt } from "../utils/receipt.js";
 import { sendReceiptEmail } from "../utils/email.js";
+import { sendAppNotification } from "../utils/notification.js";
 
 const closeAuctions = () => {
   console.log("CRON INITIALIZED (Auction Closer - ATOMIC LOCK)");

@@ -81,11 +81,9 @@ export default function TopBar() {
 
     import("socket.io-client").then(({ io }) => {
       if (!isMounted) return;
-      const session = localStorage.getItem("app_session");
-      const token = session ? JSON.parse(session)?.token : null;
       socket = io(import.meta.env.VITE_API_URL, {
         transports: ["websocket"],
-        auth: { token },
+        withCredentials: true,
       });
       socket.emit("admin:join");
       socket.on("admin_refresh", refreshHandler);
@@ -130,11 +128,9 @@ export default function TopBar() {
 
     import("socket.io-client").then(({ io }) => {
       if (!isMounted) return;
-      const session = localStorage.getItem("app_session");
-      const token = session ? JSON.parse(session)?.token : null;
       socket = io(import.meta.env.VITE_API_URL, {
         transports: ["websocket"],
-        auth: { token },
+        withCredentials: true,
       });
       socket.emit("user:join", user._id);
       socket.on("user_refresh", refreshDealsHandler);

@@ -38,7 +38,8 @@ const NotificationManager = () => {
       // ✅ منع ظهور التوست إذا كنا داخل نفس المزاد (لتجنب التكرار مع توست المزايدة المحلي)
       if (notification.event === "OUTBID" && notification.auction) {
         const auctionId = typeof notification.auction === "string" ? notification.auction : notification.auction._id;
-        if (location.pathname === `/auction/${auctionId}`) {
+        // Since we use HashRouter, the URL looks like /#/auction/:id
+        if (window.location.hash.includes(`/auction/${auctionId}`)) {
           return; // أضفناه للقائمة للقراءة لاحقاً، لكن لا تظهر التوست الآن
         }
       }
@@ -81,11 +82,9 @@ const NotificationManager = () => {
 
     if (user) {
       // Initialize Socket connection
-      const session = localStorage.getItem("app_session");
-      const token = session ? JSON.parse(session)?.token : null;
       socket = io(import.meta.env.VITE_API_URL, {
         transports: ["websocket"],
-        auth: { token },
+        withCredentials: true,
       });
 
       // Join the user's specific room

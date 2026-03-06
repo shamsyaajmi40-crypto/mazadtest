@@ -650,12 +650,9 @@ const AuctionDetails = () => {
   useEffect(() => {
     if (!id) return;
 
-    const session = localStorage.getItem("app_session");
-    const token = session ? JSON.parse(session)?.token : null;
-
     socketRef.current = io(import.meta.env.VITE_API_URL || "http://localhost:5000", {
       transports: ["websocket"],
-      auth: { token },
+      withCredentials: true,
     });
 
     socketRef.current.on("connect", () => {

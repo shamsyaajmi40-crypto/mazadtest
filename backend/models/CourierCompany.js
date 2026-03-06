@@ -10,7 +10,7 @@ const courierCompanySchema = new mongoose.Schema(
     // التغطية الجغرافية: من أي محافظة يمكنها الشحن إلى أين
     coverage: [
       {
-        from: { type: String, required: true },
+        from: [{ type: String, required: true }],
         to: [{ type: String, required: true }],
       }
     ],

@@ -116,7 +116,10 @@ export const getAvailableCouriers = async (req, res) => {
       // نبحث هل هناك قاعدة (route) يتطابق فيها "من" مع طلبنا
       // A route matches if its 'from' is the requested 'from', or if it's 'الكل' or 'All' or 'جميع المحافظات'
       const matchedRoute = company.coverage.find(
-        route => route.from === from || route.from === "الكل" || route.from === "All" || route.from === "جميع المحافظات"
+        route => {
+          if (!Array.isArray(route.from)) return false; // Safety check
+          return route.from.includes(from) || route.from.includes("الكل") || route.from.includes("All") || route.from.includes("جميع المحافظات");
+        }
       );
 
       // إذا لم نجد المسار "من"، إذن لا تدعم
@@ -125,6 +128,7 @@ export const getAvailableCouriers = async (req, res) => {
       // إذا وجدنا "من"، نتحقق من مصفوفة "إلى" 
       // هل تحتوي المحافظة المطلوبة أو "الكل"
       // Check if that matched route's 'to' array includes the requested 'to', or if it includes 'الكل'/'All'/'جميع المحافظات'
+      if (!Array.isArray(matchedRoute.to)) return false; // Safety check
       return matchedRoute.to.includes(to) || matchedRoute.to.includes("الكل") || matchedRoute.to.includes("All") || matchedRoute.to.includes("جميع المحافظات");
     });
 

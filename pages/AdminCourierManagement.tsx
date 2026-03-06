@@ -47,7 +47,7 @@ const AdminCourierManagement = () => {
 
   // Advanced features modals
   const [showCoverageModal, setShowCoverageModal] = useState(false);
-  const [editingCoverage, setEditingCoverage] = useState<{ from: string; to: string[] }[]>([]);
+  const [editingCoverage, setEditingCoverage] = useState<{ from: string[]; to: string[] }[]>([]);
 
   const [showBranchesModal, setShowBranchesModal] = useState(false);
   const [editingBranches, setEditingBranches] = useState<{ governorate: string; name: string; address: string }[]>([]);
@@ -410,7 +410,12 @@ const AdminCourierManagement = () => {
 
                     <button
                       onClick={() => {
-                        setEditingCoverage(selectedCompany?.coverage || []);
+                        const rawCoverage = selectedCompany?.coverage || [];
+                        const formattedCoverage = rawCoverage.map((r: any) => ({
+                          from: Array.isArray(r.from) ? r.from : (r.from ? [r.from] : []),
+                          to: Array.isArray(r.to) ? r.to : (r.to ? [r.to] : [])
+                        }));
+                        setEditingCoverage(formattedCoverage);
                         setShowCoverageModal(true);
                       }}
                       className="px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 rounded-[1rem] font-black text-xs transition-colors flex items-center gap-2"
@@ -651,19 +656,72 @@ const AdminCourierManagement = () => {
                   </div>
                   <div className="flex flex-col gap-4">
                     <div>
-                      <label className="text-xs font-bold text-slate-500 block mb-2">يستلم البضاعة من محافظة:</label>
-                      <select
-                        value={route.from}
-                        onChange={(e) => {
-                          const newCov = [...editingCoverage];
-                          newCov[idx].from = e.target.value;
-                          setEditingCoverage(newCov);
-                        }}
-                        className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                      >
-                        <option value="">اختر محافظة...</option>
-                        {GOVERNORATES.map(gov => <option key={gov} value={gov}>{gov}</option>)}
-                      </select>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-bold text-slate-500 block">يستلم البضاعة من المحافظات التالية:</label>
+                        <button
+                          onClick={() => {
+                            const newCov = [...editingCoverage];
+                            if (route.from.includes("جميع المحافظات")) {
+                              newCov[idx].from = [];
+                            } else {
+                              newCov[idx].from = ["جميع المحافظات"];
+                            }
+                            setEditingCoverage(newCov);
+                          }}
+                          className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg transition-colors border border-indigo-100"
+                        >
+                          {route.from.includes("جميع المحافظات") ? "إلغاء تحديد الكل" : "تحديد جميع المحافظات"}
+                        </button>
+                      </div>
+
+                      <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-4 rounded-xl border transition-colors ${route.from.includes('جميع المحافظات') ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-200'}`}>
+                        {GOVERNORATES.filter(g => g !== 'جميع المحافظات').map(gov => {
+                          const isSelected = route.from.includes('جميع المحافظات') || route.from.includes(gov);
+                          return (
+                            <label
+                              key={gov}
+                              className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all border ${isSelected ? 'bg-indigo-100/50 border-indigo-200 text-indigo-800' : 'hover:bg-slate-50 border-transparent text-slate-600'}`}
+                            >
+                              <div className="relative flex items-center justify-center">
+                                <input
+                                  type="checkbox"
+                                  className="peer sr-only"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    const newCov = [...editingCoverage];
+                                    let currentFrom = [...newCov[idx].from];
+
+                                    if (e.target.checked) {
+                                      if (currentFrom.includes('جميع المحافظات')) {
+                                        currentFrom = GOVERNORATES.filter(g => g !== 'جميع المحافظات' && g !== gov);
+                                      } else {
+                                        currentFrom.push(gov);
+                                      }
+                                    } else {
+                                      if (currentFrom.includes('جميع المحافظات')) {
+                                        currentFrom = GOVERNORATES.filter(g => g !== 'جميع المحافظات' && g !== gov);
+                                      } else {
+                                        currentFrom = currentFrom.filter(g => g !== gov);
+                                      }
+                                    }
+
+                                    if (currentFrom.length === GOVERNORATES.length - 1 && !currentFrom.includes('جميع المحافظات')) {
+                                      currentFrom = ['جميع المحافظات'];
+                                    }
+
+                                    newCov[idx].from = currentFrom;
+                                    setEditingCoverage(newCov);
+                                  }}
+                                />
+                                <div className={`w-4 h-4 rounded shadow-sm border flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-white border-slate-300'}`}>
+                                  {isSelected && <svg className="w-3 h-3" viewBox="0 0 14 14" fill="none"><path d="M3 8L6 11L11 3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                                </div>
+                              </div>
+                              <span className="text-xs font-bold select-none truncate">{gov}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
 
                     <div>
@@ -744,7 +802,7 @@ const AdminCourierManagement = () => {
               ))}
 
               <button
-                onClick={() => setEditingCoverage([...editingCoverage, { from: "", to: [] }])}
+                onClick={() => setEditingCoverage([...editingCoverage, { from: [], to: [] }])}
                 className="w-full py-3 border-2 border-dashed border-indigo-200 text-indigo-500 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-50"
               >
                 <PlusCircle className="w-5 h-5" /> إضافة مسار جديد

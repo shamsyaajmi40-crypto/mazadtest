@@ -64,7 +64,17 @@ if (!fs.existsSync(uploadDir)) {
 // Socket.io Middleware للتحقق من التوكن (JWT)
 io.use(async (socket, next) => {
   try {
-    const token = socket.handshake.auth?.token;
+    let token = socket.handshake.auth?.token;
+
+    if (!token && socket.request.headers.cookie) {
+      const cookies = socket.request.headers.cookie.split(';').reduce((acc, current) => {
+        const [key, value] = current.trim().split('=');
+        acc[key] = value;
+        return acc;
+      }, {});
+      token = cookies.token;
+    }
+
     if (!token) return next(new Error("Authentication error: No token provided"));
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);

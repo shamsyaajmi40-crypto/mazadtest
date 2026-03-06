@@ -9,6 +9,7 @@ import { createPayment, getPaymentStatus } from "../utils/zaincashV2.js";
 import { v4 as uuidv4 } from "uuid";
 import { generateReceiptId } from "../utils/receipt.js";
 import { sendReceiptEmail } from "../utils/email.js";
+import FinanceLog from "../models/FinanceLog.js";
 
 const addOneMonth = (date) => {
   const d = new Date(date);

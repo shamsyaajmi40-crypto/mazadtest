@@ -7,7 +7,7 @@ import Bid from "../models/Bid.js";
 import AuditLog from "../models/AuditLog.js";
 import CourierCompany from "../models/CourierCompany.js";
 import PlatformSetting from "../models/PlatformSetting.js";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import { DEFAULT_DEPOSIT_POLICY, normalizeDepositPolicy } from "../utils/helpers.js";
 import { getIo } from "../utils/socket.js";
 import { generateReceiptId, signReceipt } from "../utils/receipt.js";

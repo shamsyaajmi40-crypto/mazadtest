@@ -6,7 +6,7 @@ import Notification from "../models/Notification.js";
 import User from "../models/User.js";
 import AuditLog from "../models/AuditLog.js";
 import { sendAppNotification } from "../utils/notification.js";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import { getIo } from "../utils/socket.js";
 import { generateReceiptId, signReceipt } from "../utils/receipt.js";
 

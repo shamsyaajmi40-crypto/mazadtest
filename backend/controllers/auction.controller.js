@@ -901,12 +901,14 @@ export const placeBid = async (req, res) => {
     }
 
     // العملية 2: تحديث المزاد (السعر + الفائز + الوقت)
+    // ✅ Atomic increment enforcement: ensure amount >= currentPrice + increment inside DB
     const updatedAuction = await Auction.findOneAndUpdate(
       {
         _id: auction._id,
         status: "active",
         endTime: { $gt: now },
-        currentPrice: { $lt: amount },
+        // Enforce: currentPrice + increment <= amount (atomically, prevents race conditions)
+        $expr: { $lte: [{ $add: ["$currentPrice", "$increment"] }, amount] },
       },
       {
         $set: {

@@ -1,13 +1,26 @@
-node_modules
+# Environment & secrets — NEVER commit these
 .env
+.env.*
+!.env.example
 backend/.env
-dist
-build
-uploads
-coverage
+backend/.env.*
+
+# Dependencies
+node_modules/
+backend/node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Logs
 *.log
-*.env
-*.txt
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
 .vscode/
-patch_socket.js
-test.html
+.idea/

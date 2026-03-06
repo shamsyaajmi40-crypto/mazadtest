@@ -31,4 +31,8 @@ const bidSchema = new mongoose.Schema(
 // فهرس لتحسين جلب أعلى مزايدة بسرعة
 bidSchema.index({ auction: 1, amount: -1, createdAt: 1 });
 
+// ✅ Additional performance indexes
+bidSchema.index({ bidder: 1 });          // user bid history queries
+bidSchema.index({ createdAt: -1 });       // newest-first sort
+
 export default mongoose.model("Bid", bidSchema);

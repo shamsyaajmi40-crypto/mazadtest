@@ -954,7 +954,8 @@ export const placeBid = async (req, res) => {
         title: "تمت المزايدة عليك! ⚠️",
         message: `لقد قام أحدهم بالمزايدة بمبلغ أعلى منك في مزاد "${auction.title}". قم بالمزايدة الآن للاحتفاظ بفرصة الفوز!`,
         event: "OUTBID",
-        type: "SYSTEM"
+        type: "SYSTEM",
+        auctionId: auction._id
       });
     }
 

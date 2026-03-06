@@ -41,6 +41,15 @@ export const getUpcomingAuctions = async () => {
   return res.data;
 };
 
+export const featureAuction = (id: string, duration: string) => {
+  return api.post(`/auctions/${id}/feature`, { duration });
+};
+
+export const getFeaturedAuctions = async () => {
+  const res = await api.get("/auctions/featured");
+  return res.data;
+};
+
 export const getMyOpenDeals = () => {
   return api.get("/auctions/deals/open");
 };

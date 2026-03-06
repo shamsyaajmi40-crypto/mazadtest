@@ -140,6 +140,11 @@ const auctionSchema = new mongoose.Schema(
     rejectionReasons: [String], // قائمة الأسباب المختارة
     rejectionNote: { type: String, default: null }, // ملاحظة إضافية من الأدمن
     rejectedAt: { type: Date, default: null }, // تاريخ الرفض (للتنظيف التلقائي)
+
+    // ميزة تمييز المزاد (Featured Auctions)
+    isFeatured: { type: Boolean, default: false },
+    featuredUntil: { type: Date, default: null },
+    featuredPriority: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
@@ -149,6 +154,7 @@ auctionSchema.index({ status: 1, endTime: 1 });
 auctionSchema.index({ seller: 1 });
 auctionSchema.index({ owner: 1 });
 auctionSchema.index({ category: 1, governorate: 1 });
+auctionSchema.index({ isFeatured: -1, featuredPriority: -1, createdAt: -1 }); // Index for fast sorting of featured auctions
 auctionSchema.index({ createdAt: -1 });
 
 export default mongoose.model("Auction", auctionSchema);

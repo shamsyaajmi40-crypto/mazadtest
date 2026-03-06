@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useState, useContext, useRef } from "react";
 import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { Auction, Bid, } from "../types";
-import { getAuctionDetails, placeBid } from "../services/auction";
+import { getAuctionDetails, placeBid, featureAuction } from "../services/auction";
 import { AuthContext } from "../context/AuthContext";
 import {
   ArrowRight, Loader2, Gavel, FileText, AlertTriangle, History, Clock, ChevronLeft,
@@ -128,6 +128,29 @@ const AuctionDetails = () => {
 
   // شروط المزايدة
   const [showBidTermsModal, setShowBidTermsModal] = useState(false);
+
+  // تمييز المزاد
+  const [showFeatureModal, setShowFeatureModal] = useState(false);
+  const [featureDuration, setFeatureDuration] = useState('1d');
+  const [featureLoading, setFeatureLoading] = useState(false);
+  const [featureErr, setFeatureErr] = useState<string | null>(null);
+
+  const handleFeatureAuctionAction = async () => {
+    if (!id || featureLoading) return;
+    setFeatureLoading(true);
+    setFeatureErr(null);
+    try {
+      await featureAuction(id, featureDuration);
+      toast.success("تم تمييز المزاد بنجاح!");
+      setShowFeatureModal(false);
+      refreshAuction();
+      refreshUser?.(); // To update wallet balance if present
+    } catch (e: any) {
+      setFeatureErr(e?.response?.data?.message || "فشل عملية الدفع والتمييز");
+    } finally {
+      setFeatureLoading(false);
+    }
+  };
   // نظام النزاع (Dispute)
   const [disputeReasonText, setDisputeReasonText] = useState("");
   const [disputeLoading, setDisputeLoading] = useState(false);
@@ -1008,6 +1031,27 @@ const AuctionDetails = () => {
             })()}
           </div>
         </div>
+
+        {/* ⭐ Banner for Featuring Action */}
+        {isOwner && (isActive || isUpcoming) && !(auction.isFeatured && new Date(auction.featuredUntil || 0).getTime() > now) && (
+          <div className="mb-8 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-2xl p-4 sm:p-6 border border-yellow-200/60 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl">🚀</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-800">زد فرص بيع مزادك</h3>
+                <p className="text-sm font-medium text-slate-600">قم بتمييز المزاد ليظهر لعدد أكبر من المشترين في الصفحة الرئيسية.</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowFeatureModal(true)}
+              className="w-full sm:w-auto px-6 py-3 bg-gradient-to-l from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 text-white font-black rounded-xl shadow-md transition-all active:scale-95 whitespace-nowrap"
+            >
+              ميّز المزاد الآن
+            </button>
+          </div>
+        )}
 
         <div id="auction-grid" className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-10">
           {/* القسم الأيمن: الصور والوصف */}
@@ -2168,6 +2212,83 @@ const AuctionDetails = () => {
             }}
           />
         )}
+        {/* ===== Feature Auction Modal ===== */}
+        {showFeatureModal && (
+          <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="w-full max-w-md rounded-[2.5rem] bg-white p-6 sm:p-8 shadow-2xl relative overflow-hidden border border-slate-100">
+              <div className="flex items-center justify-between mb-8">
+                <div className="text-xl font-black text-slate-800 flex items-center gap-2">
+                  <span className="bg-yellow-100 p-2 rounded-xl text-yellow-600">
+                    ⭐
+                  </span>
+                  تمييز المزاد
+                </div>
+                <button
+                  onClick={() => setShowFeatureModal(false)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {featureErr && (
+                <div className="mb-6 rounded-2xl border border-rose-200/50 bg-rose-50/80 backdrop-blur-sm p-4 text-rose-600 text-sm font-bold flex gap-2">
+                  <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+                  <span>{featureErr}</span>
+                </div>
+              )}
+
+              <div className="space-y-6">
+                <div>
+                  <p className="text-sm font-bold text-slate-600 mb-4 text-center leading-loose">
+                    اجعل مزادك يظهر في:
+                    <br />
+                    • الصفحة الرئيسية
+                    <br />
+                    • أعلى نتائج البحث
+                    <br />
+                    • قسم المزادات المدعومة
+                  </p>
+
+                  <div className="space-y-3">
+                    {[
+                      { id: '1d', label: '24 ساعة', price: 3000 },
+                      { id: '3d', label: '3 أيام', price: 7000 },
+                      { id: '7d', label: '7 أيام', price: 15000 },
+                    ].map(tier => (
+                      <label
+                        key={tier.id}
+                        className={`flex items-center justify-between p-4 rounded-2xl border-2 cursor-pointer transition-all ${featureDuration === tier.id ? 'border-amber-500 bg-amber-50/50' : 'border-slate-100 hover:border-slate-200 bg-white'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="radio"
+                            name="featureDuration"
+                            value={tier.id}
+                            checked={featureDuration === tier.id}
+                            onChange={(e) => setFeatureDuration(e.target.value)}
+                            className="w-5 h-5 text-amber-500 focus:ring-amber-500 focus:ring-2"
+                          />
+                          <span className="font-bold text-slate-700">{tier.label}</span>
+                        </div>
+                        <span className="font-black text-slate-900">{tier.price.toLocaleString()} د.ع</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  disabled={featureLoading}
+                  onClick={handleFeatureAuctionAction}
+                  className="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white font-black rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {featureLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'تفعيل التمييز الآن'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Rejection Modal for Admins */}
         {rejectModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">

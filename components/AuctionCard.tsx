@@ -232,20 +232,23 @@ const AuctionCard: React.FC<{ auction: Auction; archived?: boolean; compact?: bo
   const isNew = createdAt > 0 && now - createdAt < 24 * 60 * 60 * 1000;
   const HOT_BIDS_THRESHOLD = 5;
   const isHot = (auction.bidsCount ?? 0) >= HOT_BIDS_THRESHOLD;
+  const isCurrentlyFeatured = auction.isFeatured && new Date(auction.featuredUntil || 0).getTime() > now;
 
   //HotAucations 
 
-  const AuctionBadge = ({ type }: { type: "hot" | "ending" | "new" }) => {
+  const AuctionBadge = ({ type }: { type: "hot" | "ending" | "new" | "featured" }) => {
     const styles = {
       hot: "bg-red-500 text-white",
       ending: "bg-amber-500 text-white",
       new: "bg-emerald-500 text-white",
+      featured: "bg-yellow-400 text-slate-900 border-yellow-300",
     };
 
     const labels = {
       hot: "ساخن",
       ending: "ينتهي قريبًا",
       new: "جديد",
+      featured: "⭐ مميز",
     };
 
     return (
@@ -292,9 +295,10 @@ const AuctionCard: React.FC<{ auction: Auction; archived?: boolean; compact?: bo
         </div>
 
         <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
-          {isHot && <AuctionBadge type="hot" />}
-          {!isHot && isEndingSoon && <AuctionBadge type="ending" />}
-          {!isHot && !isEndingSoon && isNew && <AuctionBadge type="new" />}
+          {isCurrentlyFeatured && <AuctionBadge type="featured" />}
+          {isHot && !isCurrentlyFeatured && <AuctionBadge type="hot" />}
+          {!isHot && isEndingSoon && !isCurrentlyFeatured && <AuctionBadge type="ending" />}
+          {!isHot && !isEndingSoon && isNew && !isCurrentlyFeatured && <AuctionBadge type="new" />}
         </div>
         {/* ?…?¤?´?± ?¹?¯?¯ ?§?„?µ?ˆ?± */}
         {auction.images?.length > 1 && (

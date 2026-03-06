@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 
-import { getAuctions, getUpcomingAuctions } from '../services/auction';
+import { getAuctions, getUpcomingAuctions, getFeaturedAuctions } from '../services/auction';
 import { Auction, AuctionCategory, AUCTION_CATEGORIES, AuctionStatus } from '../types';
 import AuctionCard from '../components/AuctionCard';
 import AuctionSidebarCard from "../components/AuctionSidebarCard";
@@ -30,6 +30,7 @@ const HomeData = () => {
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [upcoming, setUpcoming] = useState<Auction[]>([]);
+  const [featured, setFeatured] = useState<Auction[]>([]);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<any>(null);
   // حالات الفلترة
@@ -152,16 +153,20 @@ const HomeData = () => {
   }, [filters]); // مهم: حتى يتحدث مع الفلاتر الجديدة
 
   useEffect(() => {
-    const fetchUpcoming = async () => {
+    const fetchSpecialAuctions = async () => {
       try {
-        const data = await getUpcomingAuctions();
-        setUpcoming(data);
+        const [upcomingData, featuredData] = await Promise.all([
+          getUpcomingAuctions(),
+          getFeaturedAuctions()
+        ]);
+        setUpcoming(upcomingData);
+        setFeatured(featuredData);
       } catch (err) {
         console.error(err);
       }
     };
 
-    fetchUpcoming();
+    fetchSpecialAuctions();
   }, []);
 
 
@@ -414,6 +419,24 @@ const HomeData = () => {
             </section>
           )}
         </div>
+
+        {/* ⭐ Featured - يظهر دائما في الأعلى للكل */}
+        {featured.length > 0 && filters.status !== AUCTION_STATUS.UPCOMING && (
+          <section className="mb-8">
+            <div className="flex items-center justify-between mb-4 px-2">
+              <h3 className="text-xl sm:text-2xl font-black text-slate-800 flex items-center gap-2">
+                <span className="p-2 bg-yellow-100 text-yellow-600 rounded-xl">⭐</span> المزادات المدعومة
+              </h3>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar px-2">
+              {featured.map((auction) => (
+                <div key={auction._id} className="min-w-[220px] sm:min-w-[260px] snap-start">
+                  <AuctionCard auction={auction} compact />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* 📅 Upcoming - يظهر دائما في الأعلى للكل */}
         {upcoming.length > 0 && filters.status !== AUCTION_STATUS.UPCOMING && (

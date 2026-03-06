@@ -1,8 +1,8 @@
 import React, { useState, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
-import { createAuction, getCreateAuctionDepositPreview } from "../services/auction";
-import { calculateSellerDeposit } from "../utils/depositCalculator"; // Added import
+import { createAuction, getCreateAuctionDepositPreview, featureAuction } from "../services/auction";
+import { calculateSellerDeposit } from "../utils/depositCalculator";
 import type { AuctionCategory } from "../types";
 import { AUCTION_CATEGORIES } from "../types";
 import {
@@ -34,6 +34,12 @@ const CreateAuction = () => {
   const [sellerDeposit, setSellerDeposit] = useState<number | null>(null);
   const [images, setImages] = useState<ImageFile[]>([]);
   const [showCreateTermsModal, setShowCreateTermsModal] = useState(false);
+
+  // Feature upsell state
+  const [wantsFeature, setWantsFeature] = useState(false);
+  const [featureOption, setFeatureOption] = useState('1d');
+  const featurePrices: Record<string, number> = { '1d': 3000, '3d': 7000, '7d': 15000 };
+
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -46,13 +52,11 @@ const CreateAuction = () => {
   });
 
   useEffect(() => {
-    // تحديث بيانات المستخدم عند فتح الصفحة لضمان دقة الرصيد
     refreshUser().catch(err => console.error("Failed to refresh user:", err));
-
     return () => {
       images.forEach((img) => URL.revokeObjectURL(img.preview));
     };
-  }, []); // Run on mount
+  }, []);
 
   useEffect(() => {
     const price = Number(formData.startPrice);
@@ -82,17 +86,11 @@ const CreateAuction = () => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
-
     const files = Array.from(e.target.files);
-
     const newImages: ImageFile[] = files.map((file) => {
       const f = file as File;
-      return {
-        file: f,
-        preview: URL.createObjectURL(f),
-      };
+      return { file: f, preview: URL.createObjectURL(f) };
     });
-
     setImages((prev) => [...prev, ...newImages]);
   };
 
@@ -156,16 +154,23 @@ const CreateAuction = () => {
       data.append("increment", String(Number(formData.increment)));
       data.append("duration", String(Number(formData.duration)));
 
-      // --- ضغط الصور في جهة العميل (Client-side Compression) ---
       const compressedImages = await Promise.all(
         images.map(img => compressImage(img.file, 1200, 0.7))
       );
-
       compressedImages.forEach((file) => {
         data.append("images", file);
       });
 
-      await createAuction(data);
+      const res = await createAuction(data);
+
+      // Feature the auction after creation if the user opted-in
+      if (wantsFeature && res?.data?._id) {
+        try {
+          await featureAuction(res.data._id, featureOption);
+        } catch (featureErr: any) {
+          alert(`تم نشر المزاد ولكن فشل التمييز: ${featureErr?.response?.data?.message || ''}`);
+        }
+      }
 
       alert("تم إرسال المزاد بنجاح، بانتظار موافقة الإدارة");
       navigate("/");
@@ -206,7 +211,7 @@ const CreateAuction = () => {
         onSubmit={handlePreSubmit}
         className="bg-white rounded-[2.5xl] shadow-xl shadow-slate-200/50 border border-slate-100 p-8 md:p-12 space-y-10 relative"
       >
-        {/* Basic Info Section */}
+        {/* Section 1: Basic Info */}
         <div className="space-y-8">
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">1</div>
@@ -268,7 +273,7 @@ const CreateAuction = () => {
           </div>
         </div>
 
-        {/* Pricing & Timing */}
+        {/* Section 2: Pricing & Timing */}
         <div className="space-y-8">
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">2</div>
@@ -359,6 +364,7 @@ const CreateAuction = () => {
               </div>
             </div>
 
+            {/* Deposit Preview */}
             <div className={`md:col-span-2 rounded-[2rem] border-2 transition-all duration-500 overflow-hidden relative ${sellerDeposit === null ? 'bg-slate-50 border-slate-100 p-6' : 'bg-gradient-to-br from-indigo-50 via-white to-indigo-50/30 border-indigo-100 shadow-xl shadow-indigo-500/5 p-8'}`}>
               {sellerDeposit !== null && (
                 <div className="absolute -top-12 -right-12 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl"></div>
@@ -409,11 +415,10 @@ const CreateAuction = () => {
                 </div>
               )}
             </div>
-
           </div>
         </div>
 
-        {/* Details & Media */}
+        {/* Section 3: Details & Media */}
         <div className="space-y-8">
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">3</div>
@@ -490,6 +495,66 @@ const CreateAuction = () => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Section 4: Feature Upsell */}
+        <div className="space-y-8">
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">4</div>
+            <h2 className="text-xl font-black text-slate-800">التمييز المدفوع (اختياري)</h2>
+          </div>
+
+          <div className={`rounded-[2rem] border-2 p-6 transition-all ${wantsFeature ? 'border-amber-300 bg-gradient-to-br from-amber-50 to-yellow-50' : 'border-slate-100 bg-slate-50'}`}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">⭐</span>
+                <div>
+                  <h3 className="text-base font-black text-slate-800">ميّز مزادك وزد ظهوره</h3>
+                  <p className="text-xs font-medium text-slate-500">اجعله يظهر في الصفحة الرئيسية وأعلى نتائج البحث</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWantsFeature(v => !v)}
+                className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none ${wantsFeature ? 'bg-amber-500' : 'bg-slate-200'}`}
+              >
+                <span className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-all duration-300 ${wantsFeature ? 'left-8' : 'left-1'}`} />
+              </button>
+            </div>
+
+            {wantsFeature && (
+              <div className="space-y-3 pt-4 border-t border-amber-200/50">
+                <p className="text-xs font-bold text-amber-700">اختر مدة التمييز:</p>
+                {[
+                  { id: '1d', label: '24 ساعة', price: 3000 },
+                  { id: '3d', label: '3 أيام', price: 7000 },
+                  { id: '7d', label: '7 أيام', price: 15000 },
+                ].map(tier => (
+                  <label
+                    key={tier.id}
+                    className={`flex items-center justify-between p-4 rounded-2xl border-2 cursor-pointer transition-all bg-white ${featureOption === tier.id ? 'border-amber-400 shadow-md shadow-amber-100' : 'border-slate-100 hover:border-slate-200'}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="radio"
+                        name="featureOption"
+                        value={tier.id}
+                        checked={featureOption === tier.id}
+                        onChange={(e) => setFeatureOption(e.target.value)}
+                        className="w-5 h-5 text-amber-500 focus:ring-amber-500"
+                      />
+                      <span className="font-bold text-slate-700">{tier.label}</span>
+                    </div>
+                    <span className="font-black text-slate-900">{tier.price.toLocaleString()} د.ع</span>
+                  </label>
+                ))}
+                <p className="text-xs text-amber-600 font-bold flex items-start gap-1 pt-2">
+                  <span>⚠️</span>
+                  <span>سيتم خصم تكلفة التمييز ({featurePrices[featureOption].toLocaleString()} د.ع) بعد موافقة الإدارة ونشر المزاد.</span>
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

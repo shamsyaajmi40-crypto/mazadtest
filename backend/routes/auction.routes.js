@@ -10,7 +10,7 @@ import {
 } from "../controllers/auction.controller.js";
 import { protect } from "../middleware/auth.js";
 import upload from "../middleware/upload.js";
-import { placeBid, getMyArchivedAuctions, disputeAuction } from "../controllers/auction.controller.js";
+import { placeBid, getMyArchivedAuctions, disputeAuction, featureAuction, getFeaturedAuctions } from "../controllers/auction.controller.js";
 import { bidLimiter } from "../middleware/rateLimit.js";
 import { getArchivedAuctions, getUpcomingAuctions } from "../controllers/auction.controller.js";
 import { canCreateAuction } from "../middleware/subscriptionGuard.js";
@@ -55,6 +55,9 @@ router.get(
 );
 router.get("/deals/open", protect, getMyOpenDeals);
 router.get("/create/deposit-preview", protect, getCreateAuctionDepositPreview);
+// المزادات المدعومة
+router.get("/featured", getFeaturedAuctions);
+
 // كل المزادات العامة
 router.get("/", getAuctions);
 
@@ -62,5 +65,8 @@ router.get("/:id", protect, getAuctionById);
 
 // تقديم اعتراض على فشل الصفقة
 router.post("/:id/dispute", protect, disputeAuction);
+
+// تمييز المزاد (الدعم الممول)
+router.post("/:id/feature", protect, featureAuction);
 
 export default router;

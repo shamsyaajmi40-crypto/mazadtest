@@ -916,8 +916,10 @@ export const placeBid = async (req, res) => {
     // Only extend if the remaining time is within the extension window
     // Set newEndTime from NOW (not += endTime) to prevent runaway extensions
     let newEndTime = new Date(auction.endTime);
+    let extensionApplied = false;
     if (remaining <= extensionWindowMs) {
       newEndTime = new Date(now.getTime() + extensionWindowMs);
+      extensionApplied = true;
     }
 
     // العملية 2: تحديث المزاد (السعر + الفائز + الوقت)
@@ -993,6 +995,8 @@ export const placeBid = async (req, res) => {
           io.to(updatedAuction._id.toString()).emit("bid:new", {
             auction: updatedAuction,
             bids: latestBids,
+            extensionApplied,
+            extensionSeconds: Math.round(extensionWindowMs / 1000),
           });
         });
     }

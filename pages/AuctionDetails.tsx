@@ -745,6 +745,22 @@ const AuctionDetails = () => {
           style: { fontWeight: 'bold', direction: 'rtl' },
         });
       }
+
+      // ⏱️ Extension toast — shows when anti-sniping logic kicks in
+      if ((data as any).extensionApplied) {
+        const secs = (data as any).extensionSeconds ?? 60;
+        toast(`⏱️ تم تمديد وقت المزاد بـ ${secs} ثانية بسبب مزايدة في اللحظات الأخيرة!`, {
+          duration: 5000,
+          icon: '🔔',
+          style: {
+            fontWeight: 'bold',
+            direction: 'rtl',
+            background: '#fef3c7',
+            color: '#92400e',
+            border: '1px solid #f59e0b',
+          },
+        });
+      }
     };
 
     socket.on("bid:new", handleBidNew);

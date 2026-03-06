@@ -10,6 +10,7 @@ import { Server } from "socket.io";
 import connectDB from "./config/db.js";
 import helmet from "helmet";
 import mongoSanitize from "mongo-sanitize";
+import cookieParser from "cookie-parser";
 import { initIo } from "./utils/socket.js";
 import { seedPlansIfEmpty } from "./utils/seedPlans.js";
 import { startSubscriptionCron } from "./cron/subscription.cron.js";
@@ -115,8 +116,12 @@ io.on("connection", (socket) => {
    Middlewares
 ====================== */
 app.use(helmet()); // حماية رؤوس HTTP
-app.use(cors());
+app.use(cors({
+  origin: ["http://localhost:3000", "http://localhost:5173", process.env.VITE_API_URL],
+  credentials: true
+}));
 app.use(express.json());
+app.use(cookieParser());
 // منع NoSQL Injection عبر مسح الكائنات من المدخلات
 app.use((req, res, next) => {
   req.body = mongoSanitize(req.body);

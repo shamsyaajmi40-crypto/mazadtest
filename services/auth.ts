@@ -3,7 +3,6 @@ import type { LoginPayload, RegisterPayload, User } from "../types";
 
 type AuthResponse = {
   user: User;
-  token: string;
 };
 const session = localStorage.getItem("app_session");
 const parsed = session ? JSON.parse(session) : {};
@@ -22,8 +21,7 @@ export const login = async (
     "app_session",
     JSON.stringify({
       ...parsed,
-      user: res.data.user,   // ✅ التصحيح هنا
-      token: res.data.token, // ✅ نثبت التوكن دائمًا
+      user: res.data.user
     })
   );
 
@@ -45,8 +43,7 @@ export const register = async (
     "app_session",
     JSON.stringify({
       ...parsed,
-      user: res.data.user,
-      token: res.data.token,
+      user: res.data.user
     })
   );
 
@@ -56,6 +53,11 @@ export const register = async (
 /* ======================
    Logout (اختياري)
 ====================== */
-export const logout = () => {
+export const logout = async () => {
+  try {
+    await api.post("/auth/logout");
+  } catch (e) {
+    // ignore
+  }
   localStorage.removeItem("app_session");
 };

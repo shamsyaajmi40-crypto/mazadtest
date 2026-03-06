@@ -76,6 +76,14 @@ export const register = async (req, res) => {
       // لا نوقف التسجيل
     }
 
+    const token = generateToken(user._id);
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    });
+
     return res.status(201).json({
       user: {
         _id: user._id,
@@ -84,8 +92,7 @@ export const register = async (req, res) => {
         role: user.role,
         governorate: user.governorate,
         address: user.address,
-      },
-      token: generateToken(user._id),
+      }
     });
   } catch (err) {
     console.error("Register error:", err);
@@ -116,6 +123,13 @@ export const login = async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
     return res.json({
       user: {
         _id: user._id,
@@ -124,8 +138,7 @@ export const login = async (req, res) => {
         role: user.role,
         governorate: user.governorate,
         address: user.address,
-      },
-      token,
+      }
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -135,4 +148,14 @@ export const login = async (req, res) => {
 
 export const me = async (req, res) => {
   res.json(req.user);
+};
+
+export const logout = async (req, res) => {
+  res.cookie("token", "", {
+    httpOnly: true,
+    expires: new Date(0),
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+  });
+  res.json({ message: "تم تسجيل الخروج" });
 };

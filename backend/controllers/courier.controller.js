@@ -708,23 +708,29 @@ export const listMyAgents = async (req, res) => {
   return res.json(agents);
 };
 export const createAgentForMyCompany = async (req, res) => {
-  const { name, phone, password } = req.body;
+  const { name, phone, email, password, governorate, address } = req.body;
 
-  if (!name || !phone || !password) {
-    return res.status(400).json({ message: "name, phone, password are required" });
+  if (!name || !phone || !email || !password) {
+    return res.status(400).json({ message: "الاسم، الهاتف، الإيميل وكلمة المرور مطلوبة" });
   }
 
   const staff = await User.findById(req.user._id).select("courierCompany");
   if (!staff?.courierCompany) return res.status(400).json({ message: "Staff has no courierCompany" });
 
-  const exists = await User.findOne({ phone });
-  if (exists) return res.status(400).json({ message: "Phone already used" });
+  const exists = await User.findOne({
+    $or: [{ phone }, { email: email.toLowerCase().trim() }]
+  });
+  if (exists) return res.status(400).json({ message: "الهاتف أو البريد الإلكتروني مسجل مسبقاً" });
+
   const hashed = await bcrypt.hash(String(password), 10);
-  // ⚠️ استخدم نفس طريقة hashing عندك (مثلاً bcrypt)
+
   const agent = await User.create({
     name,
     phone,
+    email: email.toLowerCase().trim(),
     password: hashed,
+    governorate,
+    address,
     role: "courier_agent",
     courierCompany: staff.courierCompany,
     isCourierActive: true,

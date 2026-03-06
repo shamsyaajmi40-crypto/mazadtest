@@ -58,6 +58,12 @@ const failureReasons = [
   { value: "COURIER_ISSUE", label: "مشكلة لوجستية" },
 ];
 
+const GOVERNORATES = [
+  "بغداد", "البصرة", "نينوى", "أربيل", "النجف", "كربلاء", "كركوك",
+  "الأنبار", "ذي قار", "بابل", "صلاح الدين", "السليمانية", "دهوك",
+  "واسط", "ميسان", "الديوانية", "المثنى", "ديالى"
+];
+
 const failureReasonLabel: Record<string, string> = {
   BUYER_NO_SHOW: "المشتري غير متواجد",
   BUYER_REFUSED: "المشتري رفض الاستلام",
@@ -120,7 +126,10 @@ export default function CourierStaffDashboard() {
   const [showAgentModal, setShowAgentModal] = useState(false);
   const [newAgentName, setNewAgentName] = useState("");
   const [newAgentPhone, setNewAgentPhone] = useState("");
+  const [newAgentEmail, setNewAgentEmail] = useState("");
   const [newAgentPassword, setNewAgentPassword] = useState("");
+  const [newAgentGovernorate, setNewAgentGovernorate] = useState("");
+  const [newAgentAddress, setNewAgentAddress] = useState("");
 
   const [assignAgentByOrder, setAssignAgentByOrder] = useState<Record<string, string>>({});
   const [otpByOrder, setOtpByOrder] = useState<Record<string, string>>({});
@@ -239,20 +248,25 @@ export default function CourierStaffDashboard() {
     });
 
   const onCreateAgent = async () => {
-    setError(null);
-    if (!newAgentName || !newAgentPhone || !newAgentPassword) {
-      setError("الاسم والهاتف وكلمة المرور مطلوبة");
+    if (!newAgentName || !newAgentPhone || !newAgentEmail || !newAgentPassword) {
+      setError("الاسم والهاتف والإيميل وكلمة المرور مطلوبة");
       return;
     }
     try {
       await api.post("/courier/staff/agents", {
-        name: newAgentName,
-        phone: newAgentPhone,
+        name: newAgentName.trim(),
+        phone: newAgentPhone.trim(),
+        email: newAgentEmail.trim(),
         password: newAgentPassword,
+        governorate: newAgentGovernorate,
+        address: newAgentAddress.trim(),
       });
       setNewAgentName("");
       setNewAgentPhone("");
+      setNewAgentEmail("");
       setNewAgentPassword("");
+      setNewAgentGovernorate("");
+      setNewAgentAddress("");
       setShowAgentModal(false);
       await loadAgents();
     } catch (e: any) {
@@ -754,26 +768,52 @@ export default function CourierStaffDashboard() {
                 <input
                   value={newAgentName}
                   onChange={(e) => setNewAgentName(e.target.value)}
-                  className="w-full rounded-xl border px-3 py-2"
+                  className="w-full rounded-xl border px-3 py-2 text-sm font-bold"
                   placeholder="اسم المندوب"
                 />
                 <input
                   value={newAgentPhone}
                   onChange={(e) => setNewAgentPhone(e.target.value)}
-                  className="w-full rounded-xl border px-3 py-2"
+                  className="w-full rounded-xl border px-3 py-2 text-sm font-bold"
                   placeholder="رقم الهاتف"
                   inputMode="tel"
                 />
                 <input
+                  value={newAgentEmail}
+                  onChange={(e) => setNewAgentEmail(e.target.value)}
+                  className="w-full rounded-xl border px-3 py-2 text-sm font-bold"
+                  placeholder="البريد الإلكتروني"
+                  type="email"
+                />
+                <input
                   value={newAgentPassword}
                   onChange={(e) => setNewAgentPassword(e.target.value)}
-                  className="w-full rounded-xl border px-3 py-2"
+                  className="w-full rounded-xl border px-3 py-2 text-sm font-bold"
                   placeholder="كلمة المرور"
                   type="password"
                 />
+                <div className="grid grid-cols-2 gap-3">
+                  <select
+                    value={newAgentGovernorate}
+                    onChange={(e) => setNewAgentGovernorate(e.target.value)}
+                    className="w-full rounded-xl border px-3 py-2 text-sm font-bold bg-white"
+                  >
+                    <option value="">المحافظة...</option>
+                    {GOVERNORATES.map(gov => (
+                      <option key={gov} value={gov}>{gov}</option>
+                    ))}
+                  </select>
+                  <input
+                    value={newAgentAddress}
+                    onChange={(e) => setNewAgentAddress(e.target.value)}
+                    className="w-full rounded-xl border px-3 py-2 text-sm font-bold"
+                    placeholder="العنوان"
+                  />
+                </div>
                 <button
                   onClick={onCreateAgent}
-                  className="w-full rounded-xl bg-slate-900 py-2 text-sm font-bold text-white"
+                  disabled={!newAgentName || !newAgentPhone || !newAgentEmail || !newAgentPassword || newAgentPassword.length < 6}
+                  className="w-full rounded-xl bg-slate-900 py-3 text-sm font-black text-white shadow-lg active:scale-95 transition-all disabled:opacity-50"
                 >
                   إنشاء المندوب
                 </button>

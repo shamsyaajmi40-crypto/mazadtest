@@ -923,7 +923,7 @@ export const adminListCompanyCourierStaff = async (req, res) => {
 export const adminCreateCourierStaffForCompany = async (req, res) => {
   try {
     const { companyId } = req.params;
-    const { name, phone, email, password } = req.body;
+    const { name, phone, email, password, governorate, address } = req.body;
 
     if (!name || !phone || !email || !password) {
       return res.status(400).json({ message: "الاسم، الهاتف، البريد الإلكتروني وكلمة المرور مطلوبة" });
@@ -947,6 +947,8 @@ export const adminCreateCourierStaffForCompany = async (req, res) => {
       phone,
       email: email.toLowerCase().trim(),
       password: hashed,
+      governorate,
+      address,
       role: "courier_staff",
       courierCompany: company._id,
       blocked: false,

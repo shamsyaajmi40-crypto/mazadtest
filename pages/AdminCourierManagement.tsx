@@ -60,7 +60,10 @@ const AdminCourierManagement = () => {
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [newStaffName, setNewStaffName] = useState("");
   const [newStaffPhone, setNewStaffPhone] = useState("");
+  const [newStaffEmail, setNewStaffEmail] = useState("");
   const [newStaffPassword, setNewStaffPassword] = useState("");
+  const [newStaffGovernorate, setNewStaffGovernorate] = useState("");
+  const [newStaffAddress, setNewStaffAddress] = useState("");
 
   const fetchCompanies = async () => {
     setErr(null);
@@ -181,13 +184,19 @@ const AdminCourierManagement = () => {
       await api.post(`/admin/courier-companies/${selectedCompanyId}/staff`, {
         name: newStaffName.trim(),
         phone: newStaffPhone.trim(),
+        email: newStaffEmail.trim(),
         password: newStaffPassword,
+        governorate: newStaffGovernorate,
+        address: newStaffAddress.trim(),
       });
 
       setShowStaffModal(false);
       setNewStaffName("");
       setNewStaffPhone("");
+      setNewStaffEmail("");
       setNewStaffPassword("");
+      setNewStaffGovernorate("");
+      setNewStaffAddress("");
 
       await fetchCompanyStaff(selectedCompanyId);
     } catch (e: any) {
@@ -589,7 +598,19 @@ const AdminCourierManagement = () => {
               </div>
 
               <div>
-                <label className="text-sm font-bold text-slate-700 mb-1.5 block">كلمة المرور</label>
+                <label className="text-sm font-bold text-slate-700 mb-1.5 block">البريد الإلكتروني <span className="text-rose-500">*</span></label>
+                <input
+                  value={newStaffEmail}
+                  onChange={(e) => setNewStaffEmail(e.target.value)}
+                  className="w-full rounded-[1rem] bg-slate-50 border border-slate-200 px-4 py-3 font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-left"
+                  placeholder="name@example.com"
+                  type="email"
+                  dir="ltr"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-slate-700 mb-1.5 block">كلمة المرور <span className="text-rose-500">*</span></label>
                 <input
                   value={newStaffPassword}
                   onChange={(e) => setNewStaffPassword(e.target.value)}
@@ -600,10 +621,35 @@ const AdminCourierManagement = () => {
                 />
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-bold text-slate-700 mb-1.5 block">المحافظة</label>
+                  <select
+                    value={newStaffGovernorate}
+                    onChange={(e) => setNewStaffGovernorate(e.target.value)}
+                    className="w-full rounded-[1rem] bg-slate-50 border border-slate-200 px-4 py-3 font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                  >
+                    <option value="">اختر المحافظة...</option>
+                    {GOVERNORATES.filter(g => g !== "جميع المحافظات").map(gov => (
+                      <option key={gov} value={gov}>{gov}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-bold text-slate-700 mb-1.5 block">العنوان</label>
+                  <input
+                    value={newStaffAddress}
+                    onChange={(e) => setNewStaffAddress(e.target.value)}
+                    className="w-full rounded-[1rem] bg-slate-50 border border-slate-200 px-4 py-3 font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                    placeholder="الحي، الشارع..."
+                  />
+                </div>
+              </div>
+
               <button
                 onClick={createStaffForCompany}
                 className="w-full rounded-[1.2rem] bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20 shadow-lg text-white py-3.5 font-black text-sm mt-6 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100"
-                disabled={!selectedCompanyId || !newStaffName || !newStaffPhone || !newStaffPassword || newStaffPassword.length < 6}
+                disabled={!selectedCompanyId || !newStaffName || !newStaffPhone || !newStaffEmail || !newStaffPassword || newStaffPassword.length < 6}
               >
                 إنشاء وصول للمندوب
               </button>

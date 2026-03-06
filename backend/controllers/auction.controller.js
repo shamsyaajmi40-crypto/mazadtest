@@ -1373,3 +1373,68 @@ export const featureAuction = async (req, res) => {
     res.status(500).json({ message: "فشل في عملية التمييز." });
   }
 };
+
+// جلب المزادات المميزة (Featured Auctions)
+export const getFeaturedAuctions = async (req, res) => {
+  try {
+    const now = new Date();
+    const auctions = await Auction.aggregate([
+      {
+        $match: {
+          status: "active",
+          isDeleted: false,
+          isFeatured: true,
+          featuredUntil: { $gt: now }
+        }
+      },
+      {
+        $lookup: {
+          from: "bids",
+          localField: "_id",
+          foreignField: "auction",
+          as: "bids",
+        },
+      },
+      {
+        $addFields: {
+          bidsCount: { $size: "$bids" }
+        }
+      },
+      {
+        $sort: {
+          featuredPriority: -1,
+          createdAt: -1
+        }
+      },
+      { $limit: 10 },
+      {
+        $lookup: {
+          from: "users",
+          localField: "owner",
+          foreignField: "_id",
+          as: "owner",
+        },
+      },
+      {
+        $unwind: {
+          path: "$owner",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          bids: 0,
+          "owner.password": 0,
+          "owner.balance": 0,
+          "owner.heldBalance": 0,
+          "owner.__v": 0,
+        },
+      },
+    ]);
+
+    res.json(auctions);
+  } catch (error) {
+    console.error("Get featured auctions error:", error);
+    res.status(500).json({ message: "Failed to fetch featured auctions" });
+  }
+};

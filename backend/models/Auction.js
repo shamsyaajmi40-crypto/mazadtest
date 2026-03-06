@@ -24,6 +24,18 @@ const auctionSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    isFeatured: {
+      type: Boolean,
+      default: false,
+    },
+    featuredUntil: {
+      type: Date,
+      default: null,
+    },
+    featuredPriority: {
+      type: Number,
+      default: 0,
+    },
     category: {
       type: String,
     },

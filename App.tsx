@@ -271,7 +271,14 @@ const App = () => {
             }
           />
 
-          <Route path="/admin/platform-balance" element={<AdminPlatformBalance />} />
+          <Route
+            path="/admin/platform-balance"
+            element={
+              <ProtectedRoute requireAdmin>
+                <AdminPlatformBalance />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/admin/featured-auctions"
             element={

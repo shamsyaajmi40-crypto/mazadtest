@@ -1936,7 +1936,9 @@ const AuctionDetails = () => {
             {/* الفائز */}
             {isEnded && auction.winner && (
               <span className="px-5 py-2 text-sm font-bold rounded-2xl bg-slate-50 text-slate-700 border border-slate-200 shadow-sm">
-                الفائز: <span className="font-black text-slate-900">{auction.winner?.name || "مستخدم"}</span>
+                الفائز: <span className="font-black text-slate-900">
+                  {isMeWinner ? "أنت الفائز! 👑" : maskUsername(auction.winner.name || "مستخدم")}
+                </span>
               </span>
             )}
           </div>

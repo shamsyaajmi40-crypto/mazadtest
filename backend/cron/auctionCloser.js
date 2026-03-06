@@ -6,6 +6,7 @@ import Bid from "../models/Bid.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import AuditLog from "../models/AuditLog.js";
+import FinanceLog from "../models/FinanceLog.js";
 import applyAuctionPenalty from "./auctionPenalty.js";
 import { getIo } from "../utils/socket.js";
 import { generateReceiptId, signReceipt } from "../utils/receipt.js";
@@ -120,6 +121,19 @@ const closeAuctions = () => {
                   meta: { signature }
                 });
 
+                await FinanceLog.create({
+                  user: loserId,
+                  type: "DEPOSIT_REFUND",
+                  amountIQD: auction.depositAmount,
+                  refModel: "Auction",
+                  refId: auction._id,
+                  receiptId,
+                  meta: {
+                    reason: "Bidder deposit refund (lost auction)",
+                    signature
+                  }
+                });
+
                 const loserUser = await User.findById(loserId).select("name email");
                 if (loserUser && loserUser.email) {
                   sendReceiptEmail({
@@ -169,6 +183,19 @@ const closeAuctions = () => {
                   reason: "Seller deposit refund (no bids)",
                   by: "SYSTEM",
                   meta: { signature }
+                });
+
+                await FinanceLog.create({
+                  user: sellerId,
+                  type: "DEPOSIT_REFUND",
+                  amountIQD: auction.sellerDeposit,
+                  refModel: "Auction",
+                  refId: auction._id,
+                  receiptId,
+                  meta: {
+                    reason: "Seller deposit refund (no bids)",
+                    signature
+                  }
                 });
 
                 const sellerUser = await User.findById(sellerId).select("name email");

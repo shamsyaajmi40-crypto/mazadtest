@@ -14,6 +14,8 @@ const FinanceLogSchema = new mongoose.Schema(
         "SUBSCRIPTION_ACTIVATED",
         "SUBSCRIPTION_UPGRADED",
         "FEATURE_AUCTION_PAYMENT",
+        "DEPOSIT_REFUND",
+        "DEPOSIT_CONFISCATE",
       ],
       required: true,
     },

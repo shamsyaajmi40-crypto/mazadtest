@@ -1356,7 +1356,11 @@ export const featureAuction = async (req, res) => {
 
     await auction.save();
 
-    // 6. Audit Logging
+    // 6. Audit Logging & Digital Signature
+    const receiptId = generateReceiptId();
+    const signData = { type: "FEATURE_AUCTION_PAYMENT", user: String(userId), amountIQD: tier.price, receiptId };
+    const signature = signReceipt(signData);
+
     await AuditLog.create({
       action: "FEATURE_AUCTION_PAYMENT",
       user: userId,
@@ -1364,6 +1368,7 @@ export const featureAuction = async (req, res) => {
       amount: tier.price,
       reason: `دفع تكلفة تمييز مزاد لمدة ${duration}`,
       by: "USER",
+      receiptId,
     });
 
     // 7. Finance Log (for financial reports)
@@ -1373,11 +1378,13 @@ export const featureAuction = async (req, res) => {
       amountIQD: tier.price,
       refModel: "Auction",
       refId: auction._id,
+      receiptId,
       meta: {
         duration,
         featuredUntil: auction.featuredUntil,
         platformUserId: basePlatformUser?._id || null,
         note: `تمييز مزاد "${auction.title}" لمدة ${duration}`,
+        signature,
       },
     });
 

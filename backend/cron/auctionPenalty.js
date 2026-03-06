@@ -4,6 +4,7 @@ import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import Rating from "../models/Rating.js";
 import AuditLog from "../models/AuditLog.js";
+import FinanceLog from "../models/FinanceLog.js";
 import DeliveryOrder from "../models/DeliveryOrder.js";
 import { getIo } from "../utils/socket.js";
 import { sendAppNotification } from "../utils/notification.js";
@@ -63,6 +64,20 @@ async function transferHeldToBalance({ userId, amount, reason, auctionId, source
       source: source || "OTHER",
       receiptId,
       meta: { signature }
+    });
+
+    await FinanceLog.create({
+      user: userId,
+      type: "DEPOSIT_REFUND",
+      amountIQD: amt,
+      refModel: "Auction",
+      refId: auctionId,
+      receiptId,
+      meta: {
+        reason: reason || "refunded",
+        source: source || "OTHER",
+        signature
+      }
     });
 
     const user = await User.findById(userId).select("name email");
@@ -166,6 +181,24 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
         previousConfiscations30d: previousConfiscations,
         signature
       },
+    }], { session });
+
+    await FinanceLog.create([{
+      user: userId,
+      type: "DEPOSIT_CONFISCATE",
+      amountIQD: confiscatedAmount,
+      refModel: "Auction",
+      refId: auctionId,
+      receiptId,
+      meta: {
+        platformUserId: PLATFORM_USER_ID || null,
+        requestedAmount: amt,
+        confiscationRate,
+        previousConfiscations30d: previousConfiscations,
+        reason: reason || "confiscated",
+        source: source || "OTHER",
+        signature
+      }
     }], { session });
 
     await session.commitTransaction();

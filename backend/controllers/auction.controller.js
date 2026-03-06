@@ -671,26 +671,7 @@ export const getHotAuctions = async (req, res) => {
   }
 };
 
-// جلب المزادات المدعومة (Featured)
-export const getFeaturedAuctions = async (req, res) => {
-  try {
-    const now = new Date();
-    const auctions = await Auction.find({
-      status: "active",
-      isDeleted: false,
-      isFeatured: true,
-      featuredUntil: { $gt: now }
-    })
-      .populate("owner", "name")
-      .sort({ featuredPriority: -1, createdAt: -1 })
-      .limit(10);
 
-    res.json(auctions);
-  } catch (err) {
-    console.error("Failed to fetch featured auctions:", err);
-    res.status(500).json({ message: "Failed to fetch featured auctions" });
-  }
-};
 
 /* تفاصيل مزاد */
 export const getAuctionById = async (req, res) => {

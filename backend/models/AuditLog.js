@@ -19,6 +19,7 @@ const auditLogSchema = new mongoose.Schema(
         "SUBSCRIPTION_ACTIVATED",
         "SUBSCRIPTION_UPGRADED",
         "UNDO_REJECT",
+        "FEATURE_AUCTION_PAYMENT",
       ],
       required: true,
     },

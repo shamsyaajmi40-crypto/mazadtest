@@ -901,6 +901,10 @@ const AuctionDetails = () => {
 
   const isExtensionWindow =
     diff > 0 && diff <= 60 * 1000; // Max extension window is 60s
+
+  // ✅ منع المتصدر من المزايدة فوق مزايدته
+  const isCurrentLeader = !!(user && auction?.winner &&
+    String(auction.winner?._id || auction.winner) === String(user._id));
   const displayedPrice =
     optimisticBid !== null
       ? optimisticBid
@@ -1282,7 +1286,7 @@ const AuctionDetails = () => {
                 {!isEnded && !isOwner && (
                   <button
                     onClick={handlePlaceBid}
-                    disabled={isUpcoming || isPending || isRejected || bidLoading || bidCooldown > 0}
+                    disabled={isUpcoming || isPending || isRejected || bidLoading || bidCooldown > 0 || isCurrentLeader}
                     className="w-full py-4 sm:py-5 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white rounded-2xl sm:rounded-3xl font-black text-sm sm:text-base flex flex-col items-center justify-center gap-1 sm:gap-1.5
                     shadow-[0_10px_25px_-5px_rgba(16,185,129,0.5)] hover:shadow-[0_15px_30px_-5px_rgba(16,185,129,0.6)] hover:-translate-y-1 active:translate-y-0.5 active:scale-[0.98] transition-all duration-300
                     disabled:bg-none disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed border-transparent disabled:border-slate-200 border group relative overflow-hidden"
@@ -1294,9 +1298,14 @@ const AuctionDetails = () => {
                       <Loader2 className="animate-spin w-6 h-6 sm:w-7 sm:h-7" />
                     ) : (
                       <>
-                        {!isUpcoming && !isPending && !isRejected && bidCooldown <= 0 && (
+                        {!isUpcoming && !isPending && !isRejected && !isCurrentLeader && bidCooldown <= 0 && (
                           <span className="text-[10px] sm:text-[11px] font-black opacity-90 uppercase tracking-[0.2em] mb-0.5 group-hover:scale-110 transition-transform">
                             زايد الآن واربح! 🚀
+                          </span>
+                        )}
+                        {isCurrentLeader && (
+                          <span className="text-[10px] sm:text-[11px] font-black opacity-90 tracking-widest mb-0.5">
+                            أنت في الصدارة! انتظر مزايداً آخر 🏆
                           </span>
                         )}
                         <div className="flex items-center gap-2.5">
@@ -1308,9 +1317,11 @@ const AuctionDetails = () => {
                                 ? "مرفوض"
                                 : isUpcoming
                                   ? "لم يبدأ بعد"
-                                  : bidCooldown > 0
-                                    ? `انتظر ${bidCooldown}ث`
-                                    : `${(displayedPrice + auction.increment).toLocaleString()} د.ع`}
+                                  : isCurrentLeader
+                                    ? "أنت المتصدر 🏆"
+                                    : bidCooldown > 0
+                                      ? `انتظر ${bidCooldown}ث`
+                                      : `${(displayedPrice + auction.increment).toLocaleString()} د.ع`}
                           </span>
                         </div>
                       </>

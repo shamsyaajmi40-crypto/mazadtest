@@ -795,6 +795,12 @@ export const placeBid = async (req, res) => {
       return res.status(400).json({ message: "Seller cannot bid" });
     }
 
+    // ✅ منع المتصدر الحالي من المزايدة فوق مزايدته
+    if (auction.winner && auction.winner.toString() === req.user._id.toString()) {
+      await session.abortTransaction();
+      return res.status(400).json({ message: "أنت المتصدر حالياً، لا يمكنك المزايدة فوق مزايدتك الخاصة." });
+    }
+
     // 2. Cooldown ذري (خارج الـ session — Redis/DB خاص)
     const cd = await enforceBidCooldown({
       userId: req.user._id,

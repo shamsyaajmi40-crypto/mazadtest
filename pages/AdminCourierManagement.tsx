@@ -49,9 +49,6 @@ const AdminCourierManagement = () => {
   const [showCoverageModal, setShowCoverageModal] = useState(false);
   const [editingCoverage, setEditingCoverage] = useState<{ from: string[]; to: string[] }[]>([]);
 
-  const [showBranchesModal, setShowBranchesModal] = useState(false);
-  const [editingBranches, setEditingBranches] = useState<{ governorate: string; name: string; address: string }[]>([]);
-
   // Iraq Governorates for dropdowns
   const GOVERNORATES = [
     "بغداد", "البصرة", "نينوى", "أربيل", "النجف", "كربلاء", "كركوك",
@@ -167,18 +164,7 @@ const AdminCourierManagement = () => {
     }
   };
 
-  const saveBranches = async () => {
-    if (!selectedCompanyId) return;
-    try {
-      await api.patch(`/admin/courier-companies/${selectedCompanyId}`, {
-        branches: editingBranches,
-      });
-      setShowBranchesModal(false);
-      await fetchCompanies();
-    } catch (e: any) {
-      setErr(e?.response?.data?.message || "فشل حفظ الفروع");
-    }
-  };
+
 
   const createStaffForCompany = async () => {
     setErr(null);
@@ -423,15 +409,7 @@ const AdminCourierManagement = () => {
                       <MapPin className="w-4 h-4" /> نطاق التوصيل
                     </button>
 
-                    <button
-                      onClick={() => {
-                        setEditingBranches(selectedCompany?.branches || []);
-                        setShowBranchesModal(true);
-                      }}
-                      className="px-4 py-2 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded-[1rem] font-black text-xs transition-colors flex items-center gap-2"
-                    >
-                      <Building2 className="w-4 h-4" /> فروع الإستلام
-                    </button>
+
 
                     <button
                       onClick={() => setShowStaffModal(true)}
@@ -818,88 +796,7 @@ const AdminCourierManagement = () => {
         </div>
       )}
 
-      {/* Branches Modal */}
-      {showBranchesModal && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl rounded-[2rem] bg-white p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <div className="flex justify-between items-center mb-6 border-b pb-4">
-              <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-                <Building2 className="text-amber-500" /> تعديل فروع الإستلام ({selectedCompany?.name})
-              </h2>
-              <button onClick={() => setShowBranchesModal(false)} className="text-slate-400 hover:text-rose-500">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
 
-            <div className="space-y-4">
-              {editingBranches.map((branch, idx) => (
-                <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-3">
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-slate-700">فرع {idx + 1}</span>
-                    <button onClick={() => setEditingBranches(prev => prev.filter((_, i) => i !== idx))} className="text-rose-500 text-sm font-bold flex items-center"><Trash2 className="w-4 h-4 ml-1" /> حذف</button>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-xs font-bold text-slate-500 block mb-1">المحافظة:</label>
-                      <select
-                        value={branch.governorate}
-                        onChange={(e) => {
-                          const newBr = [...editingBranches];
-                          newBr[idx].governorate = e.target.value;
-                          setEditingBranches(newBr);
-                        }}
-                        className="w-full rounded-lg border-slate-200 bg-white p-2 text-sm font-bold"
-                      >
-                        <option value="">اختر...</option>
-                        {GOVERNORATES.filter(g => g !== 'جميع المحافظات' && g !== 'الكل').map(gov => <option key={gov} value={gov}>{gov}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-500 block mb-1">اسم الفرع:</label>
-                      <input
-                        value={branch.name}
-                        onChange={(e) => {
-                          const newBr = [...editingBranches];
-                          newBr[idx].name = e.target.value;
-                          setEditingBranches(newBr);
-                        }}
-                        placeholder="فرع المنصور"
-                        className="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-500 block mb-1">العنوان التفصيلي:</label>
-                      <input
-                        value={branch.address}
-                        onChange={(e) => {
-                          const newBr = [...editingBranches];
-                          newBr[idx].address = e.target.value;
-                          setEditingBranches(newBr);
-                        }}
-                        placeholder="مجاور مول المنصور..."
-                        className="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm font-bold"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              <button
-                onClick={() => setEditingBranches([...editingBranches, { governorate: "", name: "", address: "" }])}
-                className="w-full py-3 border-2 border-dashed border-amber-200 text-amber-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-amber-50"
-              >
-                <PlusCircle className="w-5 h-5" /> إضافة فرع جديد
-              </button>
-            </div>
-
-            <div className="mt-8 pt-4 border-t flex justify-end">
-              <button onClick={saveBranches} className="bg-amber-500 text-white px-8 py-2.5 rounded-xl font-bold hover:bg-amber-600">
-                حفظ التعديلات
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

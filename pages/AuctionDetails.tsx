@@ -2051,38 +2051,7 @@ const AuctionDetails = () => {
                   </div>
                 </div>
 
-                {/* Branches Information */}
-                {selectedCompanyId && (
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
-                    <h4 className="text-sm font-black text-slate-800 flex items-center gap-2 mb-3">
-                      <MapPin className="w-4 h-4 text-emerald-500" /> فروع تسليم البضاعة (في محافظتك)
-                    </h4>
-                    {(() => {
-                      const company = courierCompanies.find(c => c._id === selectedCompanyId);
-                      const sellerGov = typeof auction.owner === 'object' ? (auction.owner as any).governorate : '';
-                      const localBranches = company?.branches?.filter(b => b.governorate === sellerGov || b.governorate === "الكل" || b.governorate === "جميع المحافظات") || [];
 
-                      if (localBranches.length === 0) {
-                        return (
-                          <div className="text-xs font-bold text-slate-500 bg-white p-3 rounded-xl border border-dashed border-slate-200">
-                            لا توجد فروع محددة للشركة في محافظتك. سيتم التواصل معك من قبل الشركة لاستلام البضاعة.
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <div className="space-y-2">
-                          {localBranches.map((branch, idx) => (
-                            <div key={idx} className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm flex flex-col gap-1">
-                              <span className="text-sm font-black text-slate-700">{branch.name}</span>
-                              <span className="text-xs font-bold text-slate-500">{branch.address}</span>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
 
                 <button
                   disabled={!selectedCompanyId || courierLoading}

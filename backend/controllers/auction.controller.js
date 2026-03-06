@@ -15,6 +15,7 @@ import {
 import { getIo } from "../utils/socket.js";
 import { enforceBidCooldown, rollbackBidCooldown } from "../utils/bidCooldown.js";
 import AuditLog from "../models/AuditLog.js";
+import FinanceLog from "../models/FinanceLog.js";
 import Subscription from "../models/Subscription.js";
 import { validateText, validateNumber, validateFutureDate } from "../utils/validation.js";
 import { uploadToR2, deleteFromR2 } from "../utils/r2.js";
@@ -1348,6 +1349,21 @@ export const featureAuction = async (req, res) => {
       amount: tier.price,
       reason: `دفع تكلفة تمييز مزاد لمدة ${duration}`,
       by: "USER",
+    });
+
+    // 7. Finance Log (for financial reports)
+    await FinanceLog.create({
+      user: userId,
+      type: "FEATURE_AUCTION_PAYMENT",
+      amountIQD: tier.price,
+      refModel: "Auction",
+      refId: auction._id,
+      meta: {
+        duration,
+        featuredUntil: auction.featuredUntil,
+        platformUserId: basePlatformUser?._id || null,
+        note: `تمييز مزاد "${auction.title}" لمدة ${duration}`,
+      },
     });
 
     res.json({ message: "تم تمييز المزاد بنجاح!", featuredUntil: auction.featuredUntil });

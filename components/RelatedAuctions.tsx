@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { Auction } from "../types";
-import { getAuctions } from "../services/auction";
+import { getAuctions, getFeaturedAuctions } from "../services/auction";
 import AuctionSidebarCard from "./AuctionSidebarCard";
-import { Sparkles, Timer, Layers } from "lucide-react";
+import { Sparkles, Timer, Layers, Star } from "lucide-react";
 
 interface RelatedAuctionsProps {
     currentAuctionId: string;
@@ -11,6 +10,7 @@ interface RelatedAuctionsProps {
 }
 
 const RelatedAuctions: React.FC<RelatedAuctionsProps> = ({ currentAuctionId, category }) => {
+    const [featured, setFeatured] = useState<Auction[]>([]);
     const [similar, setSimilar] = useState<Auction[]>([]);
     const [endingSoon, setEndingSoon] = useState<Auction[]>([]);
     const [newest, setNewest] = useState<Auction[]>([]);
@@ -20,9 +20,17 @@ const RelatedAuctions: React.FC<RelatedAuctionsProps> = ({ currentAuctionId, cat
         const fetchRelated = async () => {
             setLoading(true);
             try {
-                // Fetch a general pool of active auctions
-                const res = await getAuctions({ limit: 40, status: "ACTIVE" });
+                // Fetch general pool + featured concurrently
+                const [res, featuredRes] = await Promise.all([
+                    getAuctions({ limit: 40, status: "ACTIVE" }),
+                    getFeaturedAuctions(),
+                ]);
+
                 const allFetched = res.data.auctions || [];
+                const allFeatured: Auction[] = (featuredRes.data || []).filter(
+                    (a: Auction) => a._id !== currentAuctionId
+                ).slice(0, 8);
+                setFeatured(allFeatured);
 
                 // 1. Remove the current auction from the pool
                 const pool = allFetched.filter((a: Auction) => a._id !== currentAuctionId);
@@ -39,24 +47,23 @@ const RelatedAuctions: React.FC<RelatedAuctionsProps> = ({ currentAuctionId, cat
                         const diffMin = (new Date(a.endTime).getTime() - now) / 60000;
                         return diffMin > 0 && diffMin <= 60;
                     })
-                    // Exclude ones already in 'similar' to avoid duplicate visual noise if possible
                     .filter((a: Auction) => !similarMatches.find((s: Auction) => s._id === a._id))
                     .sort((a: Auction, b: Auction) => {
                         const tA = new Date(a.endTime!).getTime();
                         const tB = new Date(b.endTime!).getTime();
-                        return tA - tB; // Earliest ending first
+                        return tA - tB;
                     })
                     .slice(0, 10);
                 setEndingSoon(endingSoonMatches);
 
-                // 4. Newest Auctions (Fallback: just the newest from the pool)
+                // 4. Newest Auctions
                 const newestMatches = pool
                     .filter((a: Auction) => !similarMatches.find((s: Auction) => s._id === a._id))
                     .filter((a: Auction) => !endingSoonMatches.find((e: Auction) => e._id === a._id))
                     .sort((a: Auction, b: Auction) => {
                         const tA = new Date(a.createdAt!).getTime();
                         const tB = new Date(b.createdAt!).getTime();
-                        return tB - tA; // Newest first
+                        return tB - tA;
                     })
                     .slice(0, 10);
                 setNewest(newestMatches);
@@ -86,8 +93,7 @@ const RelatedAuctions: React.FC<RelatedAuctionsProps> = ({ currentAuctionId, cat
         );
     }
 
-    // If we have nothing to show at all, don't render the section
-    if (similar.length === 0 && endingSoon.length === 0 && newest.length === 0) {
+    if (featured.length === 0 && similar.length === 0 && endingSoon.length === 0 && newest.length === 0) {
         return null;
     }
 
@@ -105,6 +111,29 @@ const RelatedAuctions: React.FC<RelatedAuctionsProps> = ({ currentAuctionId, cat
                 </div>
 
                 <div className="space-y-12">
+
+                    {/* Section 0: Featured - shown first */}
+                    {featured.length > 0 && (
+                        <section>
+                            <div className="flex items-center gap-2.5 mb-5 border-b border-amber-200/60 pb-3">
+                                <div className="p-2 bg-amber-100 text-amber-600 rounded-lg">
+                                    <Star className="w-5 h-5 fill-amber-500" />
+                                </div>
+                                <h3 className="text-lg font-black text-slate-800">
+                                    مزادات مميزة
+                                </h3>
+                                <span className="text-xs font-black text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">مدعومة</span>
+                            </div>
+
+                            <div className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar">
+                                {featured.map((auction) => (
+                                    <div key={auction._id} className="min-w-[240px] sm:min-w-[280px] snap-start hover:-translate-y-1 transition-transform duration-300">
+                                        <AuctionSidebarCard auction={auction} />
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    )}
 
                     {/* Section 1: Similar */}
                     {similar.length > 0 && (

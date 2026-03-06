@@ -13,6 +13,7 @@ const FinanceLogSchema = new mongoose.Schema(
         "WALLET_TOPUP_PAID",
         "SUBSCRIPTION_ACTIVATED",
         "SUBSCRIPTION_UPGRADED",
+        "FEATURE_AUCTION_PAYMENT",
       ],
       required: true,
     },

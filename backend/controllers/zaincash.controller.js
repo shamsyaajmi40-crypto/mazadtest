@@ -26,6 +26,11 @@ const requireUser = (req, res) => {
 
 const isMock = () => process.env.ZC_MOCK_MODE === "true";
 
+// Safe fallback for the redirect URL – avoids "undefined?..." when env var is missing
+const ZC_REDIRECT_URL =
+  process.env.ZC_REDIRECT_URL ||
+  `${process.env.BACKEND_URL || "http://localhost:5000"}/api/payments/zaincash/redirect`;
+
 
 // =====================================================
 // INIT SUBSCRIPTION
@@ -75,7 +80,7 @@ export const initZaincashSubscription = async (req, res) => {
       );
 
       const paymentUrl =
-        `${process.env.ZC_REDIRECT_URL}?transactionId=${fakeTransactionId}&orderId=${orderId}`;
+        `${ZC_REDIRECT_URL}?transactionId=${fakeTransactionId}&orderId=${orderId}`;
 
       return res.json({
         paymentUrl,
@@ -92,7 +97,7 @@ export const initZaincashSubscription = async (req, res) => {
       amount,
       serviceType: "MERCHANT_PAYMENT",
       externalReferenceId,
-      redirectUrl: process.env.ZC_REDIRECT_URL,
+      redirectUrl: ZC_REDIRECT_URL,
       msisdn: process.env.ZC_MSISDN,
     });
 
@@ -164,7 +169,7 @@ export const initZaincashTopup = async (req, res) => {
       );
 
       const paymentUrl =
-        `${process.env.ZC_REDIRECT_URL}?transactionId=${fakeTransactionId}&orderId=${orderId}`;
+        `${ZC_REDIRECT_URL}?transactionId=${fakeTransactionId}&orderId=${orderId}`;
 
       return res.json({
         paymentUrl,
@@ -181,7 +186,7 @@ export const initZaincashTopup = async (req, res) => {
       amount,
       serviceType: "MERCHANT_PAYMENT",
       externalReferenceId,
-      redirectUrl: process.env.ZC_REDIRECT_URL,
+      redirectUrl: ZC_REDIRECT_URL,
       msisdn: process.env.ZC_MSISDN,
     });
 

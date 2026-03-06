@@ -117,7 +117,13 @@ io.on("connection", (socket) => {
 ====================== */
 app.use(helmet()); // حماية رؤوس HTTP
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:5173", process.env.VITE_API_URL],
+  origin: [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://iqmazad.com",
+    "https://www.iqmazad.com",
+    process.env.FRONTEND_URL
+  ].filter(Boolean),
   credentials: true
 }));
 app.use(express.json());

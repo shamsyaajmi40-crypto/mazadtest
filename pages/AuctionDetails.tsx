@@ -900,7 +900,7 @@ const AuctionDetails = () => {
     diff > 0 && diff <= 5 * 60 * 1000;
 
   const isExtensionWindow =
-    diff > 0 && diff <= 2 * 60 * 1000;
+    diff > 0 && diff <= 60 * 1000; // Max extension window is 60s
   const displayedPrice =
     optimisticBid !== null
       ? optimisticBid
@@ -1266,7 +1266,7 @@ const AuctionDetails = () => {
 
                       {isExtensionWindow && (
                         <div className="mt-1.5 text-[7px] sm:text-[8px] font-bold text-white/90 relative z-10 leading-tight">
-                          المزايدة الآن ستضيف +2 دقيقة للوقت
+                          المزايدة الآن ستمدد الوقت تلقائياً ⏱️
                         </div>
                       )}
                     </div>

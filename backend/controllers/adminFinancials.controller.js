@@ -516,3 +516,79 @@ export const deleteFinancialLog = async (req, res) => {
         res.status(500).json({ message: "فشل حذف السجل" });
     }
 };
+
+/**
+ * GET /admin/financials/featured-payments
+ * جلب سجلات التمييز المدفوع مع إجمالي الإيراد
+ */
+export const getFeaturedPayments = async (req, res) => {
+    try {
+        const page = Math.max(1, Number(req.query.page) || 1);
+        const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 15));
+        const skip = (page - 1) * limit;
+        const { startDate, endDate, search } = req.query;
+
+        const match = { type: "FEATURE_AUCTION_PAYMENT" };
+
+        if (startDate || endDate) {
+            match.createdAt = {};
+            if (startDate) match.createdAt.$gte = new Date(startDate);
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                match.createdAt.$lte = end;
+            }
+        }
+
+        // Aggregate stats (total revenue + count)
+        const [statsAgg] = await FinanceLog.aggregate([
+            { $match: { type: "FEATURE_AUCTION_PAYMENT" } },
+            {
+                $group: {
+                    _id: null,
+                    totalRevenue: { $sum: "$amountIQD" },
+                    totalCount: { $sum: 1 },
+                }
+            }
+        ]);
+
+        // Fetch logs with user + auction populated
+        let query = FinanceLog.find(match)
+            .populate("user", "name phone")
+            .populate({ path: "refId", model: "Auction", select: "title _id" })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        const [logs, total] = await Promise.all([
+            query.lean(),
+            FinanceLog.countDocuments(match),
+        ]);
+
+        // Apply in-memory search filter on user name/phone if provided
+        let filtered = logs;
+        if (search) {
+            const s = search.toLowerCase();
+            filtered = logs.filter(l =>
+                l.user?.name?.toLowerCase().includes(s) ||
+                l.user?.phone?.includes(s)
+            );
+        }
+
+        res.json({
+            logs: filtered,
+            pagination: {
+                page,
+                pages: Math.ceil(total / limit),
+                total,
+            },
+            stats: {
+                totalRevenue: statsAgg?.totalRevenue || 0,
+                totalCount: statsAgg?.totalCount || 0,
+            }
+        });
+    } catch (e) {
+        console.error("getFeaturedPayments error:", e);
+        res.status(500).json({ message: "فشل في جلب سجلات التمييز" });
+    }
+};

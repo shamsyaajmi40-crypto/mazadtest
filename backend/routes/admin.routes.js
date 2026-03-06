@@ -319,4 +319,14 @@ router.delete(
   adminFinancials.deleteFinancialLog
 );
 
+// ===========================
+// Featured Auction Payments
+// ===========================
+router.get(
+  "/financials/featured-payments",
+  protect,
+  requireRole("admin", "superAdmin"),
+  adminFinancials.getFeaturedPayments
+);
+
 export default router;

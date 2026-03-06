@@ -262,6 +262,9 @@ const AdminDashboard = () => {
 
           <Link to="/admin/deposit-policy" className="flex items-center gap-2 px-4 py-2 bg-white/60 backdrop-blur-xl border border-slate-200/60 rounded-[1.2rem] text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-indigo-500 hover:border-indigo-500/20 transition-all shadow-sm">
             <Settings className="w-4 h-4" /> Deposit Policy</Link>
+
+          <Link to="/admin/featured-auctions" className="flex items-center gap-2 px-4 py-2 bg-amber-50 backdrop-blur-xl border border-amber-200/60 rounded-[1.2rem] text-sm font-bold text-amber-700 hover:bg-amber-100 hover:border-amber-300/60 transition-all shadow-sm">
+            ⭐ التمييزات</Link>
         </div>
       </div>
 

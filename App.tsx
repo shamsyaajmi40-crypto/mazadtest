@@ -38,6 +38,7 @@ import CourierStaffDashboard from "./pages/CourierStaffDashboard";
 import AdminCourierManagement from "./pages/AdminCourierManagement";
 import OpenDeals from "./pages/OpenDeals";
 import AdminDisputes from "./pages/AdminDisputes";
+import AdminFeaturedAuctions from "./pages/AdminFeaturedAuctions";
 
 /* =======================
    Auth Context
@@ -271,6 +272,14 @@ const App = () => {
           />
 
           <Route path="/admin/platform-balance" element={<AdminPlatformBalance />} />
+          <Route
+            path="/admin/featured-auctions"
+            element={
+              <ProtectedRoute requireAdmin>
+                <AdminFeaturedAuctions />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/admin/deposit-policy"
             element={

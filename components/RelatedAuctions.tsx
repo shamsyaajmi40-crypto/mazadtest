@@ -27,9 +27,13 @@ const RelatedAuctions: React.FC<RelatedAuctionsProps> = ({ currentAuctionId, cat
                 ]);
 
                 const allFetched = res.data.auctions || [];
-                const allFeatured: Auction[] = (featuredRes.data || []).filter(
-                    (a: Auction) => a._id !== currentAuctionId
-                ).slice(0, 8);
+                // getFeaturedAuctions already returns res.data (the array directly)
+                const rawFeatured: Auction[] = Array.isArray(featuredRes)
+                    ? featuredRes
+                    : (featuredRes?.auctions || featuredRes?.data || []);
+                const allFeatured: Auction[] = rawFeatured
+                    .filter((a: Auction) => a._id !== currentAuctionId)
+                    .slice(0, 8);
                 setFeatured(allFeatured);
 
                 // 1. Remove the current auction from the pool

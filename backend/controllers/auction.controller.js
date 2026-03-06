@@ -1270,6 +1270,26 @@ export const disputeAuction = async (req, res) => {
   }
 };
 
+export const getFeaturedAuctions = async (req, res) => {
+  try {
+    const now = new Date();
+    const auctions = await Auction.find({
+      isFeatured: true,
+      featuredUntil: { $gt: now },
+      status: "active",
+    })
+      .sort({ featuredPriority: -1, createdAt: -1 })
+      .limit(20)
+      .populate("owner", "name rating")
+      .lean();
+
+    return res.json(auctions);
+  } catch (err) {
+    console.error("getFeaturedAuctions error:", err);
+    return res.status(500).json({ message: "فشل في جلب المزادات المميزة." });
+  }
+};
+
 export const featureAuction = async (req, res) => {
   try {
     const { id } = req.params;

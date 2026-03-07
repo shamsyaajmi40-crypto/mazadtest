@@ -1405,7 +1405,7 @@ const AuctionDetails = () => {
                               </div>
                               <div className="flex flex-col">
                                 <span className={`text-sm sm:text-base font-black ${isFirst ? 'text-amber-900 tracking-tight' : 'text-slate-700'}`}>
-                                  {isMe ? (isFirst ? "أنت المتصدر! 🥇" : "مزايدتك (تم تجاوزك)") : maskUsername(b.bid.bidder?.name || "")}
+                                  {(isMe || isOwner) ? (isMe ? (isFirst ? "أنت المتصدر! 🥇" : "مزايدتك (تم تجاوزك)") : (b.bid.bidder?.name || "مزايد")) : maskUsername(b.bid.bidder?.name || "")}
                                 </span>
                                 <span className="text-[10px] sm:text-xs text-slate-500 font-bold mt-0.5 flex items-center gap-1">
                                   <span className={`w-1.5 h-1.5 rounded-full ${isFirst ? 'bg-amber-400' : 'bg-slate-300'}`}></span>
@@ -1431,7 +1431,7 @@ const AuctionDetails = () => {
                       <div className="flex flex-col">
                         <span className="text-[10px] font-black tracking-wider text-emerald-600 uppercase">الفائز بالمزاد</span>
                         <span className="text-lg font-black text-emerald-900">
-                          {isMeWinner ? "أنت الفائز!" : maskUsername(auction.winner.name)}
+                          {(isMeWinner || isOwner) ? (isMeWinner ? "أنت الفائز!" : (auction.winner.name || "مستخدم")) : maskUsername(auction.winner.name || "مستخدم")}
                         </span>
                       </div>
                     </div>
@@ -1937,7 +1937,7 @@ const AuctionDetails = () => {
             {isEnded && auction.winner && (
               <span className="px-5 py-2 text-sm font-bold rounded-2xl bg-slate-50 text-slate-700 border border-slate-200 shadow-sm">
                 الفائز: <span className="font-black text-slate-900">
-                  {isMeWinner ? "أنت الفائز! 👑" : maskUsername(auction.winner.name || "مستخدم")}
+                  {(isMeWinner || isOwner) ? (isMeWinner ? "أنت الفائز! 👑" : (auction.winner.name || "مستخدم")) : maskUsername(auction.winner.name || "مستخدم")}
                 </span>
               </span>
             )}

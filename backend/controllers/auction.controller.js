@@ -1459,3 +1459,24 @@ export const getFeaturedAuctions = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch featured auctions" });
   }
 };
+
+// جلب المزادات التي تحتاج إلى تحديد شركة توصيل
+export const getPendingCourierAuctions = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // جلب المزادات المنتهية والتي يوجد بها فائز ولكن لم يحدد لها شركة توصيل
+    // وأيضاً أن يكون المستخدم هو البائع
+    const auctions = await Auction.find({
+      $or: [{ owner: userId }, { seller: userId }],
+      status: { $in: ["ended", "ENDED", "completed"] },
+      winner: { $ne: null },
+      $or: [{ deliveryOrder: null }, { deliveryOrder: { $exists: false } }]
+    }).select("_id title status").lean();
+
+    return res.json({ count: auctions.length, auctions });
+  } catch (err) {
+    console.error("getPendingCourierAuctions error:", err);
+    return res.status(500).json({ message: "خطأ بالخادم" });
+  }
+};

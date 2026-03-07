@@ -23,8 +23,9 @@ import {
 } from "lucide-react";
 import { rateAuctionUser } from "../services/rating";
 import { getMyAuctions } from "../services/auction";
-import { updateProfile, getMyFavorites } from "../services/user";
+import { updateProfile, getMyFavorites, changePassword } from "../services/user";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
+import toast from "react-hot-toast";
 const UserProfile = () => {
   const { user } = useContext(AuthContext);
   const { id } = useParams();
@@ -141,6 +142,16 @@ const UserProfile = () => {
   const [settingsSuccess, setSettingsSuccess] = useState("");
   const [settingsError, setSettingsError] = useState("");
 
+  // Change Password state
+  const [pwdFormData, setPwdFormData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [submittingPwd, setSubmittingPwd] = useState(false);
+  const [pwdSuccess, setPwdSuccess] = useState("");
+  const [pwdError, setPwdError] = useState("");
+
   // Populate settings form when user data loads
   useEffect(() => {
     if (user && isOwnProfile) {
@@ -170,6 +181,37 @@ const UserProfile = () => {
       setSettingsError(err.response?.data?.message || "حدث خطأ أثناء التحديث");
     } finally {
       setSubmittingSettings(false);
+    }
+  };
+
+  const handleUpdatePassword = async (e: FormEvent) => {
+    e.preventDefault();
+    setPwdSuccess("");
+    setPwdError("");
+
+    if (pwdFormData.newPassword !== pwdFormData.confirmPassword) {
+      setPwdError("كلمات المرور الجديدة غير متطابقة");
+      return;
+    }
+
+    if (pwdFormData.newPassword.length < 6) {
+      setPwdError("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
+      return;
+    }
+
+    setSubmittingPwd(true);
+    try {
+      await changePassword({
+        currentPassword: pwdFormData.currentPassword,
+        newPassword: pwdFormData.newPassword,
+      });
+      setPwdSuccess("تم تغيير كلمة المرور بنجاح");
+      setPwdFormData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      toast.success("تم تغيير كلمة المرور بنجاح");
+    } catch (err: any) {
+      setPwdError(err.response?.data?.message || "فشل تغيير كلمة المرور");
+    } finally {
+      setSubmittingPwd(false);
     }
   };
 
@@ -636,6 +678,84 @@ const UserProfile = () => {
                   </button>
                 </div>
               </form>
+
+              {/* Security - Change Password */}
+              <div className="mt-12 pt-10 border-t border-slate-100">
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center">
+                    <ShieldCheck className="w-6 h-6 text-amber-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-800">الأمان وكلمة المرور</h3>
+                    <p className="text-slate-500 text-sm">تغيير كلمة المرور الخاصة بحسابك</p>
+                  </div>
+                </div>
+
+                {pwdSuccess && (
+                  <div className="bg-emerald-50 text-emerald-600 p-4 rounded-xl mb-6 font-bold text-sm border border-emerald-100 text-center">
+                    {pwdSuccess}
+                  </div>
+                )}
+                {pwdError && (
+                  <div className="bg-rose-50 text-rose-600 p-4 rounded-xl mb-6 font-bold text-sm border border-rose-100 text-center">
+                    {pwdError}
+                  </div>
+                )}
+
+                <form onSubmit={handleUpdatePassword} className="space-y-5">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700">كلمة المرور الحالية</label>
+                    <input
+                      type="password"
+                      value={pwdFormData.currentPassword}
+                      onChange={(e) => setPwdFormData({ ...pwdFormData, currentPassword: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white transition-colors outline-none font-medium"
+                      placeholder="••••••••"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700">كلمة المرور الجديدة</label>
+                      <input
+                        type="password"
+                        value={pwdFormData.newPassword}
+                        onChange={(e) => setPwdFormData({ ...pwdFormData, newPassword: e.target.value })}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white transition-colors outline-none font-medium"
+                        placeholder="••••••••"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700">تأكيد كلمة المرور</label>
+                      <input
+                        type="password"
+                        value={pwdFormData.confirmPassword}
+                        onChange={(e) => setPwdFormData({ ...pwdFormData, confirmPassword: e.target.value })}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white transition-colors outline-none font-medium"
+                        placeholder="••••••••"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-100 mt-6 flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={submittingPwd}
+                      className="bg-slate-900 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-800 transition-colors disabled:opacity-50"
+                    >
+                      {submittingPwd ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <ShieldCheck className="w-5 h-5" />
+                      )}
+                      {submittingPwd ? "جاري التحديث..." : "تحديث كلمة المرور"}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           )
         }

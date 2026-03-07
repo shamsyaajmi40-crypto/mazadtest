@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import Auction from "../models/Auction.js";
+import bcrypt from "bcrypt";
 
 // جلب ملف مستخدم + مزاداته
 export const getUserProfile = async (req, res) => {
@@ -119,6 +120,36 @@ export const getFavorites = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     res.json(user.favorites || []);
+  } catch (err) {
+    res.status(500).json({ message: "خطأ بالخادم" });
+  }
+};
+
+// PUT /api/users/me/password
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "يرجى إدخال كلمة المرور الحالية والجديدة" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل" });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "كلمة المرور الحالية غير صحيحة" });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    res.json({ message: "تم تغيير كلمة المرور بنجاح" });
   } catch (err) {
     res.status(500).json({ message: "خطأ بالخادم" });
   }

@@ -19,3 +19,8 @@ export const getMyFavorites = async () => {
     const res = await api.get("/users/me/favorites");
     return res.data;
 };
+
+export const changePassword = async (data: any) => {
+    const res = await api.put("/users/me/password", data);
+    return res.data;
+};

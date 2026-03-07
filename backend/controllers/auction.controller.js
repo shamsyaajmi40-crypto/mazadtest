@@ -1503,10 +1503,12 @@ export const getPendingCourierAuctions = async (req, res) => {
     // جلب المزادات المنتهية والتي يوجد بها فائز ولكن لم يحدد لها شركة توصيل
     // وأيضاً أن يكون المستخدم هو البائع
     const auctions = await Auction.find({
-      $or: [{ owner: userId }, { seller: userId }],
+      $and: [
+        { $or: [{ owner: userId }, { seller: userId }] },
+        { $or: [{ deliveryOrder: null }, { deliveryOrder: { $exists: false } }] }
+      ],
       status: { $in: ["ended", "ENDED", "completed"] },
-      winner: { $ne: null },
-      $or: [{ deliveryOrder: null }, { deliveryOrder: { $exists: false } }]
+      winner: { $ne: null }
     }).select("_id title status").lean();
 
     return res.json({ count: auctions.length, auctions });

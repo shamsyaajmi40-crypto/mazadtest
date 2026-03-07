@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext, FormEvent } from "react";
 import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
 import { getAuctions, getWonAuctions, getMyBids } from "../services/auction";
@@ -17,9 +17,12 @@ import {
   ShieldCheck,
   ChevronRight,
   PackageCheck,
+  Settings,
+  Save,
 } from "lucide-react";
 import { rateAuctionUser } from "../services/rating";
 import { getMyAuctions } from "../services/auction";
+import { updateProfile } from "../services/user";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 const UserProfile = () => {
   const { user } = useContext(AuthContext);
@@ -28,11 +31,11 @@ const UserProfile = () => {
   const isOwnProfile = !id;
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const initialTab = (queryParams.get("tab") as "LISTINGS" | "BIDS" | "WINS" | "PENDING_COURIER") || "LISTINGS";
+  const initialTab = (queryParams.get("tab") as "LISTINGS" | "BIDS" | "WINS" | "PENDING_COURIER" | "SETTINGS") || "LISTINGS";
 
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] =
-    useState<"LISTINGS" | "BIDS" | "WINS" | "PENDING_COURIER">(initialTab);
+    useState<"LISTINGS" | "BIDS" | "WINS" | "PENDING_COURIER" | "SETTINGS">(initialTab);
 
   const [data, setData] = useState<{
     listings: Auction[];
@@ -122,7 +125,48 @@ const UserProfile = () => {
       .finally(() => setLoading(false));
   }, [id]); // 🔥 فقط id
 
+  // Settings form local state
+  const [formData, setFormData] = useState({
+    name: "",
+    phone: "",
+    governorate: "",
+    address: "",
+  });
+  const [submittingSettings, setSubmittingSettings] = useState(false);
+  const [settingsSuccess, setSettingsSuccess] = useState("");
+  const [settingsError, setSettingsError] = useState("");
 
+  // Populate settings form when user data loads
+  useEffect(() => {
+    if (user && isOwnProfile) {
+      setFormData({
+        name: user.name || "",
+        phone: user.phone || "",
+        governorate: user.governorate || "",
+        address: user.address || "",
+      });
+    }
+  }, [user, isOwnProfile]);
+
+  const handleUpdateSettings = async (e: FormEvent) => {
+    e.preventDefault();
+    setSubmittingSettings(true);
+    setSettingsSuccess("");
+    setSettingsError("");
+    try {
+      const updatedUser = await updateProfile(formData);
+      setSettingsSuccess("تم تحديث البيانات بنجاح");
+      setProfileUser(updatedUser);
+      // Option: update local storage session or rely on TopBar to fetch me on mount. We can trigger a quick window reload to update context if necessary, or better, the Context needs an update function. We'll simply let the user see it updated.
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (err: any) {
+      setSettingsError(err.response?.data?.message || "حدث خطأ أثناء التحديث");
+    } finally {
+      setSubmittingSettings(false);
+    }
+  };
 
 
   const handleRate = (auctionId: string) => {
@@ -333,6 +377,19 @@ const UserProfile = () => {
             </span>
           </button>
         )}
+
+        {isOwnProfile && (
+          <button
+            onClick={() => setActiveTab("SETTINGS")}
+            className={`shrink-0 snap-start px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all duration-300 ${activeTab === "SETTINGS"
+              ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 scale-100"
+              : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-100 scale-95 hover:scale-100"
+              }`}
+          >
+            <Settings className={`w-5 h-5 ${activeTab === "SETTINGS" ? "text-slate-400" : ""}`} />
+            إعدادات الحساب
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -450,6 +507,93 @@ const UserProfile = () => {
               </p>
             </div>
           )
+        )}
+
+        {activeTab === "SETTINGS" && isOwnProfile && (
+          <div className="col-span-full max-w-2xl mx-auto w-full bg-white rounded-[2rem] shadow-sm border border-slate-100 p-8">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center">
+                <Settings className="w-6 h-6 text-slate-600" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-800">المعلومات الشخصية</h3>
+                <p className="text-slate-500 text-sm">تحديث بيانات حسابك والتواصل الخاص بك</p>
+              </div>
+            </div>
+
+            {settingsSuccess && (
+              <div className="bg-emerald-50 text-emerald-600 p-4 rounded-xl mb-6 font-bold text-sm border border-emerald-100 text-center">
+                {settingsSuccess}
+              </div>
+            )}
+            {settingsError && (
+              <div className="bg-rose-50 text-rose-600 p-4 rounded-xl mb-6 font-bold text-sm border border-rose-100 text-center">
+                {settingsError}
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateSettings} className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700">الاسم الكامل</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white transition-colors outline-none font-medium"
+                  placeholder="اسمك الكامل"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700">رقم الهاتف</label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white transition-colors outline-none font-medium text-left dir-ltr"
+                  placeholder="07XX XXX XXXX"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700">المحافظة</label>
+                <input
+                  type="text"
+                  value={formData.governorate}
+                  onChange={(e) => setFormData({ ...formData, governorate: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white transition-colors outline-none font-medium"
+                  placeholder="مثال: بغداد"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700">تفاصيل العنوان</label>
+                <textarea
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white transition-colors outline-none font-medium min-h-[100px] resize-y"
+                  placeholder="المدينة، المنطقة، أقرب نقطة دالة، رقم المنزل المخصص لك لكي يسهل على شركة التوصيل استلام وتسليم البضائع..."
+                />
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 mt-6 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={submittingSettings}
+                  className="bg-slate-900 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-800 transition-colors disabled:opacity-50"
+                >
+                  {submittingSettings ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Save className="w-5 h-5" />
+                  )}
+                  {submittingSettings ? "جاري الحفظ..." : "حفظ التغييرات"}
+                </button>
+              </div>
+            </form>
+          </div>
         )}
       </div>
     </div>

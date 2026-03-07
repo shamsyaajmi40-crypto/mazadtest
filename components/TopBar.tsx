@@ -358,7 +358,7 @@ export default function TopBar() {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <Link
-                to="/profile"
+                to="/profile?tab=PENDING_COURIER"
                 className="text-xs font-black bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg transition-colors border border-white/30"
                 onClick={() => setCourierBannerDismissed(true)}
               >

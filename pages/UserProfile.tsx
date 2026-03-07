@@ -16,19 +16,23 @@ import {
   Award,
   ShieldCheck,
   ChevronRight,
+  PackageCheck,
 } from "lucide-react";
 import { rateAuctionUser } from "../services/rating";
 import { getMyAuctions } from "../services/auction";
-import { useParams } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 const UserProfile = () => {
   const { user } = useContext(AuthContext);
   const { id } = useParams();
   const navigate = useNavigate();
   const isOwnProfile = !id;
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const initialTab = (queryParams.get("tab") as "LISTINGS" | "BIDS" | "WINS" | "PENDING_COURIER") || "LISTINGS";
+
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] =
-    useState<"LISTINGS" | "BIDS" | "WINS">("LISTINGS");
+    useState<"LISTINGS" | "BIDS" | "WINS" | "PENDING_COURIER">(initialTab);
 
   const [data, setData] = useState<{
     listings: Auction[];
@@ -59,6 +63,14 @@ const UserProfile = () => {
     (a) =>
       String(a.status).toUpperCase() === "ENDED" &&
       a.winner != null
+  );
+
+  // Filter for pending courier selections
+  const pendingCourierAuctions = data.listings.filter(
+    (a) =>
+      ["ENDED", "completed"].includes(String(a.status).toUpperCase()) &&
+      a.winner &&
+      (!a.deliveryOrder)
   );
 
 
@@ -304,6 +316,23 @@ const UserProfile = () => {
             </span>
           </button>
         )}
+
+        {isOwnProfile && pendingCourierAuctions.length > 0 && (
+          <button
+            onClick={() => setActiveTab("PENDING_COURIER")}
+            className={`shrink-0 snap-start px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all duration-300 ${activeTab === "PENDING_COURIER"
+              ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 scale-100"
+              : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-100 scale-95 hover:scale-100"
+              }`}
+          >
+            <PackageCheck className={`w-5 h-5 ${activeTab === "PENDING_COURIER" ? "text-indigo-400" : ""}`} />
+            تحديد توصيل
+            <span className={`ml-1.5 px-2 py-0.5 rounded-lg text-xs font-black ${activeTab === "PENDING_COURIER" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+              }`}>
+              {pendingCourierAuctions.length}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -390,6 +419,34 @@ const UserProfile = () => {
               <h3 className="text-xl font-black text-slate-800 mb-2">لم تفز بأي مزاد بعد</h3>
               <p className="text-slate-500 text-center max-w-sm">
                 ضاعف من فرصك في الفوز من خلال المزايدة المستمرة في المزادات النشطة.
+              </p>
+            </div>
+          )
+        )}
+
+        {activeTab === "PENDING_COURIER" && (
+          pendingCourierAuctions.length > 0 ? (
+            pendingCourierAuctions.map((auction) => (
+              <div key={auction._id} className="relative group">
+                <AuctionCard auction={auction} />
+
+                <button
+                  className="absolute top-4 left-4 z-20 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors"
+                  onClick={() => navigate(`/auctions/${auction._id}`)}
+                >
+                  <PackageCheck className="w-4 h-4 text-white" />
+                  حدد شركة توصيل
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="col-span-full flex flex-col items-center justify-center p-12 bg-white rounded-[2rem] border border-slate-100 border-dashed">
+              <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center mb-4">
+                <PackageCheck className="w-10 h-10 text-indigo-300" />
+              </div>
+              <h3 className="text-xl font-black text-slate-800 mb-2">لا توجد طلبات توصيل معلقة</h3>
+              <p className="text-slate-500 text-center max-w-sm">
+                رائع! جميع مزاداتك المباعة تم تحديد شركات التوصيل لها.
               </p>
             </div>
           )

@@ -25,12 +25,17 @@ const requireUser = (req, res) => {
   return true;
 };
 
-const isMock = () => process.env.ZC_MOCK_MODE === "true";
+// Default to mock mode unless explicitly set to false
+const isMock = () => process.env.ZC_MOCK_MODE !== "false";
 
-// Safe fallback for the redirect URL – avoids "undefined?..." when env var is missing
+// Safe fallback for the redirect URL
+// If ZC_REDIRECT_URL is missing, we try to use BACKEND_URL. 
+// If both are missing, we default to localhost for development.
 const ZC_REDIRECT_URL =
   process.env.ZC_REDIRECT_URL ||
-  `${process.env.BACKEND_URL || "http://localhost:5000"}/api/payments/zaincash/redirect`;
+  (process.env.BACKEND_URL
+    ? `${process.env.BACKEND_URL}/api/payments/zaincash/redirect`
+    : "http://localhost:5000/api/payments/zaincash/redirect");
 
 
 // =====================================================

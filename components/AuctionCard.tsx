@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Auction } from '../types';
-import { Clock, Tag, Image as ImageIcon, Heart } from 'lucide-react';
+import { Clock, Tag, Image as ImageIcon, Heart, ShieldCheck } from 'lucide-react';
 import { AUCTION_STATUS } from "../types";
 import { getImageUrl } from "@/utils/getImageUrl";
 import api from "../services/api";
@@ -314,8 +314,8 @@ const AuctionCard: React.FC<{ auction: Auction; archived?: boolean; compact?: bo
             onClick={handleToggleFavorite}
             disabled={togglingFav}
             className={`absolute top-3 left-3 z-20 p-2 rounded-full shadow-md backdrop-blur-md transition-all duration-300 hover:scale-110 active:scale-95 ${isFavorite
-                ? "bg-white/90 text-rose-500 border border-rose-200"
-                : "bg-black/20 text-white hover:bg-white/90 hover:text-rose-500 border border-white/30"
+              ? "bg-white/90 text-rose-500 border border-rose-200"
+              : "bg-black/20 text-white hover:bg-white/90 hover:text-rose-500 border border-white/30"
               }`}
           >
             <Heart className={`w-5 h-5 ${isFavorite ? "fill-rose-500" : ""}`} />
@@ -378,9 +378,14 @@ const AuctionCard: React.FC<{ auction: Auction; archived?: boolean; compact?: bo
               className="text-primary font-bold hover:underline text-sm"
               onClick={(e) => e.stopPropagation()}
             >
-              {typeof auction.owner === "string"
-                ? "صاحب المزاد"
-                : auction.owner.name}
+              <div className="flex items-center gap-1.5">
+                {typeof auction.owner === "string"
+                  ? "صاحب المزاد"
+                  : auction.owner.name}
+                {typeof auction.owner !== "string" && auction.owner.verification?.status === "verified" && (
+                  <ShieldCheck className="w-4 h-4 text-blue-500 fill-blue-50" strokeWidth={2.5} />
+                )}
+              </div>
             </Link>
 
             {/* ?§?„???‚?????… ???­?? ?§?„?§?³?… ?…?¨?§?´?±?© */}

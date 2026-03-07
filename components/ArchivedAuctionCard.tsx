@@ -3,7 +3,7 @@ import { getImageUrl } from "../utils/getImageUrl";
 import { useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { Link } from "react-router-dom";
-import { Star } from "lucide-react";
+import { Star, ShieldCheck } from "lucide-react";
 import { canUserRate } from "../utils/canUserRate";
 
 /* ================= Utils ================= */
@@ -129,10 +129,13 @@ const ArchivedAuctionCard = ({ auction }: Props) => {
                 🟦 بعت هذا المزاد إلى{" "}
                 <Link
                   to={`/users/${otherUserId}`}
-                  className="text-blue-600 hover:underline relative z-10"
+                  className="text-blue-600 hover:underline relative z-10 flex items-center gap-1 inline-flex"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {otherUserName}
+                  {typeof otherUser === "object" && (otherUser as any)?.verification?.status === "verified" && (
+                    <ShieldCheck className="w-3.5 h-3.5 text-blue-500 fill-blue-50" strokeWidth={2.5} />
+                  )}
                 </Link>
               </>
             )}
@@ -145,10 +148,13 @@ const ArchivedAuctionCard = ({ auction }: Props) => {
                 🟢 ربحت هذا المزاد من{" "}
                 <Link
                   to={`/users/${otherUserId}`}
-                  className="text-blue-600 hover:underline relative z-10"
+                  className="text-blue-600 hover:underline relative z-10 flex items-center gap-1 inline-flex"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {otherUserName}
+                  {typeof otherUser === "object" && (otherUser as any)?.verification?.status === "verified" && (
+                    <ShieldCheck className="w-3.5 h-3.5 text-blue-500 fill-blue-50" strokeWidth={2.5} />
+                  )}
                 </Link>
               </>
             )}

@@ -1,6 +1,6 @@
-import User from "../models/User.js";
 import Auction from "../models/Auction.js";
 import bcrypt from "bcrypt";
+import { uploadToR2 } from "../utils/r2.js";
 
 // جلب ملف مستخدم + مزاداته
 export const getUserProfile = async (req, res) => {
@@ -54,7 +54,7 @@ export const getMe = async (req, res) => {
 // PUT /api/users/me/profile
 export const updateProfile = async (req, res) => {
   try {
-    const { name, phone, governorate, address, zainCashNumber } = req.body;
+    const { name, phone, governorate, address, zainCashNumber, notificationPrefs } = req.body;
     const user = await User.findById(req.user._id);
 
     if (!user) {
@@ -73,6 +73,13 @@ export const updateProfile = async (req, res) => {
     if (governorate !== undefined) user.governorate = governorate;
     if (address !== undefined) user.address = address;
     if (zainCashNumber !== undefined) user.zainCashNumber = zainCashNumber;
+
+    if (notificationPrefs !== undefined) {
+      user.notificationPrefs = {
+        ...user.notificationPrefs,
+        ...notificationPrefs
+      };
+    }
 
     await user.save();
 
@@ -153,5 +160,42 @@ export const changePassword = async (req, res) => {
     res.json({ message: "تم تغيير كلمة المرور بنجاح" });
   } catch (err) {
     res.status(500).json({ message: "خطأ بالخادم" });
+  }
+};
+
+// POST /api/users/me/verify
+export const submitVerification = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (user.verification?.status === "verified") {
+      return res.status(400).json({ message: "حسابك موثق بالفعل" });
+    }
+
+    if (user.verification?.status === "pending") {
+      return res.status(400).json({ message: "طلب التوثيق قيد المراجعة حالياً" });
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: "يرجى رفع صور الهوية المطلوبة" });
+    }
+
+    // الرفع لـ R2
+    const uploadPromises = req.files.map((file) => uploadToR2(file));
+    const imageUrls = await Promise.all(uploadPromises);
+
+    user.verification = {
+      status: "pending",
+      images: imageUrls,
+      submittedAt: new Date(),
+    };
+
+    await user.save();
+
+    res.json({ message: "تم تقديم طلب التوثيق بنجاح، سيتم مراجعته قريباً", user });
+  } catch (err) {
+    console.error("Verification error:", err);
+    res.status(500).json({ message: "فشل تقديم طلب التوثيق" });
   }
 };

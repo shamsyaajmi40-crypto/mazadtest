@@ -20,10 +20,14 @@ import {
   Settings,
   Save,
   Heart,
+  Volume2,
+  FileCode,
+  AlertCircle,
+  FileCheck,
 } from "lucide-react";
 import { rateAuctionUser } from "../services/rating";
 import { getMyAuctions } from "../services/auction";
-import { updateProfile, getMyFavorites, changePassword } from "../services/user";
+import { updateProfile, getMyFavorites, changePassword, submitVerification } from "../services/user";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
 const UserProfile = () => {
@@ -138,6 +142,11 @@ const UserProfile = () => {
     governorate: "",
     address: "",
     zainCashNumber: "",
+    notificationPrefs: {
+      outbid: true,
+      favoriteEnding: true,
+      platformUpdates: true
+    }
   });
   const [submittingSettings, setSubmittingSettings] = useState(false);
   const [settingsSuccess, setSettingsSuccess] = useState("");
@@ -153,6 +162,42 @@ const UserProfile = () => {
   const [pwdSuccess, setPwdSuccess] = useState("");
   const [pwdError, setPwdError] = useState("");
 
+  // Account Verification state
+  const [verificationFiles, setVerificationFiles] = useState<File[]>([]);
+  const [uploadingVerify, setUploadingVerify] = useState(false);
+  const [verifyStatus, setVerifyStatus] = useState(user?.verification?.status || "none");
+  const [verifySuccess, setVerifySuccess] = useState("");
+  const [verifyError, setVerifyError] = useState("");
+
+  const handleVerifySubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (verificationFiles.length === 0) {
+      setVerifyError("يرجى اختيار صور الهوية أولاً");
+      return;
+    }
+
+    setUploadingVerify(true);
+    setVerifyError("");
+    setVerifySuccess("");
+
+    const formData = new FormData();
+    verificationFiles.forEach((file) => {
+      formData.append("images", file);
+    });
+
+    try {
+      const res = await (submitVerification as any)(formData);
+      setVerifySuccess(res.message);
+      setVerifyStatus("pending");
+      setVerificationFiles([]);
+      toast.success("تم تقديم طلب التوثيق");
+    } catch (err: any) {
+      setVerifyError(err.response?.data?.message || "فشل تقديم طلب التوثيق");
+    } finally {
+      setUploadingVerify(false);
+    }
+  };
+
   // Populate settings form when user data loads
   useEffect(() => {
     if (user && isOwnProfile) {
@@ -162,6 +207,11 @@ const UserProfile = () => {
         governorate: user.governorate || "",
         address: user.address || "",
         zainCashNumber: (user as any).zainCashNumber || "",
+        notificationPrefs: (user as any).notificationPrefs || {
+          outbid: true,
+          favoriteEnding: true,
+          platformUpdates: true
+        }
       });
     }
   }, [user, isOwnProfile]);
@@ -272,7 +322,9 @@ const UserProfile = () => {
               <div>
                 <h1 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight flex items-center justify-center md:justify-start gap-3">
                   {profileUser?.name || "—"}
-                  <ShieldCheck className="w-8 h-8 text-emerald-500 drop-shadow-sm" />
+                  {profileUser?.verification?.status === "verified" && (
+                    <ShieldCheck className="w-8 h-8 text-emerald-500 drop-shadow-sm" />
+                  )}
                 </h1>
 
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mt-3 text-slate-500 font-medium">
@@ -698,6 +750,152 @@ const UserProfile = () => {
                       * سيتم استخدام هذا الرقم لإرسال مستحقاتك من المزادات المباعة تلقائياً.
                     </p>
                   </div>
+                </div>
+
+                <div className="pt-10 border-t border-slate-100 mt-8">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center">
+                      <Volume2 className="w-6 h-6 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-slate-800">إعدادات التنبيهات</h3>
+                      <p className="text-slate-500 text-sm">تخصيص نوع وحالة التنبيهات المستلمة</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 transition-all hover:bg-white group cursor-pointer" onClick={() => setFormData(prev => ({ ...prev, notificationPrefs: { ...prev.notificationPrefs, outbid: !prev.notificationPrefs.outbid } }))}>
+                      <div className="flex items-center gap-4">
+                        <div className={`p-2 rounded-xl transition-colors ${formData.notificationPrefs.outbid ? "bg-indigo-100 text-indigo-600" : "bg-slate-200 text-slate-400"}`}>
+                          <Gavel className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="font-black text-slate-800 text-sm">تنبيهات المزايدة</p>
+                          <p className="text-xs text-slate-500 font-medium">عندما يقوم شخص آخر بالمزايدة على عرضك</p>
+                        </div>
+                      </div>
+                      <div className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 ${formData.notificationPrefs.outbid ? "bg-indigo-600" : "bg-slate-300"}`}>
+                        <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-300 ${formData.notificationPrefs.outbid ? "translate-x-6" : "translate-x-0"}`} />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 transition-all hover:bg-white group cursor-pointer" onClick={() => setFormData(prev => ({ ...prev, notificationPrefs: { ...prev.notificationPrefs, favoriteEnding: !prev.notificationPrefs.favoriteEnding } }))}>
+                      <div className="flex items-center gap-4">
+                        <div className={`p-2 rounded-xl transition-colors ${formData.notificationPrefs.favoriteEnding ? "bg-amber-100 text-amber-600" : "bg-slate-200 text-slate-400"}`}>
+                          <Heart className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="font-black text-slate-800 text-sm">المزادات المفضلة</p>
+                          <p className="text-xs text-slate-500 font-medium">عند اقتراب انتهاء مزاد أضفته للمفضلة</p>
+                        </div>
+                      </div>
+                      <div className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 ${formData.notificationPrefs.favoriteEnding ? "bg-amber-600" : "bg-slate-300"}`}>
+                        <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-300 ${formData.notificationPrefs.favoriteEnding ? "translate-x-6" : "translate-x-0"}`} />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 transition-all hover:bg-white group cursor-pointer" onClick={() => setFormData(prev => ({ ...prev, notificationPrefs: { ...prev.notificationPrefs, platformUpdates: !prev.notificationPrefs.platformUpdates } }))}>
+                      <div className="flex items-center gap-4">
+                        <div className={`p-2 rounded-xl transition-colors ${formData.notificationPrefs.platformUpdates ? "bg-emerald-100 text-emerald-600" : "bg-slate-200 text-slate-400"}`}>
+                          <Settings className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="font-black text-slate-800 text-sm">تحديثات المنصة</p>
+                          <p className="text-xs text-slate-500 font-medium">أخبار المزايد والميزات الجديدة</p>
+                        </div>
+                      </div>
+                      <div className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 ${formData.notificationPrefs.platformUpdates ? "bg-emerald-600" : "bg-slate-300"}`}>
+                        <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-300 ${formData.notificationPrefs.platformUpdates ? "translate-x-6" : "translate-x-0"}`} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Account Verification (KYC) */}
+                <div className="pt-10 border-t border-slate-100 mt-8">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center">
+                      <ShieldCheck className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-slate-800">توثيق الحساب (KYC)</h3>
+                      <p className="text-slate-500 text-sm">ارفع وثائق الهوية للحصول على شارة "بائع موثوق"</p>
+                    </div>
+                  </div>
+
+                  {verifyStatus === "verified" ? (
+                    <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-[2rem] flex flex-col items-center text-center">
+                      <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
+                        <FileCheck className="w-8 h-8 text-emerald-600" />
+                      </div>
+                      <h4 className="text-lg font-black text-emerald-800 mb-1">حسابك موثق بنجاح!</h4>
+                      <p className="text-emerald-600 text-sm font-medium">أنت الآن تحمل شارة "بائع موثوق" وتتمتع بثقة كاملة من المشترين.</p>
+                    </div>
+                  ) : verifyStatus === "pending" ? (
+                    <div className="bg-amber-50 border border-amber-100 p-6 rounded-[2rem] flex flex-col items-center text-center">
+                      <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
+                        <Loader2 className="w-8 h-8 text-amber-600 animate-spin" />
+                      </div>
+                      <h4 className="text-lg font-black text-amber-800 mb-1">طلبك قيد المراجعة</h4>
+                      <p className="text-amber-600 text-sm font-medium">يقوم فريقنا حالياً بمراجعة وثائقك، سيتم تحديث حالتك قريباً.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {verifyStatus === "rejected" && (
+                        <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex gap-3 text-rose-600">
+                          <AlertCircle className="w-5 h-5 shrink-0" />
+                          <div>
+                            <p className="text-sm font-bold">تم رفض طلبك السابق</p>
+                            <p className="text-xs font-medium opacity-80">{user?.verification?.rejectionReason || "الوثائق المرفوعة غير واضحة"}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="bg-slate-50 border border-slate-100 border-dashed p-8 rounded-[2rem] flex flex-col items-center">
+                        <input
+                          type="file"
+                          id="kyc-upload"
+                          multiple
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            if (e.target.files) {
+                              setVerificationFiles(Array.from(e.target.files));
+                            }
+                          }}
+                        />
+                        <label htmlFor="kyc-upload" className="cursor-pointer flex flex-col items-center">
+                          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-100 mb-4 group-hover:scale-110 transition-transform">
+                            <FileCode className="w-8 h-8 text-slate-400" />
+                          </div>
+                          <span className="text-sm font-black text-slate-800">اضغط هنا لرفع صور الهوية</span>
+                          <span className="text-xs text-slate-400 mt-1">البطاقة الموحدة أو جواز السفر (وجه وظهر)</span>
+                        </label>
+
+                        {verificationFiles.length > 0 && (
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {verificationFiles.map((file, idx) => (
+                              <div key={idx} className="bg-white px-3 py-1 rounded-lg text-[10px] font-bold text-slate-600 border border-slate-200">
+                                {file.name}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {verifyError && <p className="text-center text-rose-500 text-xs font-bold">{verifyError}</p>}
+                      {verifySuccess && <p className="text-center text-emerald-500 text-xs font-bold">{verifySuccess}</p>}
+
+                      <button
+                        onClick={handleVerifySubmit}
+                        disabled={uploadingVerify || verificationFiles.length === 0}
+                        className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors disabled:opacity-50"
+                      >
+                        {uploadingVerify ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldCheck className="w-5 h-5" />}
+                        {uploadingVerify ? "جاري الرفع..." : "تقديم الوثائق للتوثيق"}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-4 border-t border-slate-100 mt-6 flex justify-end">

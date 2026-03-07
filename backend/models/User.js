@@ -77,6 +77,18 @@ const userSchema = new mongoose.Schema(
         ref: "Auction",
       },
     ],
+    notificationPrefs: {
+      outbid: { type: Boolean, default: true },
+      favoriteEnding: { type: Boolean, default: true },
+      platformUpdates: { type: Boolean, default: true }
+    },
+    verification: {
+      status: { type: String, enum: ['none', 'pending', 'verified', 'rejected'], default: 'none' },
+      images: [{ type: String }],
+      submittedAt: { type: Date },
+      verifiedAt: { type: Date },
+      rejectionReason: { type: String }
+    }
   },
   { timestamps: true }
 

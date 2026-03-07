@@ -6,6 +6,11 @@ export const updateProfile = async (data: {
     governorate?: string;
     address?: string;
     zainCashNumber?: string;
+    notificationPrefs?: {
+        outbid?: boolean;
+        favoriteEnding?: boolean;
+        platformUpdates?: boolean;
+    };
 }) => {
     const res = await api.put("/users/me/profile", data);
     return res.data;
@@ -23,5 +28,14 @@ export const getMyFavorites = async () => {
 
 export const changePassword = async (data: any) => {
     const res = await api.put("/users/me/password", data);
+    return res.data;
+};
+
+export const submitVerification = async (formData: FormData) => {
+    const res = await api.post("/users/me/verify", formData, {
+        headers: {
+            "Content-Type": "multipart/form-data",
+        },
+    });
     return res.data;
 };

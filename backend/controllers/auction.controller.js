@@ -335,7 +335,7 @@ export const getMyAuctions = async (req, res) => {
     const auctions = await Auction.find({
       owner: req.user._id,
 
-    }).populate("owner", "name").sort({ createdAt: -1 });
+    }).populate("owner", "name verification").sort({ createdAt: -1 });
 
     res.json(auctions);
   } catch (err) {
@@ -350,7 +350,7 @@ export const getMyBids = async (req, res) => {
 
   const auctions = await Auction.find({
     _id: { $in: auctionIds },
-  }).populate("owner", "name");
+  }).populate("owner", "name verification");
 
   res.json(auctions);
 };
@@ -359,7 +359,7 @@ export const getWonAuctions = async (req, res) => {
   const auctions = await Auction.find({
     winner: req.user._id,
     status: { $in: ["ENDED"] },
-  }).populate("owner", "name").populate("seller", "name");
+  }).populate("owner", "name verification").populate("seller", "name");
 
   res.json(auctions);
 };
@@ -676,9 +676,9 @@ export const getHotAuctions = async (req, res) => {
 /* تفاصيل مزاد */
 export const getAuctionById = async (req, res) => {
   const auction = await Auction.findById(req.params.id)
-    .populate("seller", "name phone rating")
-    .populate("winner", "name phone rating")
-    .populate("owner", "name rating")
+    .populate("seller", "name phone rating verification")
+    .populate("winner", "name phone rating verification")
+    .populate("owner", "name rating verification")
     .populate({
       path: "deliveryOrder",
       populate: [
@@ -1135,8 +1135,8 @@ export const getMyArchivedAuctions = async (req, res) => {
     const total = await Auction.countDocuments(filter);
 
     let auctions = await Auction.find(filter)
-      .populate("owner", "name")
-      .populate("winner", "name")
+      .populate("owner", "name verification")
+      .populate("winner", "name verification")
       .sort({ endedAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -1187,8 +1187,8 @@ export const getMyOpenDeals = async (req, res) => {
 
     const total = await Auction.countDocuments(filter);
     const auctions = await Auction.find(filter)
-      .populate("owner", "name")
-      .populate("winner", "name")
+      .populate("owner", "name verification")
+      .populate("winner", "name verification")
       .populate({
         path: "deliveryOrder",
         populate: [{ path: "company", select: "name phone deliveryFee" }],

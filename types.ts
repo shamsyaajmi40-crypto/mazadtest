@@ -17,6 +17,10 @@ export type User = {
   heldBalance?: number;
   balance?: number;
   favorites?: string[];
+  verification?: {
+    status: 'none' | 'pending' | 'verified' | 'rejected';
+    rejectionReason?: string;
+  };
 };
 
 /* =======================
@@ -86,6 +90,9 @@ export type Auction = {
   | {
     _id: string;
     name?: string;
+    verification?: {
+      status: 'none' | 'pending' | 'verified' | 'rejected';
+    };
   };
   // 👇 متوافق مع كل الصفحات
   seller: string | User;

@@ -68,6 +68,12 @@ const userSchema = new mongoose.Schema(
       count: { type: Number, default: 0 },
     },
     isPlatform: { type: Boolean, default: false },
+    favorites: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Auction",
+      },
+    ],
   },
   { timestamps: true }
 

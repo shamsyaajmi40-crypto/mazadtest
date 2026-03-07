@@ -16,6 +16,7 @@ export type User = {
   createdAt?: string;
   heldBalance?: number;
   balance?: number;
+  favorites?: string[];
 };
 
 /* =======================

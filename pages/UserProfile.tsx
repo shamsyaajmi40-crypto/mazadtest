@@ -19,10 +19,11 @@ import {
   PackageCheck,
   Settings,
   Save,
+  Heart,
 } from "lucide-react";
 import { rateAuctionUser } from "../services/rating";
 import { getMyAuctions } from "../services/auction";
-import { updateProfile } from "../services/user";
+import { updateProfile, getMyFavorites } from "../services/user";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 const UserProfile = () => {
   const { user } = useContext(AuthContext);
@@ -31,20 +32,22 @@ const UserProfile = () => {
   const isOwnProfile = !id;
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const initialTab = (queryParams.get("tab") as "LISTINGS" | "BIDS" | "WINS" | "PENDING_COURIER" | "SETTINGS") || "LISTINGS";
+  const initialTab = (queryParams.get("tab") as "LISTINGS" | "BIDS" | "WINS" | "PENDING_COURIER" | "SETTINGS" | "FAVORITES") || "LISTINGS";
 
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] =
-    useState<"LISTINGS" | "BIDS" | "WINS" | "PENDING_COURIER" | "SETTINGS">(initialTab);
+    useState<"LISTINGS" | "BIDS" | "WINS" | "PENDING_COURIER" | "SETTINGS" | "FAVORITES">(initialTab);
 
   const [data, setData] = useState<{
     listings: Auction[];
     bids: Auction[];
     wins: Auction[];
+    favorites: Auction[];
   }>({
     listings: [],
     bids: [],
     wins: [],
+    favorites: [],
   });
 
   //
@@ -93,8 +96,9 @@ const UserProfile = () => {
         getMyBids(),
         getWonAuctions(),
         fetchMyBillingMe().catch((err) => { console.error("Billing err:", err); return null; }),
+        getMyFavorites().catch(() => []),
       ])
-        .then(([a, b, w, billing]) => {
+        .then(([a, b, w, billing, favs]) => {
           console.log("Logged In User:", user);
           console.log("Billing Data fetched:", billing);
           setProfileUser(user);
@@ -102,6 +106,7 @@ const UserProfile = () => {
             listings: a.data,
             bids: b.data,
             wins: w.data,
+            favorites: favs,
           });
           if (billing) setMyBilling(billing);
         })
@@ -380,6 +385,23 @@ const UserProfile = () => {
 
         {isOwnProfile && (
           <button
+            onClick={() => setActiveTab("FAVORITES")}
+            className={`shrink-0 snap-start px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all duration-300 ${activeTab === "FAVORITES"
+              ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 scale-100"
+              : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-100 scale-95 hover:scale-100"
+              }`}
+          >
+            <Heart className={`w-5 h-5 ${activeTab === "FAVORITES" ? "text-rose-400" : ""}`} />
+            المفضلة
+            <span className={`ml-1.5 px-2 py-0.5 rounded-lg text-xs font-black ${activeTab === "FAVORITES" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+              }`}>
+              {data.favorites.length}
+            </span>
+          </button>
+        )}
+
+        {isOwnProfile && (
+          <button
             onClick={() => setActiveTab("SETTINGS")}
             className={`shrink-0 snap-start px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all duration-300 ${activeTab === "SETTINGS"
               ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 scale-100"
@@ -453,6 +475,23 @@ const UserProfile = () => {
           )
         )}
 
+        {activeTab === "FAVORITES" && (
+          data.favorites.length > 0 ? (
+            data.favorites.map((a) => (
+              <AuctionCard key={a._id} auction={a} />
+            ))
+          ) : (
+            <div className="col-span-full flex flex-col items-center justify-center p-12 bg-white rounded-[2rem] border border-slate-100 border-dashed">
+              <div className="w-24 h-24 bg-rose-50 rounded-full flex items-center justify-center mb-4">
+                <Heart className="w-10 h-10 text-rose-300" />
+              </div>
+              <h3 className="text-xl font-black text-slate-800 mb-2">قائمة المفضلة فارغة</h3>
+              <p className="text-slate-500 text-center max-w-sm">
+                لم تقم بإضافة أي مزادات إلى قائمتك المفضلة حتى الآن. تصفح المزادات وضع علامة ❤️ على ما يثير اهتمامك.
+              </p>
+            </div>
+          )
+        )}
         {activeTab === "WINS" && (
           data.wins.length > 0 ? (
             data.wins.map((auction) => (
@@ -479,124 +518,129 @@ const UserProfile = () => {
               </p>
             </div>
           )
-        )}
+        )
+        }
 
-        {activeTab === "PENDING_COURIER" && (
-          pendingCourierAuctions.length > 0 ? (
-            pendingCourierAuctions.map((auction) => (
-              <div key={auction._id} className="relative group">
-                <AuctionCard auction={auction} />
+        {
+          activeTab === "PENDING_COURIER" && (
+            pendingCourierAuctions.length > 0 ? (
+              pendingCourierAuctions.map((auction) => (
+                <div key={auction._id} className="relative group">
+                  <AuctionCard auction={auction} />
 
-                <button
-                  className="absolute top-4 left-4 z-20 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors"
-                  onClick={() => navigate(`/auctions/${auction._id}`)}
-                >
-                  <PackageCheck className="w-4 h-4 text-white" />
-                  حدد شركة توصيل
-                </button>
+                  <button
+                    className="absolute top-4 left-4 z-20 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors"
+                    onClick={() => navigate(`/auctions/${auction._id}`)}
+                  >
+                    <PackageCheck className="w-4 h-4 text-white" />
+                    حدد شركة توصيل
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full flex flex-col items-center justify-center p-12 bg-white rounded-[2rem] border border-slate-100 border-dashed">
+                <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center mb-4">
+                  <PackageCheck className="w-10 h-10 text-indigo-300" />
+                </div>
+                <h3 className="text-xl font-black text-slate-800 mb-2">لا توجد طلبات توصيل معلقة</h3>
+                <p className="text-slate-500 text-center max-w-sm">
+                  رائع! جميع مزاداتك المباعة تم تحديد شركات التوصيل لها.
+                </p>
               </div>
-            ))
-          ) : (
-            <div className="col-span-full flex flex-col items-center justify-center p-12 bg-white rounded-[2rem] border border-slate-100 border-dashed">
-              <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center mb-4">
-                <PackageCheck className="w-10 h-10 text-indigo-300" />
+            )
+          )
+        }
+
+        {
+          activeTab === "SETTINGS" && isOwnProfile && (
+            <div className="col-span-full max-w-2xl mx-auto w-full bg-white rounded-[2rem] shadow-sm border border-slate-100 p-8">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center">
+                  <Settings className="w-6 h-6 text-slate-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-800">المعلومات الشخصية</h3>
+                  <p className="text-slate-500 text-sm">تحديث بيانات حسابك والتواصل الخاص بك</p>
+                </div>
               </div>
-              <h3 className="text-xl font-black text-slate-800 mb-2">لا توجد طلبات توصيل معلقة</h3>
-              <p className="text-slate-500 text-center max-w-sm">
-                رائع! جميع مزاداتك المباعة تم تحديد شركات التوصيل لها.
-              </p>
+
+              {settingsSuccess && (
+                <div className="bg-emerald-50 text-emerald-600 p-4 rounded-xl mb-6 font-bold text-sm border border-emerald-100 text-center">
+                  {settingsSuccess}
+                </div>
+              )}
+              {settingsError && (
+                <div className="bg-rose-50 text-rose-600 p-4 rounded-xl mb-6 font-bold text-sm border border-rose-100 text-center">
+                  {settingsError}
+                </div>
+              )}
+
+              <form onSubmit={handleUpdateSettings} className="space-y-5">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">الاسم الكامل</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white transition-colors outline-none font-medium"
+                    placeholder="اسمك الكامل"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">رقم الهاتف</label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white transition-colors outline-none font-medium text-left dir-ltr"
+                    placeholder="07XX XXX XXXX"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">المحافظة</label>
+                  <input
+                    type="text"
+                    value={formData.governorate}
+                    onChange={(e) => setFormData({ ...formData, governorate: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white transition-colors outline-none font-medium"
+                    placeholder="مثال: بغداد"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700">تفاصيل العنوان</label>
+                  <textarea
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white transition-colors outline-none font-medium min-h-[100px] resize-y"
+                    placeholder="المدينة، المنطقة، أقرب نقطة دالة، رقم المنزل المخصص لك لكي يسهل على شركة التوصيل استلام وتسليم البضائع..."
+                  />
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 mt-6 flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={submittingSettings}
+                    className="bg-slate-900 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  >
+                    {submittingSettings ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Save className="w-5 h-5" />
+                    )}
+                    {submittingSettings ? "جاري الحفظ..." : "حفظ التغييرات"}
+                  </button>
+                </div>
+              </form>
             </div>
           )
-        )}
-
-        {activeTab === "SETTINGS" && isOwnProfile && (
-          <div className="col-span-full max-w-2xl mx-auto w-full bg-white rounded-[2rem] shadow-sm border border-slate-100 p-8">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center">
-                <Settings className="w-6 h-6 text-slate-600" />
-              </div>
-              <div>
-                <h3 className="text-xl font-black text-slate-800">المعلومات الشخصية</h3>
-                <p className="text-slate-500 text-sm">تحديث بيانات حسابك والتواصل الخاص بك</p>
-              </div>
-            </div>
-
-            {settingsSuccess && (
-              <div className="bg-emerald-50 text-emerald-600 p-4 rounded-xl mb-6 font-bold text-sm border border-emerald-100 text-center">
-                {settingsSuccess}
-              </div>
-            )}
-            {settingsError && (
-              <div className="bg-rose-50 text-rose-600 p-4 rounded-xl mb-6 font-bold text-sm border border-rose-100 text-center">
-                {settingsError}
-              </div>
-            )}
-
-            <form onSubmit={handleUpdateSettings} className="space-y-5">
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700">الاسم الكامل</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white transition-colors outline-none font-medium"
-                  placeholder="اسمك الكامل"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700">رقم الهاتف</label>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white transition-colors outline-none font-medium text-left dir-ltr"
-                  placeholder="07XX XXX XXXX"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700">المحافظة</label>
-                <input
-                  type="text"
-                  value={formData.governorate}
-                  onChange={(e) => setFormData({ ...formData, governorate: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white transition-colors outline-none font-medium"
-                  placeholder="مثال: بغداد"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-slate-700">تفاصيل العنوان</label>
-                <textarea
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white transition-colors outline-none font-medium min-h-[100px] resize-y"
-                  placeholder="المدينة، المنطقة، أقرب نقطة دالة، رقم المنزل المخصص لك لكي يسهل على شركة التوصيل استلام وتسليم البضائع..."
-                />
-              </div>
-
-              <div className="pt-4 border-t border-slate-100 mt-6 flex justify-end">
-                <button
-                  type="submit"
-                  disabled={submittingSettings}
-                  className="bg-slate-900 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-800 transition-colors disabled:opacity-50"
-                >
-                  {submittingSettings ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <Save className="w-5 h-5" />
-                  )}
-                  {submittingSettings ? "جاري الحفظ..." : "حفظ التغييرات"}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-      </div>
-    </div>
+        }
+      </div >
+    </div >
   );
 };
 

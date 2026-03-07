@@ -1,11 +1,12 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Auction } from '../types';
-import { Clock, Tag, Image as ImageIcon } from 'lucide-react';
+import { Clock, Tag, Image as ImageIcon, Heart } from 'lucide-react';
 import { AUCTION_STATUS } from "../types";
 import { getImageUrl } from "@/utils/getImageUrl";
 import api from "../services/api";
+import { AuthContext } from '../context/AuthContext';
+import { toggleFavorite } from '../services/user';
 
 
 
@@ -80,6 +81,7 @@ const RatingStars = ({ value }: { value: number }) => {
 // ?¨?·?§?‚?© ?§?„?…?²?§?¯ ?„?¹?±?¶ ?…?¹?„?ˆ?…?§?? ?§?„?…?²?§?¯
 const AuctionCard: React.FC<{ auction: Auction; archived?: boolean; compact?: boolean }> = ({ auction, archived = false, compact = false }) => {
   const navigate = useNavigate();
+  const { user, setUser } = useContext(AuthContext);
   // ?­?§?„?© ?§?„?ˆ?‚?? ?§?„?…???¨?‚??
   // ?­?§?„?© ?§?†???‡?§?? ?§?„?…?²?§?¯
   const [isEnded, setIsEnded] = useState(false);
@@ -260,7 +262,27 @@ const AuctionCard: React.FC<{ auction: Auction; archived?: boolean; compact?: bo
     );
   };
 
+  const isFavorite = user?.favorites?.includes(auction._id);
+  const [togglingFav, setTogglingFav] = useState(false);
 
+  const handleToggleFavorite = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    if (togglingFav) return;
+
+    setTogglingFav(true);
+    try {
+      const res = await toggleFavorite(auction._id);
+      setUser(prev => prev ? { ...prev, favorites: res.favorites } : prev);
+    } catch (error) {
+      console.error("Failed to toggle favorite", error);
+    } finally {
+      setTogglingFav(false);
+    }
+  };
 
   return (
     <div
@@ -286,6 +308,19 @@ const AuctionCard: React.FC<{ auction: Auction; archived?: boolean; compact?: bo
           alt={auction.title}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         />
+
+        {user && !archived && (
+          <button
+            onClick={handleToggleFavorite}
+            disabled={togglingFav}
+            className={`absolute top-3 left-3 z-20 p-2 rounded-full shadow-md backdrop-blur-md transition-all duration-300 hover:scale-110 active:scale-95 ${isFavorite
+                ? "bg-white/90 text-rose-500 border border-rose-200"
+                : "bg-black/20 text-white hover:bg-white/90 hover:text-rose-500 border border-white/30"
+              }`}
+          >
+            <Heart className={`w-5 h-5 ${isFavorite ? "fill-rose-500" : ""}`} />
+          </button>
+        )}
 
         {/* Overlay gradient for bottom text readability */}
         <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none w-full z-0 text-center flex flex-col justify-end pb-2">

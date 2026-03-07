@@ -79,3 +79,47 @@ export const updateProfile = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// POST /api/users/me/favorites
+export const toggleFavorite = async (req, res) => {
+  try {
+    const { auctionId } = req.body;
+    if (!auctionId) return res.status(400).json({ message: "auctionId required" });
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    let isFavorite = false;
+    const index = user.favorites.indexOf(auctionId);
+
+    if (index === -1) {
+      user.favorites.push(auctionId);
+      isFavorite = true;
+    } else {
+      user.favorites.splice(index, 1);
+      isFavorite = false;
+    }
+
+    await user.save();
+    res.json({ message: "تم تحديث المفضلة", isFavorite, favorites: user.favorites });
+  } catch (err) {
+    res.status(500).json({ message: "خطأ بالخادم" });
+  }
+};
+
+// GET /api/users/me/favorites
+export const getFavorites = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).populate({
+      path: "favorites",
+      match: { isDeleted: false },
+      select: "title currentPrice images status endTime startingPrice"
+    });
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json(user.favorites || []);
+  } catch (err) {
+    res.status(500).json({ message: "خطأ بالخادم" });
+  }
+};

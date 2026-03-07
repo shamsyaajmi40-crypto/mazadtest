@@ -60,3 +60,7 @@ export const getCreateAuctionDepositPreview = async (startPrice: number | string
   });
   return res.data;
 };
+
+export const getPendingCourierAuctions = () => {
+  return api.get("/auctions/pending-courier");
+};

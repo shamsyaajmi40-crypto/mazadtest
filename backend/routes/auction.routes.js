@@ -7,6 +7,7 @@ import {
   getMyBids,
   getMyAuctions,
   getMyOpenDeals,
+  getPendingCourierAuctions,
 } from "../controllers/auction.controller.js";
 import { protect } from "../middleware/auth.js";
 import upload from "../middleware/upload.js";
@@ -21,6 +22,9 @@ const router = express.Router();
 
 // مزاداتي (أنا البائع)
 router.get("/my", protect, getMyAuctions);
+
+// مزادات تتطلب تحديد شركة توصيل (للبائع)
+router.get("/pending-courier", protect, getPendingCourierAuctions);
 
 // مزادات فزت بها
 router.get("/won", protect, getWonAuctions);

@@ -5,7 +5,7 @@ import { useContext, useState, useEffect, useRef } from "react";
 import { AuthContext } from "../context/AuthContext";
 import LoginModal from "./LoginModal";
 import { getAdminCounters } from "@/services/admin";
-import { getMyOpenDeals } from "@/services/auction";
+import { getMyOpenDeals, getPendingCourierAuctions } from "@/services/auction";
 import { getPendingRatings } from "@/services/rating";
 
 // عداد الإشعارات
@@ -36,6 +36,8 @@ export default function TopBar() {
   });
   const [pendingRatings, setPendingRatings] = useState(0);
   const [ratingBannerDismissed, setRatingBannerDismissed] = useState(false);
+  const [pendingCouriers, setPendingCouriers] = useState(0);
+  const [courierBannerDismissed, setCourierBannerDismissed] = useState(false);
 
   // إغلاق المودال والقوائم عند تغيير المسار
   useEffect(() => {
@@ -154,6 +156,18 @@ export default function TopBar() {
         .catch(() => setPendingRatings(0));
     fetch();
     // أعد التحقق عند كل تحديث للمستخدم (بعد تقييم)
+    window.addEventListener("focus", fetch);
+    return () => window.removeEventListener("focus", fetch);
+  }, [user]);
+
+  // جلب المزادات التي تحتاج لشركة توصيل (للبائع)
+  useEffect(() => {
+    if (!user) { setPendingCouriers(0); return; }
+    const fetch = () =>
+      getPendingCourierAuctions()
+        .then((res) => setPendingCouriers(res.data?.count ?? 0))
+        .catch(() => setPendingCouriers(0));
+    fetch();
     window.addEventListener("focus", fetch);
     return () => window.removeEventListener("focus", fetch);
   }, [user]);
@@ -327,6 +341,39 @@ export default function TopBar() {
           </div>
         </div>
       </header>
+
+      {/* ===== Courier Selection Reminder Banner ===== */}
+      {user && pendingCouriers > 0 && !courierBannerDismissed && (
+        <div className="sticky top-[4.5rem] z-40 animate-in slide-in-from-top-2 duration-300">
+          <div className="bg-gradient-to-l from-indigo-500 to-blue-500 text-white px-4 py-2.5 flex items-center justify-between gap-3 shadow-lg shadow-indigo-500/20">
+            <div className="flex items-center gap-2.5 flex-1">
+              <span className="relative flex h-2.5 w-2.5 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
+              </span>
+              <PackageCheck className="w-4 h-4 shrink-0" />
+              <span className="text-sm font-black">
+                لديك {pendingCouriers === 1 ? "طلب واحد" : `${pendingCouriers} طلبات`} بانتظار تحديد شركة التوصيل — اختر شركة التوصيل الآن لإتمام البيع!
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                to="/profile"
+                className="text-xs font-black bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg transition-colors border border-white/30"
+                onClick={() => setCourierBannerDismissed(true)}
+              >
+                إدارة الطلبات
+              </Link>
+              <button
+                onClick={() => setCourierBannerDismissed(true)}
+                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors border border-transparent hover:border-white/30"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ===== Rating Reminder Banner ===== */}
       {user && pendingRatings > 0 && !ratingBannerDismissed && (

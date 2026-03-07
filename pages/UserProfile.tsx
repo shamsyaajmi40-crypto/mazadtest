@@ -137,6 +137,7 @@ const UserProfile = () => {
     phone: "",
     governorate: "",
     address: "",
+    zainCashNumber: "",
   });
   const [submittingSettings, setSubmittingSettings] = useState(false);
   const [settingsSuccess, setSettingsSuccess] = useState("");
@@ -160,6 +161,7 @@ const UserProfile = () => {
         phone: user.phone || "",
         governorate: user.governorate || "",
         address: user.address || "",
+        zainCashNumber: (user as any).zainCashNumber || "",
       });
     }
   }, [user, isOwnProfile]);
@@ -661,6 +663,41 @@ const UserProfile = () => {
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white transition-colors outline-none font-medium min-h-[100px] resize-y"
                     placeholder="المدينة، المنطقة، أقرب نقطة دالة، رقم المنزل المخصص لك لكي يسهل على شركة التوصيل استلام وتسليم البضائع..."
                   />
+                </div>
+
+                <div className="pt-10 border-t border-slate-100 mt-8">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center">
+                      <Trophy className="w-6 h-6 text-emerald-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-slate-800">إعدادات الدفع والفوترة</h3>
+                      <p className="text-slate-500 text-sm">تحديد معلومات استلام المبالغ</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-50/50 border border-amber-100 p-4 rounded-2xl mb-6">
+                    <div className="flex gap-3">
+                      <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                      <p className="text-xs font-bold text-amber-800 leading-relaxed">
+                        نظام المزايد يعتمد الفوترة كوثيقة رسمية. جميع الحركات المالية والوصولات مسجلة في سجلاتنا لضمان حقوقك في حال حدوث أي نزاع.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700">رقم زين كاش الافتراضي (للاستلام)</label>
+                    <input
+                      type="tel"
+                      value={formData.zainCashNumber}
+                      onChange={(e) => setFormData({ ...formData, zainCashNumber: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white transition-colors outline-none font-medium text-left dir-ltr"
+                      placeholder="07XX XXX XXXX"
+                    />
+                    <p className="text-[10px] text-slate-400 font-bold mt-1">
+                      * سيتم استخدام هذا الرقم لإرسال مستحقاتك من المزادات المباعة تلقائياً.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="pt-4 border-t border-slate-100 mt-6 flex justify-end">

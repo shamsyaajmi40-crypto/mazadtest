@@ -50,6 +50,9 @@ const userSchema = new mongoose.Schema(
     address: {
       type: String,
     },
+    zainCashNumber: {
+      type: String,
+    },
     role: {
       type: String,
       enum: ["user", "admin", "superAdmin", "courier_staff", "courier_agent"],

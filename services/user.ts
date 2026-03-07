@@ -5,6 +5,7 @@ export const updateProfile = async (data: {
     phone?: string;
     governorate?: string;
     address?: string;
+    zainCashNumber?: string;
 }) => {
     const res = await api.put("/users/me/profile", data);
     return res.data;

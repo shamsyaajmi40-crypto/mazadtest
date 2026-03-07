@@ -165,6 +165,7 @@ console.log("✅ admin routes mounted at /api/admin");
 //   next();
 // });
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/courier", courierRoutes);
 app.set("io", io);
 app.set("trust proxy", 1);
 
@@ -188,7 +189,6 @@ app.use((err, req, res, next) => {
 app.get("/", (req, res) => {
   res.json({ message: "Mazad API running" });
 });
-app.use("/api/courier", courierRoutes);
 /* ======================
    Start Server (CORRECT)
 ====================== */

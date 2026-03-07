@@ -568,7 +568,7 @@ export const markCodPaidToSeller = async (req, res) => {
     // 🔄 إعادة عربون المشتري
     if (auction.winner && auction.depositAmount > 0) {
       const buyerUpdate = await User.updateOne(
-        { _id: auction.winner },
+        { _id: auction.winner, heldBalance: { $gte: Number(auction.depositAmount || 0) } },
         {
           $inc: {
             balance: auction.depositAmount,
@@ -616,7 +616,7 @@ export const markCodPaidToSeller = async (req, res) => {
     // 🔄 إعادة عربون البائع
     if (auction.seller && auction.sellerDeposit > 0) {
       const sellerUpdate = await User.updateOne(
-        { _id: auction.seller },
+        { _id: auction.seller, heldBalance: { $gte: Number(auction.sellerDeposit || 0) } },
         {
           $inc: {
             balance: auction.sellerDeposit,

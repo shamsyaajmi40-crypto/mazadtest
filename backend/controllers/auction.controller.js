@@ -117,7 +117,7 @@ export const createAuction = async (req, res) => {
 
     // 🔐 حجز عربون البائع (atomic)
     const updated = await User.updateOne(
-      { _id: sellerId },
+      { _id: sellerId, balance: { $gte: Number(sellerDeposit) } },
       { $inc: { balance: -sellerDeposit, heldBalance: sellerDeposit } }
     );
 
@@ -1286,12 +1286,13 @@ export const disputeAuction = async (req, res) => {
 
 
 export const featureAuction = async (req, res) => {
+  const session = await mongoose.startSession();
+
   try {
     const { id } = req.params;
     const { duration } = req.body;
     const userId = req.user._id.toString();
 
-    // 1. Validation
     const validDurations = {
       "1d": { ms: 24 * 60 * 60 * 1000, price: 3000, priority: 1 },
       "3d": { ms: 3 * 24 * 60 * 60 * 1000, price: 7000, priority: 2 },
@@ -1299,103 +1300,137 @@ export const featureAuction = async (req, res) => {
     };
 
     if (!validDurations[duration]) {
-      return res.status(400).json({ message: "مدة التمييز غير صالحة." });
+      return res.status(400).json({ message: "Invalid feature duration." });
     }
 
     const tier = validDurations[duration];
+    let responsePayload = null;
 
-    // 2. Fetch Auction & User
-    const [auction, user, basePlatformUser] = await Promise.all([
-      Auction.findById(id),
-      User.findById(userId),
-      process.env.PLATFORM_USER_ID ? User.findById(process.env.PLATFORM_USER_ID) : null
-    ]);
+    await session.withTransaction(async () => {
+      const [auction, basePlatformUser] = await Promise.all([
+        Auction.findById(id).session(session),
+        process.env.PLATFORM_USER_ID
+          ? User.findById(process.env.PLATFORM_USER_ID).session(session)
+          : null,
+      ]);
 
-    if (!auction) return res.status(404).json({ message: "المزاد غير موجود." });
-    if (auction.owner.toString() !== userId) return res.status(403).json({ message: "غير مصرح لك بتمييز هذا المزاد." });
-    if (auction.status !== "active" && auction.status !== "pending" && auction.status !== "upcoming") {
-      return res.status(400).json({ message: "لا يمكن تمييز مزاد منتهي أو ملغى." });
-    }
+      if (!auction) {
+        const err = new Error("Auction not found.");
+        err.status = 404;
+        throw err;
+      }
 
-    // 3. User Limit Check (Max 5 active featured auctions)
-    const activeFeaturedCount = await Auction.countDocuments({
-      owner: userId,
-      isFeatured: true,
-      featuredUntil: { $gt: new Date() },
-      _id: { $ne: auction._id } // Exclude this one if extending
+      if (auction.owner.toString() !== userId) {
+        const err = new Error("You are not allowed to feature this auction.");
+        err.status = 403;
+        throw err;
+      }
+
+      if (!["active", "pending", "upcoming"].includes(auction.status)) {
+        const err = new Error("Only active/pending/upcoming auctions can be featured.");
+        err.status = 400;
+        throw err;
+      }
+
+      const activeFeaturedCount = await Auction.countDocuments({
+        owner: userId,
+        isFeatured: true,
+        featuredUntil: { $gt: new Date() },
+        _id: { $ne: auction._id },
+      }).session(session);
+
+      if (activeFeaturedCount >= 5) {
+        const err = new Error("Maximum 5 featured auctions allowed at the same time.");
+        err.status = 400;
+        throw err;
+      }
+
+      const debitResult = await User.updateOne(
+        { _id: userId, balance: { $gte: tier.price } },
+        { $inc: { balance: -tier.price } },
+        { session }
+      );
+
+      if (debitResult.modifiedCount === 0) {
+        const err = new Error("Insufficient balance for featuring.");
+        err.status = 400;
+        throw err;
+      }
+
+      if (basePlatformUser) {
+        await User.updateOne(
+          { _id: basePlatformUser._id },
+          { $inc: { balance: tier.price } },
+          { session }
+        );
+      }
+
+      const now = new Date();
+      const currentExpiry = auction.featuredUntil && auction.featuredUntil > now
+        ? auction.featuredUntil
+        : now;
+      const newExpiry = new Date(currentExpiry.getTime() + tier.ms);
+
+      auction.isFeatured = true;
+      auction.featuredUntil = newExpiry;
+      auction.featuredPriority = Math.max(auction.featuredPriority || 0, tier.priority);
+      await auction.save({ session });
+
+      const receiptId = generateReceiptId();
+      const signData = {
+        type: "FEATURE_AUCTION_PAYMENT",
+        user: String(userId),
+        amountIQD: tier.price,
+        receiptId,
+      };
+      const signature = signReceipt(signData);
+
+      await AuditLog.create([
+        {
+          action: "FEATURE_AUCTION_PAYMENT",
+          user: userId,
+          auction: auction._id,
+          amount: tier.price,
+          reason: "Feature auction payment for duration " + duration,
+          by: "USER",
+          receiptId,
+        },
+      ], { session });
+
+      await FinanceLog.create([
+        {
+          user: userId,
+          type: "FEATURE_AUCTION_PAYMENT",
+          amountIQD: tier.price,
+          refModel: "Auction",
+          refId: auction._id,
+          receiptId,
+          meta: {
+            duration,
+            featuredUntil: newExpiry,
+            platformUserId: basePlatformUser?._id || null,
+            note: 'Featured auction "' + auction.title + '" for ' + duration,
+            signature,
+          },
+        },
+      ], { session });
+
+      responsePayload = {
+        message: "Auction featured successfully.",
+        featuredUntil: newExpiry,
+      };
     });
 
-    if (activeFeaturedCount >= 5) {
-      return res.status(400).json({ message: "لقد وصلت للحد الأقصى (5 مزادات مميزة في نفس الوقت)." });
-    }
-
-    // 4. Financial Check & Deduction
-    if (user.balance < tier.price) {
-      return res.status(400).json({ message: "رصيدك غير كافٍ لعملية التمييز." });
-    }
-
-    // Deduct from user
-    await User.updateOne({ _id: userId }, { $inc: { balance: -tier.price } });
-
-    // Add to Platform User
-    if (basePlatformUser) {
-      await User.updateOne({ _id: basePlatformUser._id }, { $inc: { balance: tier.price } });
-    }
-
-    // 5. Update Auction
-    const now = new Date();
-    // If it's already featured and active, extend the time. Otherwise, start from now.
-    let currentExpiry = auction.featuredUntil && auction.featuredUntil > now ? auction.featuredUntil : now;
-
-    // Explicitly set isFeatured true, add MS duration
-    const newExpiry = new Date(currentExpiry.getTime() + tier.ms);
-
-    auction.isFeatured = true;
-    auction.featuredUntil = newExpiry;
-    auction.featuredPriority = Math.max(auction.featuredPriority || 0, tier.priority);
-
-    await auction.save();
-
-    // 6. Audit Logging & Digital Signature
-    const receiptId = generateReceiptId();
-    const signData = { type: "FEATURE_AUCTION_PAYMENT", user: String(userId), amountIQD: tier.price, receiptId };
-    const signature = signReceipt(signData);
-
-    await AuditLog.create({
-      action: "FEATURE_AUCTION_PAYMENT",
-      user: userId,
-      auction: auction._id,
-      amount: tier.price,
-      reason: `دفع تكلفة تمييز مزاد لمدة ${duration}`,
-      by: "USER",
-      receiptId,
-    });
-
-    // 7. Finance Log (for financial reports)
-    await FinanceLog.create({
-      user: userId,
-      type: "FEATURE_AUCTION_PAYMENT",
-      amountIQD: tier.price,
-      refModel: "Auction",
-      refId: auction._id,
-      receiptId,
-      meta: {
-        duration,
-        featuredUntil: auction.featuredUntil,
-        platformUserId: basePlatformUser?._id || null,
-        note: `تمييز مزاد "${auction.title}" لمدة ${duration}`,
-        signature,
-      },
-    });
-
-    res.json({ message: "تم تمييز المزاد بنجاح!", featuredUntil: auction.featuredUntil });
+    return res.json(responsePayload);
   } catch (err) {
     console.error("featureAuction error:", err);
-    res.status(500).json({ message: "فشل في عملية التمييز." });
+    const status = Number(err?.status) || 500;
+    const message = status >= 500 ? "Failed to feature auction." : err.message;
+    return res.status(status).json({ message });
+  } finally {
+    session.endSession();
   }
 };
-
-// جلب المزادات المميزة (Featured Auctions)
 export const getFeaturedAuctions = async (req, res) => {
   try {
     const now = new Date();

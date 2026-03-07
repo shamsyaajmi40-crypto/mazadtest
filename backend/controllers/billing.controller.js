@@ -2,56 +2,6 @@ import Plan from "../models/Plan.js";
 import Subscription from "../models/Subscription.js";
 import User from "../models/User.js";
 import SubscriptionRequest from "../models/SubscriptionRequest.js";
-import { uploadToR2 } from "../utils/r2.js";
-
-export const createUpgradeRequest = async (req, res) => {
-  try {
-    const { planCode, accountType } = req.body;
-    if (!planCode) return res.status(400).json({ message: "planCode مطلوب" });
-
-    const plan = await Plan.findOne({ code: planCode, isActive: true });
-    if (!plan) return res.status(404).json({ message: "الباقة غير موجودة" });
-
-    // لازم صورة
-    let receipt = null;
-    if (req.file) {
-      try {
-        receipt = await uploadToR2(req.file);
-      } catch (err) {
-        console.error("Failed to upload receipt to R2:", err);
-        return res.status(500).json({ message: "Failed to upload receipt image" });
-      }
-    }
-    if (!receipt) return res.status(400).json({ message: "صورة الوصل مطلوبة" });
-
-    // منع تكرار طلبات pending لنفس المستخدم
-    const existingPending = await SubscriptionRequest.findOne({
-      user: req.user._id,
-      status: "pending",
-    }).select("_id");
-
-    if (existingPending) {
-      return res.status(409).json({ message: "لديك طلب ترقية قيد المعالجة بالفعل" });
-    }
-
-    // (اختياري) نخزن accountType داخل user الآن أو بعد الموافقة
-    // الأفضل نخليه بعد الموافقة — لكن إذا تحب الآن:
-    // if (accountType) await User.updateOne({ _id: req.user._id }, { $set: { accountType } });
-
-    const request = await SubscriptionRequest.create({
-      user: req.user._id,
-      plan: plan._id,
-      receiptImage: receipt,
-      status: "pending",
-    });
-
-    const populated = await request.populate("plan", "code name priceIQD audience");
-    return res.status(201).json({ message: "تم إرسال طلب الترقية وهو قيد المعالجة", request: populated });
-  } catch (err) {
-    console.error("createUpgradeRequest error:", err);
-    return res.status(500).json({ message: "Failed to create upgrade request" });
-  }
-};
 const addOneMonth = (date) => {
   const d = new Date(date);
   d.setMonth(d.getMonth() + 1);

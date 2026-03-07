@@ -10,7 +10,7 @@ import {
   getPendingCourierAuctions,
 } from "../controllers/auction.controller.js";
 import { protect } from "../middleware/auth.js";
-import upload from "../middleware/upload.js";
+import { auctionImageUpload } from "../middleware/upload.js";
 import { placeBid, getMyArchivedAuctions, disputeAuction, featureAuction, getFeaturedAuctions } from "../controllers/auction.controller.js";
 import { bidLimiter } from "../middleware/rateLimit.js";
 import { getArchivedAuctions, getUpcomingAuctions } from "../controllers/auction.controller.js";
@@ -41,7 +41,7 @@ router.get("/upcoming", getUpcomingAuctions);
 router.post(
   "/",
   protect,
-  upload.array("images", 10),
+  auctionImageUpload.array("images", 6),
   canCreateAuction,
   createAuction
 );

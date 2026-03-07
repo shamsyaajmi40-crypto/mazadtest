@@ -1,20 +1,66 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Mazad (Frontend + Backend)
 
-# Run and deploy your AI Studio app
+This repository contains:
+- A Vite + React frontend in the project root
+- An Express + MongoDB backend in `backend/`
 
-This contains everything you need to run your app locally.
+## Prerequisites
 
-View your app in AI Studio: https://ai.studio/apps/drive/1QkoghLFUQj3NT_TOaCX1nzVhrn8Vm9ZL
+- Node.js 18+
+- npm
+- MongoDB instance
+
+## Install
+
+1. Install frontend dependencies:
+   ```bash
+   npm install
+   ```
+2. Install backend dependencies:
+   ```bash
+   cd backend
+   npm install
+   ```
+
+## Environment Variables
+
+### Frontend (`.env` in project root)
+
+Required:
+- `VITE_API_URL` (example: `http://localhost:5000`)
+
+### Backend (`backend/.env`)
+
+Required (minimum):
+- `MONGO_URI`
+- `JWT_SECRET`
+- `FRONTEND_URL`
+- `PORT` (optional fallback exists, defaults to `5000`)
+
+Optional feature-specific keys:
+- Cloudflare R2: `R2_ENDPOINT`, `R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_BUCKET`, `R2_PUBLIC_URL`
+- Email: `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_SECURE`, `EMAIL_USER`, `EMAIL_PASS`, `EMAIL_FROM`
+- Payments/ZainCash and redirects: `ZC_*`, `FRONTEND_*_URL`, `BACKEND_URL`
+- Financial platform account: `PLATFORM_USER_ID`
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
+Run backend (terminal 1):
+```bash
+cd backend
+npm run dev
+```
 
+Run frontend (terminal 2):
+```bash
+npm run dev
+```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Syntax Check Utility
+
+To check backend JavaScript syntax quickly:
+```bash
+node check-syntax.js
+```
+
+This script scans `backend/` recursively (excluding `node_modules`, `.git`, and `dist`) and reports syntax errors.

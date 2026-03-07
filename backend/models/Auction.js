@@ -152,11 +152,6 @@ const auctionSchema = new mongoose.Schema(
     rejectionReasons: [String], // قائمة الأسباب المختارة
     rejectionNote: { type: String, default: null }, // ملاحظة إضافية من الأدمن
     rejectedAt: { type: Date, default: null }, // تاريخ الرفض (للتنظيف التلقائي)
-
-    // ميزة تمييز المزاد (Featured Auctions)
-    isFeatured: { type: Boolean, default: false },
-    featuredUntil: { type: Date, default: null },
-    featuredPriority: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

@@ -675,84 +675,90 @@ export const getHotAuctions = async (req, res) => {
 
 /* تفاصيل مزاد */
 export const getAuctionById = async (req, res) => {
-  const auction = await Auction.findById(req.params.id)
-    .populate("seller", "name phone rating verification")
-    .populate("winner", "name phone rating verification")
-    .populate("owner", "name rating verification")
-    .populate({
-      path: "deliveryOrder",
-      populate: [
-        { path: "company", select: "name phone deliveryFee" },
-        { path: "agentUser", select: "name phone" },
-      ],
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid auction ID" });
+    }
+
+    const auction = await Auction.findById(id)
+      .populate("seller", "name phone rating verification")
+      .populate("winner", "name phone rating verification")
+      .populate("owner", "name rating verification")
+      .populate({
+        path: "deliveryOrder",
+        populate: [
+          { path: "company", select: "name phone deliveryFee" },
+          { path: "agentUser", select: "name phone" },
+        ],
+      });
+
+    if (!auction) {
+      return res.status(404).json({ message: "Auction not found" });
+    }
+
+    const bids = await Bid.find({ auction: auction._id })
+      .populate("bidder", "name rating")
+      .sort({ amount: -1 })
+      .lean();
+
+    const maskedBids = bids.map((b, i) => ({
+      amount: b.amount,
+      bidder: b.bidder,
+      createdAt: b.createdAt,
+    }));
+
+    const isWinnerForPhone =
+      auction.status === "ENDED" &&
+      auction.winner &&
+      req.user &&
+      String(auction.winner._id || auction.winner) === String(req.user._id);
+
+    const sellerData = {
+      _id: auction.seller._id,
+      name: auction.seller.name,
+    };
+
+    // إظهار هاتف البائع فقط للفائز بعد انتهاء المزاد
+    if (isWinnerForPhone) {
+      sellerData.phone = auction.seller.phone;
+    }
+
+    // ✅ OTP visibility (Courier Mode) — يظهر فقط لصاحبه
+    const userId = req.user?._id?.toString();
+
+    const isWinner =
+      userId &&
+      auction.winner &&
+      String(auction.winner._id || auction.winner) === userId;
+
+    const isSeller =
+      userId &&
+      auction.seller &&
+      String(auction.seller._id || auction.seller) === userId;
+
+    const auctionObj = auction.toObject();
+
+    if (auctionObj.deliveryMode === "courier") {
+      auctionObj.deliveryOtpCode = isWinner ? auctionObj.deliveryOtpCode : null;
+      auctionObj.payoutOtpCode = isSeller ? auctionObj.payoutOtpCode : null;
+    } else {
+      // احتياط: لا نعرض OTP بأي حال لو مو courier
+      auctionObj.deliveryOtpCode = null;
+      auctionObj.payoutOtpCode = null;
+    }
+
+    return res.json({
+      auction: {
+        ...auctionObj,
+        seller: sellerData,
+      },
+      bids: maskedBids,
     });
-
-
-  if (!auction) {
-    return res.status(404).json({ message: "Auction not found" });
+  } catch (err) {
+    console.error("getAuctionById error:", err);
+    return res.status(500).json({ message: "Failed to fetch auction details" });
   }
-
-  const bids = await Bid.find({ auction: auction._id })
-    .populate("bidder", "name rating")
-    .sort({ amount: -1 })
-    .lean();
-
-  const maskedBids = bids.map((b, i) => ({
-    amount: b.amount,
-    bidder: b.bidder,
-    createdAt: b.createdAt,
-  }));
-
-  const isWinnerForPhone =
-    auction.status === "ENDED" &&
-    auction.winner &&
-    req.user &&
-    String(auction.winner._id || auction.winner) === String(req.user._id);
-
-  const sellerData = {
-    _id: auction.seller._id,
-    name: auction.seller.name,
-  };
-
-  // إظهار هاتف البائع فقط للفائز بعد انتهاء المزاد
-  if (isWinnerForPhone) {
-    sellerData.phone = auction.seller.phone;
-  }
-
-  // ✅ OTP visibility (Courier Mode) — يظهر فقط لصاحبه
-  const userId = req.user?._id?.toString();
-
-  const isWinner =
-    userId &&
-    auction.winner &&
-    String(auction.winner._id || auction.winner) === userId;
-
-  const isSeller =
-    userId &&
-    auction.seller &&
-    String(auction.seller._id || auction.seller) === userId;
-
-  const auctionObj = auction.toObject();
-
-  if (auctionObj.deliveryMode === "courier") {
-    auctionObj.deliveryOtpCode = isWinner ? auctionObj.deliveryOtpCode : null;
-    auctionObj.payoutOtpCode = isSeller ? auctionObj.payoutOtpCode : null;
-  } else {
-    // احتياط: لا نعرض OTP بأي حال لو مو courier
-    auctionObj.deliveryOtpCode = null;
-    auctionObj.payoutOtpCode = null;
-  }
-
-  res.json({
-    auction: {
-      ...auctionObj,
-      seller: sellerData,
-    },
-    bids: maskedBids,
-  });
-
-
-
 };
 // حذف مزاد (soft delete)
 export const deleteAuction = async (req, res) => {

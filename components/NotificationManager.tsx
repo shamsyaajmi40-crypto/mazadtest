@@ -8,6 +8,17 @@ import { io, Socket } from "socket.io-client";
 import { toast } from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 
+const getAuctionId = (auctionRef: any): string | null => {
+  if (!auctionRef) return null;
+  const value =
+    typeof auctionRef === "string"
+      ? auctionRef
+      : typeof auctionRef === "object" && auctionRef._id
+        ? String(auctionRef._id)
+        : null;
+  return value && /^[a-fA-F0-9]{24}$/.test(value) ? value : null;
+};
+
 const NotificationManager = () => {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -37,9 +48,9 @@ const NotificationManager = () => {
 
       // ✅ منع ظهور التوست إذا كنا داخل نفس المزاد (لتجنب التكرار مع توست المزايدة المحلي)
       if (notification.event === "OUTBID" && notification.auction) {
-        const auctionId = typeof notification.auction === "string" ? notification.auction : notification.auction._id;
+        const auctionId = getAuctionId(notification.auction);
         // Since we use HashRouter, the URL looks like /#/auction/:id
-        if (window.location.hash.includes(`/auction/${auctionId}`)) {
+        if (auctionId && window.location.hash.includes(`/auction/${auctionId}`)) {
           return; // أضفناه للقائمة للقراءة لاحقاً، لكن لا تظهر التوست الآن
         }
       }
@@ -144,10 +155,13 @@ const NotificationManager = () => {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  const markAsRead = async (id: string, auctionId: string) => {
+  const markAsRead = async (id: string, auctionRef: any) => {
     await api.post(`/notifications/${id}/read`);
     setOpen(false);
-    navigate(`/auction/${auctionId}`);
+    const auctionId = getAuctionId(auctionRef);
+    if (auctionId) {
+      navigate(`/auction/${auctionId}`);
+    }
   };
 
   return (
@@ -254,7 +268,7 @@ const NotificationManager = () => {
                         visible: { opacity: 1, x: 0 },
                       }}
                       whileHover={{ scale: 1.01, backgroundColor: "rgb(248 250 252)" }} // hover:bg-slate-50 equivalent
-                      onClick={() => markAsRead(n._id, n.auction?._id)}
+                      onClick={() => markAsRead(n._id, n.auction)}
                       className={`flex gap-4 p-4 cursor-pointer border-b border-slate-50 transition-colors
                     ${n.isRead ? "bg-white" : "bg-primary/5"}
                   `}
@@ -297,3 +311,4 @@ const NotificationManager = () => {
 };
 
 export default NotificationManager;
+

@@ -103,7 +103,8 @@ io.use(async (socket, next) => {
 });
 
 io.on("connection", (socket) => {
-  console.log(`🔌 Socket connected: ${socket.id} (User: ${socket.user?._id})`);
+  const count = io.engine.clientsCount;
+  console.log(`🔌 [Connected] ID: ${socket.id} | User: ${socket.user?._id} | Total Active: ${count}`);
 
   socket.on("auction:join", (auctionId) => {
     socket.join(auctionId);
@@ -118,9 +119,6 @@ io.on("connection", (socket) => {
       console.warn(`⚠️ User ${socket.user._id} tried to join unauthorized room ${userId}`);
     }
   });
-  setInterval(() => {
-    console.log("Sockets:", io.engine.clientsCount);
-  }, 10000)
   // غرفة خاصة بالأدمن لتلقي التحديثات والإشعارات العامة
   socket.on("admin:join", () => {
     if (["admin", "superAdmin"].includes(socket.user.role)) {
@@ -129,11 +127,14 @@ io.on("connection", (socket) => {
       console.warn(`⚠️ User ${socket.user._id} tried to join admin_room without permission`);
     }
   });
+
   socket.conn.on("close", (reason) => {
     console.log("Socket closed:", reason);
   });
+
   socket.on("disconnect", () => {
-    console.log(`🔌 Socket disconnected: ${socket.id}`);
+    const count = io.engine.clientsCount;
+    console.log(`🔌 [Disconnected] ID: ${socket.id} | Total Active: ${count}`);
   });
 });
 

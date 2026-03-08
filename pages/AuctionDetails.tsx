@@ -20,6 +20,7 @@ import api from "../services/api";
 import { io, Socket } from "socket.io-client";
 
 import TermsModal from "../components/TermsModal";
+import { useSocket } from "../context/SocketContext";
 import { canUserRate } from "../utils/canUserRate";
 
 import RelatedAuctions from '../components/RelatedAuctions';
@@ -116,7 +117,7 @@ const AuctionDetails = () => {
     count: number;
   } | null>(null);
   const [bidCooldown, setBidCooldown] = useState<number>(0);
-  const [socketConnected, setSocketConnected] = useState(false);
+  const { socket, isConnected: globalSocketConnected } = useSocket();
   const optimisticBidRef = useRef<number | null>(null);
   const auctionRef = useRef<Auction | null>(null);
   const [courierCompanies, setCourierCompanies] = useState<{ _id: string; name: string; phone?: string; deliveryFee?: number; coverage?: any[]; branches?: { governorate: string; name: string; address: string }[] }[]>([]);
@@ -404,7 +405,7 @@ const AuctionDetails = () => {
     let interval: NodeJS.Timeout | null = null;
 
     if (optimisticBid === null) {
-      const POLL_INTERVAL = socketConnected ? 30000 : 15000;
+      const POLL_INTERVAL = globalSocketConnected ? 30000 : 15000;
 
       interval = setInterval(refreshAuction, POLL_INTERVAL);
     }
@@ -413,7 +414,7 @@ const AuctionDetails = () => {
       if (interval) clearInterval(interval);
       clearInterval(timer);
     };
-  }, [id, optimisticBid, socketConnected]);
+  }, [id, optimisticBid, globalSocketConnected]);
 
   useEffect(() => {
     if (!auction?.owner) return;
@@ -605,9 +606,6 @@ const AuctionDetails = () => {
   }, []);
 
 
-  //ويب سوكت 
-  const socketRef = useRef<Socket | null>(null);
-
   // --- نظام الأصوات ---
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem("mazad_muted") === "true");
   const soundsRef = useRef<{ [key: string]: HTMLAudioElement }>({});
@@ -648,40 +646,20 @@ const AuctionDetails = () => {
   };
   //ويب سوكيت
   useEffect(() => {
-    if (!id) return;
+    if (!id || !socket || !globalSocketConnected) return;
 
-    socketRef.current = io(import.meta.env.VITE_API_URL || "http://localhost:5000", {
-      transports: ["websocket", "polling"],
-
-      withCredentials: true,
-
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-    });
-
-    socketRef.current.on("connect", () => {
-      console.log("🟢 WS connected");
-      setSocketConnected(true);
-      socketRef.current?.emit("auction:join", id);
-    });
-
-    socketRef.current.on("disconnect", (reason) => {
-      console.log("🔴 WS disconnected:", reason);
-      setSocketConnected(false);
-    });
+    console.log("🟢 Joining auction room:", id);
+    socket.emit("auction:join", id);
 
     return () => {
-      socketRef.current?.disconnect();
-      socketRef.current = null;
+      console.log("🟡 Leaving auction room:", id);
+      socket.emit("auction:leave", id);
     };
-  }, [id]);
+  }, [id, socket, globalSocketConnected]);
 
   //Listener ويب سوكيت
   useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket || !socketConnected) return;
+    if (!socket || !globalSocketConnected) return;
 
     const handleBidNew = (data: { auction: Auction; bids?: Bid[] }) => {
       // إذا الباكند ما بعث bids، خذ auction فقط وخلِّ polling/refresh يجيب bids
@@ -774,7 +752,7 @@ const AuctionDetails = () => {
     return () => {
       socket.off("bid:new", handleBidNew);
     };
-  }, [socketConnected]);
+  }, [socket, globalSocketConnected]);
   if (loading || !auction) {
     return (
       <div className="min-h-screen flex items-center justify-center">

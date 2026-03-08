@@ -1,10 +1,9 @@
 import { Bell, Trophy, XCircle, CheckCircle, Info, AlertTriangle } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useContext } from "react";
 import api from "../services/api";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
-import { io, Socket } from "socket.io-client";
+import { useSocket } from "../context/SocketContext";
 import { toast } from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -25,10 +24,11 @@ const NotificationManager = () => {
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useContext(AuthContext);
+  const { socket, isConnected } = useSocket();
+
   const fetchNotifications = async () => {
-
     try {
-
       const res = await api.get("/notifications");
       setNotifications(res.data);
     } catch (err) {
@@ -36,22 +36,20 @@ const NotificationManager = () => {
     }
   };
 
-  const { user, loading } = useContext(AuthContext);
-
   // Socket.io Real-time connection
   useEffect(() => {
-    let socket: Socket | null = null;
+    if (!socket || !isConnected || !user) return;
+
     let isMounted = true;
-    let handleNotification = (notification: any) => {
+    const handleNotification = (notification: any) => {
       if (!isMounted) return;
       setNotifications((prev) => [notification, ...prev]);
 
       // ✅ منع ظهور التوست إذا كنا داخل نفس المزاد (لتجنب التكرار مع توست المزايدة المحلي)
       if (notification.event === "OUTBID" && notification.auction) {
         const auctionId = getAuctionId(notification.auction);
-        // Since we use HashRouter, the URL looks like /#/auction/:id
         if (auctionId && window.location.hash.includes(`/auction/${auctionId}`)) {
-          return; // أضفناه للقائمة للقراءة لاحقاً، لكن لا تظهر التوست الآن
+          return;
         }
       }
 
@@ -72,7 +70,7 @@ const NotificationManager = () => {
                     {notification.title || "إشعار جديد"}
                   </p>
                   <p className="mt-1 text-sm text-gray-500">
-                    {String(notification.message).replace(/<[^>]*>?/gm, '')}
+                    {String(notification.message).replace(/<[^>]*>?/gm, "")}
                   </p>
                 </div>
               </div>
@@ -91,48 +89,22 @@ const NotificationManager = () => {
       );
     };
 
-    if (user) {
-      // Initialize Socket connection
-      socket = io(import.meta.env.VITE_API_URL, {
-        transports: ["websocket"],
-        withCredentials: true,
-      });
-
-      // Join the user's specific room
-      socket.emit("user:join", user._id);
-
-      // Listen for incoming notifications
-      socket.on("new_notification", handleNotification);
-    }
+    socket.on("new_notification", handleNotification);
 
     return () => {
       isMounted = false;
-      if (socket) {
-        socket.off("new_notification", handleNotification);
-        socket.disconnect();
-      }
+      socket.off("new_notification", handleNotification);
     };
-  }, [user]);
+  }, [socket, isConnected, user]);
 
-  // تعليم جميع الإشعارات كمقروءة
   const markAllAsRead = async () => {
     const unread = notifications.filter((n) => !n.isRead);
-
     if (unread.length === 0) return;
 
-    await Promise.all(
-      unread.map((n) =>
-        api.post(`/notifications/${n._id}/read`)
-      )
-    );
+    await Promise.all(unread.map((n) => api.post(`/notifications/${n._id}/read`)));
 
-    // تحديث الواجهة فورًا
-    setNotifications((prev) =>
-      prev.map((n) => ({ ...n, isRead: true }))
-    );
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
   };
-
-  // جلب الإشعارات
 
   useEffect(() => {
     if (user) {
@@ -140,7 +112,6 @@ const NotificationManager = () => {
     }
   }, [user]);
 
-  // إغلاق القائمة عند الضغط خارجها
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -149,8 +120,7 @@ const NotificationManager = () => {
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-    return () =>
-      document.removeEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
@@ -166,7 +136,6 @@ const NotificationManager = () => {
 
   return (
     <div className="relative" ref={ref}>
-      {/* زر الجرس */}
       <button
         onClick={() => {
           setOpen((prev) => {
@@ -178,12 +147,11 @@ const NotificationManager = () => {
           });
         }}
         className={`relative flex items-center justify-center w-10 h-10 rounded-full border transition-all active:scale-95 ${open
-          ? "bg-slate-100 border-slate-300 shadow-inner text-slate-800"
-          : "bg-white border-slate-200/60 shadow-sm hover:shadow-md hover:bg-slate-50 text-slate-600"
+            ? "bg-slate-100 border-slate-300 shadow-inner text-slate-800"
+            : "bg-white border-slate-200/60 shadow-sm hover:shadow-md hover:bg-slate-50 text-slate-600"
           }`}
       >
         <Bell className="w-5 h-5" />
-
         {unreadCount > 0 && (
           <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center bg-rose-500 text-white text-[10px] font-black min-w-[18px] h-[18px] px-1.5 rounded-full ring-2 ring-white shadow-sm animate-in zoom-in">
             {unreadCount > 99 ? "99+" : unreadCount}
@@ -191,7 +159,6 @@ const NotificationManager = () => {
         )}
       </button>
 
-      {/* القائمة المنسدلة المقاومة للقص (Responsive) بتصميم زجاجي */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -201,11 +168,13 @@ const NotificationManager = () => {
             transition={{ type: "spring", stiffness: 350, damping: 25 }}
             className="absolute left-[-10px] sm:left-0 top-full mt-3 w-[85vw] max-w-[380px] bg-white/95 backdrop-blur-xl rounded-[1.5rem] border border-slate-200/60 shadow-2xl z-50 overflow-hidden origin-top-left"
           >
-
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <span className="font-black text-slate-800 text-lg">الإشعارات</span>
               {unreadCount > 0 && (
-                <button onClick={markAllAsRead} className="text-xs font-bold text-primary hover:text-primary-dark transition-colors flex items-center gap-1">
+                <button
+                  onClick={markAllAsRead}
+                  className="text-xs font-bold text-primary hover:text-primary-dark transition-colors flex items-center gap-1"
+                >
                   <CheckCircle className="w-3.5 h-3.5" />
                   تحديد كـ مقروء
                 </button>
@@ -242,7 +211,6 @@ const NotificationManager = () => {
                 className="max-h-[60vh] overflow-y-auto block scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent"
               >
                 {notifications.map((n) => {
-                  // Dynamic colors based on notification type/event
                   let iconColorClass = "bg-blue-50 text-blue-500 border-blue-100";
                   let IconComponent = Info;
 
@@ -267,29 +235,38 @@ const NotificationManager = () => {
                         hidden: { opacity: 0, x: 20 },
                         visible: { opacity: 1, x: 0 },
                       }}
-                      whileHover={{ scale: 1.01, backgroundColor: "rgb(248 250 252)" }} // hover:bg-slate-50 equivalent
+                      whileHover={{ scale: 1.01, backgroundColor: "rgb(248 250 252)" }}
                       onClick={() => markAsRead(n._id, n.auction)}
                       className={`flex gap-4 p-4 cursor-pointer border-b border-slate-50 transition-colors
                     ${n.isRead ? "bg-white" : "bg-primary/5"}
                   `}
                     >
-                      {/* أيقونة */}
                       <div className="flex-shrink-0 mt-1">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center border shadow-sm ${iconColorClass}`}>
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center border shadow-sm ${iconColorClass}`}
+                        >
                           <IconComponent className="w-5 h-5" />
                         </div>
                       </div>
 
-                      {/* النص */}
                       <div className="flex-1 min-w-0">
-                        <p className={`text-sm pr-2 ${n.isRead ? "font-bold text-slate-700" : "font-black text-slate-900"}`}>
+                        <p
+                          className={`text-sm pr-2 ${n.isRead ? "font-bold text-slate-700" : "font-black text-slate-900"
+                            }`}
+                        >
                           {n.title}
                         </p>
-                        <p className={`text-xs mt-1 leading-relaxed ${n.isRead ? "text-slate-500 font-medium" : "text-slate-700 font-bold"}`}>
+                        <p
+                          className={`text-xs mt-1 leading-relaxed ${n.isRead ? "text-slate-500 font-medium" : "text-slate-700 font-bold"
+                            }`}
+                        >
                           {n.message}
                         </p>
                         <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-wider">
-                          {new Date(n.createdAt).toLocaleString("ar-IQ", { dateStyle: "medium", timeStyle: "short" })}
+                          {new Date(n.createdAt).toLocaleString("ar-IQ", {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })}
                         </p>
                       </div>
 
@@ -311,4 +288,3 @@ const NotificationManager = () => {
 };
 
 export default NotificationManager;
-

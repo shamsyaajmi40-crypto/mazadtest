@@ -3,6 +3,7 @@ import { Plus, Wallet, User, LogOut, LayoutDashboard, Archive, Menu, X, ChevronD
 import NotificationManager from "./NotificationManager";
 import { useContext, useState, useEffect, useRef } from "react";
 import { AuthContext } from "../context/AuthContext";
+import { useSocket } from "../context/SocketContext";
 import LoginModal from "./LoginModal";
 import { getAdminCounters } from "@/services/admin";
 import { getMyOpenDeals, getPendingCourierAuctions } from "@/services/auction";
@@ -56,6 +57,8 @@ export default function TopBar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const { socket, isConnected } = useSocket();
+
   // جلب العدادات للإدمن (و ربط الـ Socket.io)
   useEffect(() => {
     if (!user || (user.role !== "admin" && user.role !== "superAdmin")) return;
@@ -74,32 +77,22 @@ export default function TopBar() {
     const onFocus = () => fetchCounters();
     window.addEventListener("focus", onFocus);
 
-    // ربط بالـ Socket.io
-    let socket: any = null;
-    let isMounted = true;
     let refreshHandler = () => {
-      if (isMounted) fetchCounters();
+      fetchCounters();
     };
 
-    import("socket.io-client").then(({ io }) => {
-      if (!isMounted) return;
-      socket = io(import.meta.env.VITE_API_URL, {
-        transports: ["websocket"],
-        withCredentials: true,
-      });
+    if (socket && isConnected) {
       socket.emit("admin:join");
       socket.on("admin_refresh", refreshHandler);
-    });
+    }
 
     return () => {
-      isMounted = false;
       window.removeEventListener("focus", onFocus);
       if (socket) {
         socket.off("admin_refresh", refreshHandler);
-        socket.disconnect();
       }
     };
-  }, [user]);
+  }, [user, socket, isConnected]);
 
   // جلب الصفقات الجارية (و ربط الـ Socket.io)
   useEffect(() => {
@@ -121,31 +114,21 @@ export default function TopBar() {
 
     fetchOpenDeals();
 
-    // ربط بالـ Socket.io للمستخدم العادي
-    let socket: any = null;
-    let isMounted = true;
-    let refreshDealsHandler = () => {
-      if (isMounted) fetchOpenDeals();
+    const refreshDealsHandler = () => {
+      fetchOpenDeals();
     };
 
-    import("socket.io-client").then(({ io }) => {
-      if (!isMounted) return;
-      socket = io(import.meta.env.VITE_API_URL, {
-        transports: ["websocket"],
-        withCredentials: true,
-      });
-      socket.emit("user:join", user._id);
+    if (socket && isConnected) {
+      // SocketProvider logic already handles user:join, but we just need the listener here
       socket.on("user_refresh", refreshDealsHandler);
-    });
+    }
 
     return () => {
-      isMounted = false;
       if (socket) {
         socket.off("user_refresh", refreshDealsHandler);
-        socket.disconnect();
       }
     };
-  }, [user]);
+  }, [user, socket, isConnected]);
 
   // جلب التقييمات المعلقة
   useEffect(() => {

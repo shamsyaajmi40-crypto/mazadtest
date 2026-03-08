@@ -23,6 +23,7 @@ import UserProfile from "./pages/UserProfile";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import FAQ from "./pages/FAQ";
 import { AuthContext } from "./context/AuthContext";
+import { SocketProvider } from "./context/SocketContext";
 import { useState, useEffect, useContext, type ReactNode, } from "react";
 import api from "./services/api";
 import ArchivedAuctions from "./pages/ArchivedAuctions";
@@ -187,208 +188,210 @@ const CourierRedirectGate = () => {
 const App = () => {
   return (
     <AuthProvider>
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          style: {
-            background: '#ffffff',
-            color: '#334155',
-            fontWeight: 'bold',
-            borderRadius: '1rem',
-            padding: '16px',
-            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-            border: '1px solid #e2e8f0',
-          },
-        }}
-      />
-      <HashRouter>
-        {/* يمنع الكورير من أي صفحات غير لوحته */}
-        <CourierRedirectGate />
+      <SocketProvider>
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            style: {
+              background: '#ffffff',
+              color: '#334155',
+              fontWeight: 'bold',
+              borderRadius: '1rem',
+              padding: '16px',
+              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+              border: '1px solid #e2e8f0',
+            },
+          }}
+        />
+        <HashRouter>
+          {/* يمنع الكورير من أي صفحات غير لوحته */}
+          <CourierRedirectGate />
 
-        {/* لا نعرض التوب بار للكورير */}
-        <TopBarGuarded />
+          {/* لا نعرض التوب بار للكورير */}
+          <TopBarGuarded />
 
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/auction/:id" element={<AuctionDetails />} />
-          <Route path="/archived" element={<ArchivedAuctions />} />
-          <Route path="/ending-soon" element={<EndingSoonAuctions />} />
-          <Route
-            path="/admin/courier"
-            element={
-              <ProtectedRoute requireAdmin>
-                <AdminCourierManagement />
-              </ProtectedRoute>
-            }
-          />
-
-
-
-          <Route path="/admin/refund-requests" element={<AdminRefundRequests />} />
-
-          <Route
-            path="/pricing"
-            element={
-              <ProtectedRoute>
-                <Pricing />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* ✅ صفحات الكورير مباشرة بدون RoleGate */}
-          <Route
-            path="/courier/agent"
-            element={
-              <ProtectedRoute>
-                <CourierAgentDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/courier/staff"
-            element={
-              <ProtectedRoute>
-                <CourierStaffDashboard />
-              </ProtectedRoute>
-            }
-          />
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/auction/:id" element={<AuctionDetails />} />
+            <Route path="/archived" element={<ArchivedAuctions />} />
+            <Route path="/ending-soon" element={<EndingSoonAuctions />} />
+            <Route
+              path="/admin/courier"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <AdminCourierManagement />
+                </ProtectedRoute>
+              }
+            />
 
 
 
-          <Route
-            path="/admin/dashboard"
-            element={
-              <ProtectedRoute requireAdmin>
-                <AdminDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/disputes"
-            element={
-              <ProtectedRoute requireAdmin>
-                <AdminDisputes />
-              </ProtectedRoute>
-            }
-          />
+            <Route path="/admin/refund-requests" element={<AdminRefundRequests />} />
 
-          <Route
-            path="/admin/platform-balance"
-            element={
-              <ProtectedRoute requireAdmin>
-                <AdminPlatformBalance />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/featured-auctions"
-            element={
-              <ProtectedRoute requireAdmin>
-                <AdminFeaturedAuctions />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/deposit-policy"
-            element={
-              <ProtectedRoute requireAdmin>
-                <AdminDepositPolicy />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/pricing"
+              element={
+                <ProtectedRoute>
+                  <Pricing />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/admin/users"
-            element={
-              <ProtectedRoute requireAdmin>
-                <AdminUsers />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/admin/users/:id"
-            element={
-              <ProtectedRoute requireAdmin>
-                <AdminUserDetails />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/admin/kyc"
-            element={
-              <ProtectedRoute requireAdmin>
-                <AdminKYC />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/deals/open"
-            element={
-              <ProtectedRoute>
-                <OpenDeals />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route path="/privacy" element={<PrivacyPolicy />} />
-          <Route path="/faq" element={<FAQ />} />
-
-          <Route
-            path="/wallet"
-            element={
-              <ProtectedRoute>
-                <Wallet />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/create"
-            element={
-              <ProtectedRoute>
-                <CreateAuction />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <UserProfile />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute requireAdmin>
-                <AdminDashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route path="/users/:id" element={<UserProfile />} />
+            {/* ✅ صفحات الكورير مباشرة بدون RoleGate */}
+            <Route
+              path="/courier/agent"
+              element={
+                <ProtectedRoute>
+                  <CourierAgentDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/courier/staff"
+              element={
+                <ProtectedRoute>
+                  <CourierStaffDashboard />
+                </ProtectedRoute>
+              }
+            />
 
 
 
-          <Route
-            path="/admin/completed-auctions"
-            element={
-              <ProtectedRoute requireSuperAdmin>
-                <AdminCompletedAuctions />
-              </ProtectedRoute>
-            }
-          />
+            <Route
+              path="/admin/dashboard"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/disputes"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <AdminDisputes />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </HashRouter>
+            <Route
+              path="/admin/platform-balance"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <AdminPlatformBalance />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/featured-auctions"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <AdminFeaturedAuctions />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/deposit-policy"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <AdminDepositPolicy />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/admin/users"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <AdminUsers />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/admin/users/:id"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <AdminUserDetails />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/admin/kyc"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <AdminKYC />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/deals/open"
+              element={
+                <ProtectedRoute>
+                  <OpenDeals />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/faq" element={<FAQ />} />
+
+            <Route
+              path="/wallet"
+              element={
+                <ProtectedRoute>
+                  <Wallet />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/create"
+              element={
+                <ProtectedRoute>
+                  <CreateAuction />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <UserProfile />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route path="/users/:id" element={<UserProfile />} />
+
+
+
+            <Route
+              path="/admin/completed-auctions"
+              element={
+                <ProtectedRoute requireSuperAdmin>
+                  <AdminCompletedAuctions />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </HashRouter>
+      </SocketProvider>
     </AuthProvider>
   );
 };

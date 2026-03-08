@@ -46,11 +46,22 @@ dns.setDefaultResultOrder("ipv4first");
 const app = express();
 const httpServer = http.createServer(app);
 
-// soket.io دالة 
+// hardened socket.io configuration
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "https://iqmazad.com",
+  "https://www.iqmazad.com",
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
 const io = new Server(httpServer, {
   cors: {
-    origin: "*", // لاحقًا نقيّدها
+    origin: allowedOrigins,
+    credentials: true,
   },
+  pingTimeout: 10000,
+  pingInterval: 5000,
 });
 
 initIo(io);
@@ -107,7 +118,9 @@ io.on("connection", (socket) => {
       console.warn(`⚠️ User ${socket.user._id} tried to join unauthorized room ${userId}`);
     }
   });
-
+  setInterval(() => {
+    console.log("Sockets:", io.engine.clientsCount);
+  }, 10000)
   // غرفة خاصة بالأدمن لتلقي التحديثات والإشعارات العامة
   socket.on("admin:join", () => {
     if (["admin", "superAdmin"].includes(socket.user.role)) {

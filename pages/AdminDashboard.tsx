@@ -14,6 +14,7 @@ import {
   getAdminCounters
 } from "../services/admin";
 import api from "@/services/api";
+import { useSocket } from "../context/SocketContext";
 
 import {
   LineChart,
@@ -75,6 +76,7 @@ const AdminDashboard = () => {
   const [rejectionNote, setRejectionNote] = useState("");
 
   const navigate = useNavigate();
+  const { socket, isConnected } = useSocket();
 
   useEffect(() => {
     const loadAdminData = async () => {
@@ -104,30 +106,21 @@ const AdminDashboard = () => {
     loadAdminData();
 
     // ربط بالـ Socket.io لتحديث البيانات بمجرد ورود مزاد جديد
-    let socket: any = null;
-    let isMounted = true;
-    let refreshHandler = () => {
-      if (isMounted) loadAdminData();
+    const refreshHandler = () => {
+      loadAdminData();
     };
 
-    import("socket.io-client").then(({ io }) => {
-      if (!isMounted) return;
-      socket = io(import.meta.env.VITE_API_URL || "http://localhost:5000", {
-        transports: ["websocket"],
-        withCredentials: true,
-      });
+    if (socket && isConnected) {
       socket.emit("admin:join");
       socket.on("admin_refresh", refreshHandler);
-    });
+    }
 
     return () => {
-      isMounted = false;
       if (socket) {
         socket.off("admin_refresh", refreshHandler);
-        socket.disconnect();
       }
     };
-  }, [pendingPage, activeReviewSubTab]);
+  }, [pendingPage, activeReviewSubTab, socket, isConnected]);
 
   useEffect(() => {
     const loadPlatformBalance = async () => {

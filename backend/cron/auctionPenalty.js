@@ -322,9 +322,9 @@ const applyAuctionPenalty = async () => {
         : await DeliveryOrder.findOne({ auction: auction._id });
 
       // helper: مشكلة شركة => لا عقوبات + نعيد جدولة فحص 24 ساعة
-      const rescheduleCourierIssue = async (msgBuyer, msgSeller) => {
+      const rescheduleCourierIssue = async (msgBuyer, msgSeller, newReason = "COURIER_ISSUE") => {
         // Any grace-period reschedule is treated as a courier-side issue.
-        auction.deliveryPenaltyReason = "COURIER_ISSUE";
+        auction.deliveryPenaltyReason = newReason;
 
         // رجّع penaltyApplied حتى يعيد الكرون الفحص بعد تمديد المهلة
         auction.penaltyApplied = false;
@@ -403,10 +403,11 @@ const applyAuctionPenalty = async () => {
       // 1) لا يوجد طلب توصيل:
       // يمنح تمديد فقط إذا كان السبب اللوجستي موثق، وإلا تقصير بائع.
       if (!order) {
-        if (COURIER_REASONS.has(auction.deliveryPenaltyReason)) {
+        if (COURIER_REASONS.has(auction.deliveryPenaltyReason) && auction.deliveryPenaltyReason !== "COURIER_ISSUE_EXTENDED") {
           await rescheduleCourierIssue(
             "لم يتم العثور على طلب توصيل مرتبط بالمزاد. سيتم إعادة المحاولة تلقائياً أو تواصل مع شركة التوصيل.",
-            "لم يتم العثور على طلب توصيل مرتبط بالمزاد. سيتم إعادة المحاولة تلقائياً أو تواصل مع شركة التوصيل."
+            "لم يتم العثور على طلب توصيل مرتبط بالمزاد. سيتم إعادة المحاولة تلقائياً أو تواصل مع شركة التوصيل.",
+            "COURIER_ISSUE_EXTENDED"
           );
         } else {
           await penalizeSellerFailure("SELLER_NOT_READY");
@@ -517,11 +518,17 @@ const applyAuctionPenalty = async () => {
         }
 
         // لا نمنح تمديد إلا إذا كان السبب لوجستي من شركة التوصيل
-        if (COURIER_REASONS.has(reason)) {
+        if (COURIER_REASONS.has(reason) && auction.deliveryPenaltyReason !== "COURIER_ISSUE_EXTENDED") {
           await rescheduleCourierIssue(
             "تعذر إتمام التوصيل بسبب مشكلة لوجستية. سيتم إعادة المتابعة تلقائياً أو يمكنك تغيير الشركة.",
-            "تعذر إتمام التوصيل بسبب مشكلة لوجستية. سيتم إعادة المتابعة تلقائياً أو يمكنك تغيير الشركة."
+            "تعذر إتمام التوصيل بسبب مشكلة لوجستية. سيتم إعادة المتابعة تلقائياً أو يمكنك تغيير الشركة.",
+            "COURIER_ISSUE_EXTENDED"
           );
+          continue;
+        }
+
+        if (COURIER_REASONS.has(reason) && auction.deliveryPenaltyReason === "COURIER_ISSUE_EXTENDED") {
+          await penalizeSellerFailure(reason);
           continue;
         }
 
@@ -532,10 +539,11 @@ const applyAuctionPenalty = async () => {
 
       // 5) حالات غير مكتملة بعد 4 أيام:
       // تمديد فقط إذا السبب اللوجستي موثق كـ COURIER_ISSUE، وإلا تعتبر تقصير بائع.
-      if (COURIER_REASONS.has(auction.deliveryPenaltyReason)) {
+      if (COURIER_REASONS.has(auction.deliveryPenaltyReason) && auction.deliveryPenaltyReason !== "COURIER_ISSUE_EXTENDED") {
         await rescheduleCourierIssue(
           "التوصيل متأخر ولم يكتمل خلال المهلة. سيتم إعادة المتابعة تلقائياً بدون عقوبات.",
-          "التوصيل متأخر ولم يكتمل خلال المهلة. سيتم إعادة المتابعة تلقائياً بدون عقوبات."
+          "التوصيل متأخر ولم يكتمل خلال المهلة. سيتم إعادة المتابعة تلقائياً بدون عقوبات.",
+          "COURIER_ISSUE_EXTENDED"
         );
         continue;
       }

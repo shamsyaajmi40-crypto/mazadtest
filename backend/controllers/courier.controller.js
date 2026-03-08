@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import mongoose from "mongoose";
 import Auction from "../models/Auction.js";
 import DeliveryOrder from "../models/DeliveryOrder.js";
 import CourierCompany from "../models/CourierCompany.js";
@@ -275,59 +276,101 @@ export const markPickedUp = async (req, res) => {
 };
 
 export const markDeliveredByOtp = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
     const { orderId } = req.params;
     const { otp } = req.body;
 
     const order = await DeliveryOrder.findById(orderId).populate("auction");
-    if (!order) return res.status(404).json({ message: "Order not found" });
+    if (!order) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ message: "Order not found" });
+    }
 
     const access = await ensureOrderAccess(req.user, order);
-    if (!access.ok) return res.status(access.status).json({ message: access.message });
+    if (!access.ok) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(access.status).json({ message: access.message });
+    }
 
     const auction = await Auction.findById(order.auction._id);
-    if (!auction) return res.status(404).json({ message: "Auction not found" });
+    if (!auction) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ message: "Auction not found" });
+    }
 
-    if (auction.deliveryMode !== "courier") return res.status(400).json({ message: "Not courier mode" });
-    if (!auction.deliveryOtpHash) return res.status(400).json({ message: "Delivery OTP not set" });
+    if (auction.deliveryMode !== "courier") {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "Not courier mode" });
+    }
+
+    if (order.status !== "PICKED_UP") {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "Order must be in PICKED_UP status to be delivered" });
+    }
+
+    if (!auction.deliveryOtpHash) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "Delivery OTP not set" });
+    }
 
     const ok = hashOtp(normalizeOtp(otp)) === auction.deliveryOtpHash;
+    if (!ok) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
 
-    if (!ok) return res.status(400).json({ message: "Invalid OTP" });
-
+    // Update order atomically
     order.status = "DELIVERED";
     order.deliveredAt = new Date();
     order.staffUser = req.user._id;
     pushLog(order, { status: "DELIVERED", by: req.user._id, note: "Delivered by OTP" });
-    await order.save();
+    await order.save({ session });
 
-    // ✅ Buyer confirmed receiving item via OTP
+    // Update auction atomically
     auction.winnerConfirmed = true;
     auction.deliveryOtpCode = null;
     auction.deliveryOtpHash = null;
 
-    // ✅ الآن فقط: توليد OTP البائع لاستلام مبلغ COD
+    // توليد OTP البائع لاستلام مبلغ COD
     if (!auction.payoutOtpHash) {
       const sellerOtp = genOtp();
       auction.payoutOtpCode = sellerOtp;
       auction.payoutOtpHash = hashOtp(sellerOtp);
+    }
 
-      await notifyUser({
+    await auction.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    // Async notification (don't block response)
+    if (auction.payoutOtpCode) {
+      notifyUser({
         userId: auction.seller,
         auctionId: auction._id,
         event: "PAYOUT_OTP_READY",
         title: "كود استلام مبلغ COD جاهز",
         message: "تم تأكيد التسليم. الآن يظهر لك OTP استلام مبلغ الـCOD داخل تفاصيل المزاد.",
-      });
+      }).catch(e => console.error("Notification error:", e));
     }
-
-    await auction.save();
 
     return res.json({ message: "Delivered confirmed" });
   } catch (e) {
+    if (session.inAtomicity) await session.abortTransaction();
+    session.endSession();
     return res.status(500).json({ message: e.message });
   }
 };
+
 
 export const markFailed = async (req, res) => {
   try {
@@ -522,31 +565,58 @@ export const revertFailedDecision = async (req, res) => {
 };
 
 export const markCodPaidToSeller = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
     const { orderId } = req.params;
     const { otp, receiptNo = "" } = req.body;
 
     const order = await DeliveryOrder.findById(orderId).populate("auction");
-    if (!order) return res.status(404).json({ message: "Order not found" });
+    if (!order) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ message: "Order not found" });
+    }
 
     const access = await ensureOrderAccess(req.user, order);
-    if (!access.ok) return res.status(access.status).json({ message: access.message });
+    if (!access.ok) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(access.status).json({ message: access.message });
+    }
+
+    if (order.status !== "DELIVERED") {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "Order must be in DELIVERED status to settle COD" });
+    }
 
     const auction = await Auction.findById(order.auction._id);
-    if (!auction) return res.status(404).json({ message: "Auction not found" });
+    if (!auction) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ message: "Auction not found" });
+    }
 
-    if (!auction.payoutOtpHash) return res.status(400).json({ message: "Payout OTP not set yet" });
+    if (!auction.payoutOtpHash) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "Payout OTP not set yet" });
+    }
 
     const ok = hashOtp(normalizeOtp(otp)) === auction.payoutOtpHash;
-
-
-    if (!ok) return res.status(400).json({ message: "Invalid OTP" });
+    if (!ok) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
 
     const grossAmount = Number(auction.currentPrice || 0);
     const deliveryFee = Number(order.deliveryFee || 0);
     const sellerPayout = grossAmount;
     const buyerTotalDue = grossAmount + deliveryFee;
 
+    // 1. Update Order status
     order.status = "COD_PAID_TO_SELLER";
     order.codPaidAt = new Date();
     order.staffUser = req.user._id;
@@ -555,104 +625,122 @@ export const markCodPaidToSeller = async (req, res) => {
       by: req.user._id,
       note: `receiptNo=${receiptNo};sellerPayout=${sellerPayout};deliveryFee=${deliveryFee};buyerTotalDue=${buyerTotalDue}`,
     });
-    await order.save();
+    await order.save({ session });
 
-    // ✅ تأكيد استلام البائع + مسح OTP البائع
+    // 2. Update Auction status
     auction.sellerConfirmed = true;
     auction.payoutOtpCode = null;
     auction.payoutOtpHash = null;
-
-    // ✅ اكمل الصفقة فوراً
     auction.status = "completed";
     auction.penaltyApplied = true;
+    await auction.save({ session });
+
+    // 3. User Wallet Updates (Refunds)
+
     // 🔄 إعادة عربون المشتري
     if (auction.winner && auction.depositAmount > 0) {
-      const buyerUpdate = await User.updateOne(
+      const buyerUpdate = await User.findOneAndUpdate(
         { _id: auction.winner, heldBalance: { $gte: Number(auction.depositAmount || 0) } },
         {
           $inc: {
             balance: auction.depositAmount,
             heldBalance: -auction.depositAmount,
           },
-        }
+        },
+        { session, new: true }
       );
 
-      if (buyerUpdate.modifiedCount > 0) {
+      if (buyerUpdate) {
         const receiptId = generateReceiptId();
         const signData = { action: "REFUND", auction: String(auction._id), user: String(auction.winner), amount: auction.depositAmount, receiptId };
         const signature = signReceipt(signData);
 
-        await AuditLog.create({
-          action: "REFUND",
-          auction: auction._id,
-          user: auction.winner,
-          amount: auction.depositAmount,
-          receiptId,
-          reason: "إرجاع عربون المشتري بعد إتمام التوصيل والدفع",
-          by: "SYSTEM",
-          source: "BUYER",
-          meta: { signature }
-        });
+        await AuditLog.create(
+          [
+            {
+              action: "REFUND",
+              auction: auction._id,
+              user: auction.winner,
+              amount: auction.depositAmount,
+              receiptId,
+              reason: "إرجاع عربون المشتري بعد إتمام التوصيل والدفع",
+              by: "SYSTEM",
+              source: "BUYER",
+              meta: { signature },
+            },
+          ],
+          { session }
+        );
       }
+    }
 
-      // ✅ إشعار إرجاع العربون للمشتري فوراً
-      await notifyUser({
-        userId: auction.winner,
-        auctionId: auction._id,
-        event: "DEPOSIT_REFUND",
-        title: "💰 تم إرجاع عربونك",
-        message: `تم إضافة عربونك بقيمة ${Number(auction.depositAmount).toLocaleString()} د.ع إلى رصيدك بعد إتمام الصفقة بنجاح.`,
-      });
-    }
-    if (auction.winner) {
-      await notifyUser({
-        userId: auction.winner,
-        auctionId: auction._id,
-        event: "DEAL_COMPLETED",
-        title: "✅ تمت الصفقة بنجاح",
-        message: "تم تسليم السلعة ودفع المبلغ للبائع. شكراً لاستخدامك المنصة.",
-      });
-    }
     // 🔄 إعادة عربون البائع
     if (auction.seller && auction.sellerDeposit > 0) {
-      const sellerUpdate = await User.updateOne(
+      const sellerUpdate = await User.findOneAndUpdate(
         { _id: auction.seller, heldBalance: { $gte: Number(auction.sellerDeposit || 0) } },
         {
           $inc: {
             balance: auction.sellerDeposit,
             heldBalance: -auction.sellerDeposit,
           },
-        }
+        },
+        { session, new: true }
       );
 
-      if (sellerUpdate.modifiedCount > 0) {
+      if (sellerUpdate) {
         const receiptId = generateReceiptId();
         const signData = { action: "REFUND", auction: String(auction._id), user: String(auction.seller), amount: auction.sellerDeposit, receiptId };
         const signature = signReceipt(signData);
 
-        await AuditLog.create({
-          action: "REFUND",
-          auction: auction._id,
-          user: auction.seller,
-          amount: auction.sellerDeposit,
-          receiptId,
-          reason: "إرجاع عربون البائع بعد استلام مبلغ الـ COD",
-          by: "SYSTEM",
-          source: "SELLER",
-          meta: { signature }
-        });
+        await AuditLog.create(
+          [
+            {
+              action: "REFUND",
+              auction: auction._id,
+              user: auction.seller,
+              amount: auction.sellerDeposit,
+              receiptId,
+              reason: "إرجاع عربون البائع بعد استلام مبلغ الـ COD",
+              by: "SYSTEM",
+              source: "SELLER",
+              meta: { signature },
+            },
+          ],
+          { session }
+        );
       }
     }
-    await auction.save();
+
+    await session.commitTransaction();
+    session.endSession();
+
+    // Async notifications
+    if (auction.winner) {
+      notifyUser({
+        userId: auction.winner,
+        auctionId: auction._id,
+        event: "DEPOSIT_REFUND",
+        title: "💰 تم إرجاع عربونك",
+        message: `تم إضافة عربونك بقيمة ${Number(auction.depositAmount).toLocaleString()} د.ع إلى رصيدك بعد إتمام الصفقة بنجاح.`,
+      }).catch(e => console.error("Notification error:", e));
+
+      notifyUser({
+        userId: auction.winner,
+        auctionId: auction._id,
+        event: "DEAL_COMPLETED",
+        title: "✅ تمت الصفقة بنجاح",
+        message: "تم تسليم السلعة ودفع المبلغ للبائع. شكراً لاستخدامك المنصة.",
+      }).catch(e => console.error("Notification error:", e));
+    }
 
     if (auction.seller) {
-      await notifyUser({
+      notifyUser({
         userId: auction.seller,
         auctionId: auction._id,
         event: "COD_PAYOUT_CONFIRMED",
         title: "تم تأكيد دفع مبلغ COD",
         message: `تم تأكيد استلام مبلغك: ${sellerPayout.toLocaleString()} د.ع. أجرة التوصيل (${deliveryFee.toLocaleString()} د.ع) تُدفع من المشتري.`,
-      });
+      }).catch(e => console.error("Notification error:", e));
     }
 
     return res.json({
@@ -664,9 +752,12 @@ export const markCodPaidToSeller = async (req, res) => {
       },
     });
   } catch (e) {
+    if (session.inAtomicity) await session.abortTransaction();
+    session.endSession();
     return res.status(500).json({ message: e.message });
   }
 };
+
 
 export const listCompanyOrders = async (req, res) => {
   const { companyId } = req.params;

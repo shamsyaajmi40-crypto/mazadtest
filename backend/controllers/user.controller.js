@@ -1,4 +1,5 @@
 import Auction from "../models/Auction.js";
+import User from "../models/User.js";
 import bcrypt from "bcrypt";
 import { uploadToR2 } from "../utils/r2.js";
 

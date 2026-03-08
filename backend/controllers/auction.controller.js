@@ -779,248 +779,246 @@ export const deleteAuction = async (req, res) => {
 };
 
 
-// وضع مزايدة
+// وضع مزايدة (Place Bid) معلية إعادة محاولة في حال التضارب
 export const placeBid = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  const MAX_RETRIES = 5;
+  let attempt = 0;
 
-  try {
-    // 1. جلب المزاد داخل الـ session
-    const auction = await Auction.findOne({
-      _id: req.params.id,
-      status: "active",
-    }).session(session);
+  while (attempt < MAX_RETRIES) {
+    attempt++;
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    if (!auction) {
-      await session.abortTransaction();
-      return res.status(400).json({ message: "Auction not active" });
-    }
+    try {
+      // 1. جلب المزاد داخل الـ session
+      const auction = await Auction.findOne({
+        _id: req.params.id,
+        status: "active",
+      }).session(session);
 
-    if (auction.seller.toString() === req.user._id.toString()) {
-      await session.abortTransaction();
-      return res.status(400).json({ message: "Seller cannot bid" });
-    }
-
-    // ✅ منع المتصدر الحالي من المزايدة فوق مزايدته
-    if (auction.winner && auction.winner.toString() === req.user._id.toString()) {
-      await session.abortTransaction();
-      return res.status(400).json({ message: "أنت المتصدر حالياً، لا يمكنك المزايدة فوق مزايدتك الخاصة." });
-    }
-
-    // 2. Cooldown ذري (خارج الـ session — Redis/DB خاص)
-    const cd = await enforceBidCooldown({
-      userId: req.user._id,
-      auctionId: req.params.id,
-      windowMs: BID_COOLDOWN_MS,
-    });
-
-    if (!cd.allowed) {
-      await session.abortTransaction();
-      const retryAfterMs =
-        cd.retryAfterMs || Math.max(0, new Date(cd.nextAllowedAt).getTime() - Date.now());
-      return res.status(429).json({
-        message: "يرجى الانتظار قبل إرسال مزايدة جديدة",
-        retryAfter: Math.ceil(retryAfterMs / 1000),
-        retryAfterMs,
-        nextAllowedAt: cd.nextAllowedAt,
-      });
-    }
-
-    // 3. التحقق من المبلغ
-    const amountVal = validateNumber(req.body.amount, { min: 1000, max: 1000000000, name: "مبلغ المزايدة" });
-    if (!amountVal.isValid) {
-      await session.abortTransaction();
-      await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
-      return res.status(400).json({ message: amountVal.message });
-    }
-    const amount = amountVal.value;
-
-    const minBid = auction.currentPrice + auction.increment;
-    if (amount < minBid) {
-      await session.abortTransaction();
-      await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
-      return res.status(400).json({
-        message: `المبلغ قليل جداً. أقل مزايدة مسموحة هي ${minBid.toLocaleString()} دينار.`
-      });
-    }
-
-    const now = new Date();
-    if (auction.endTime <= now) {
-      await session.abortTransaction();
-      await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
-      return res.status(400).json({ message: "انتهى المزاد" });
-    }
-
-    // 4. هل سبق للمستخدم المزايدة في هذا المزاد؟ (داخل الـ session)
-    const existingBid = await Bid.findOne({
-      auction: auction._id,
-      bidder: req.user._id,
-    }).session(session);
-
-    // 5. الحد الأقصى للمزادات النشطة (فقط للمزايدة الأولى)
-    if (!existingBid) {
-      const MAX_ACTIVE_AUCTIONS = 10;
-      const activeParticipations = await Bid.aggregate([
-        { $match: { bidder: req.user._id } },
-        { $group: { _id: "$auction" } },
-        { $lookup: { from: "auctions", localField: "_id", foreignField: "_id", as: "auc" } },
-        { $unwind: "$auc" },
-        { $match: { "auc.status": "active" } },
-        { $count: "count" },
-      ]).session(session);
-
-      const currentCount = activeParticipations[0]?.count || 0;
-      if (currentCount >= MAX_ACTIVE_AUCTIONS) {
+      if (!auction) {
         await session.abortTransaction();
-        await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
-        return res.status(403).json({
-          message: `عذراً، لا يمكنك المزايدة في أكثر من ${MAX_ACTIVE_AUCTIONS} مزادات نشطة في وقت واحد.`,
+        session.endSession();
+        return res.status(400).json({ message: "Auction not active" });
+      }
+
+      if (auction.seller.toString() === req.user._id.toString()) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({ message: "Seller cannot bid" });
+      }
+
+      // ✅ منع المتصدر الحالي من المزايدة فوق مزايدته
+      if (auction.winner && auction.winner.toString() === req.user._id.toString()) {
+        await session.abortTransaction();
+        session.endSession();
+        return res.status(400).json({ message: "أنت المتصدر حالياً، لا يمكنك المزايدة فوق مزايدتك الخاصة." });
+      }
+
+      // 2. Cooldown ذري (خارج الـ session — Redis/DB خاص)
+      if (attempt === 1) {
+        const cd = await enforceBidCooldown({
+          userId: req.user._id,
+          auctionId: req.params.id,
+          windowMs: BID_COOLDOWN_MS,
+        });
+
+        if (!cd.allowed) {
+          await session.abortTransaction();
+          session.endSession();
+          const retryAfterMs =
+            cd.retryAfterMs || Math.max(0, new Date(cd.nextAllowedAt).getTime() - Date.now());
+          return res.status(429).json({
+            message: "يرجى الانتظار قبل إرسال مزايدة جديدة",
+            retryAfter: Math.ceil(retryAfterMs / 1000),
+            retryAfterMs,
+            nextAllowedAt: cd.nextAllowedAt,
+          });
+        }
+      }
+
+      // 3. التحقق من المبلغ
+      const amountVal = validateNumber(req.body.amount, { min: 1000, max: 1000000000, name: "مبلغ المزايدة" });
+      if (!amountVal.isValid) {
+        await session.abortTransaction();
+        session.endSession();
+        if (attempt === 1) await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
+        return res.status(400).json({ message: amountVal.message });
+      }
+      const amount = amountVal.value;
+
+      const minBid = auction.currentPrice + auction.increment;
+      if (amount < minBid) {
+        await session.abortTransaction();
+        session.endSession();
+        if (attempt === 1) await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
+        return res.status(400).json({
+          message: `المبلغ قليل جداً. أقل مزايدة مسموحة هي ${minBid.toLocaleString()} دينار.`
         });
       }
-    }
 
-    const deposit = auction.depositAmount;
-    if (!deposit || deposit <= 0) {
-      await session.abortTransaction();
-      await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
-      return res.status(400).json({ message: "Bidding is not allowed without a deposit" });
-    }
+      const now = new Date();
+      if (auction.endTime <= now) {
+        await session.abortTransaction();
+        session.endSession();
+        if (attempt === 1) await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
+        return res.status(400).json({ message: "انتهى المزاد" });
+      }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // العمليات المالية الثلاث داخل نفس الـ Transaction
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // 4. هل سبق للمستخدم المزايدة في هذا المزاد؟ (داخل الـ session)
+      const existingBid = await Bid.findOne({
+        auction: auction._id,
+        bidder: req.user._id,
+      }).session(session);
 
-    // العملية 1: خصم العربون وحجزه (balance → heldBalance)
-    if (!existingBid) {
-      const updatedUser = await User.findOneAndUpdate(
-        { _id: req.user._id, balance: { $gte: Number(deposit) } },
-        { $inc: { balance: -Number(deposit), heldBalance: Number(deposit) } },
+      // 5. الحد الأقصى للمزادات النشطة (فقط للمزايدة الأولى)
+      if (!existingBid) {
+        const MAX_ACTIVE_AUCTIONS = 10;
+        const activeParticipations = await Bid.aggregate([
+          { $match: { bidder: req.user._id } },
+          { $group: { _id: "$auction" } },
+          { $lookup: { from: "auctions", localField: "_id", foreignField: "_id", as: "auc" } },
+          { $unwind: "$auc" },
+          { $match: { "auc.status": "active" } },
+          { $count: "count" },
+        ]).session(session);
+
+        const currentCount = activeParticipations[0]?.count || 0;
+        if (currentCount >= MAX_ACTIVE_AUCTIONS) {
+          await session.abortTransaction();
+          session.endSession();
+          if (attempt === 1) await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
+          return res.status(403).json({
+            message: `عذراً، لا يمكنك المزايدة في أكثر من ${MAX_ACTIVE_AUCTIONS} مزادات نشطة في وقت واحد.`,
+          });
+        }
+      }
+
+      const deposit = auction.depositAmount;
+      if (!deposit || deposit <= 0) {
+        await session.abortTransaction();
+        session.endSession();
+        if (attempt === 1) await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
+        return res.status(400).json({ message: "Bidding is not allowed without a deposit" });
+      }
+
+      // العملية 1: خصم العربون وحجزه (balance → heldBalance)
+      if (!existingBid) {
+        const updatedUser = await User.findOneAndUpdate(
+          { _id: req.user._id, balance: { $gte: Number(deposit) } },
+          { $inc: { balance: -Number(deposit), heldBalance: Number(deposit) } },
+          { new: true, session }
+        );
+
+        if (!updatedUser) {
+          await session.abortTransaction();
+          session.endSession();
+          if (attempt === 1) await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
+          return res.status(403).json({ message: "رصيدك غير كافٍ لفتح عربون المزايدة في هذا المزاد" });
+        }
+      }
+
+      // Dynamic Anti-Sniping Extension logic
+      const uniqueBidderIds = await Bid.distinct("bidder", { auction: auction._id }).session(session);
+      const uniqueBidderCount = uniqueBidderIds.length;
+      let extensionWindowMs;
+      if (uniqueBidderCount <= 2) extensionWindowMs = 60 * 1000;
+      else if (uniqueBidderCount <= 4) extensionWindowMs = 40 * 1000;
+      else extensionWindowMs = 30 * 1000;
+
+      const remaining = new Date(auction.endTime).getTime() - now.getTime();
+      let newEndTime = new Date(auction.endTime);
+      let extensionApplied = false;
+      if (remaining <= extensionWindowMs) {
+        newEndTime = new Date(now.getTime() + extensionWindowMs);
+        extensionApplied = true;
+      }
+
+      // العملية 2: تحديث المزاد (السعر + الفائز + الوقت)
+      const updatedAuction = await Auction.findOneAndUpdate(
+        {
+          _id: auction._id,
+          status: "active",
+          endTime: { $gt: now },
+          $expr: { $lte: [{ $add: ["$currentPrice", "$increment"] }, amount] },
+        },
+        {
+          $set: {
+            currentPrice: amount,
+            winner: req.user._id,
+            lastBidAt: now,
+            endTime: newEndTime,
+          },
+          $inc: { bidCount: 1 },
+        },
         { new: true, session }
       );
 
-      if (!updatedUser) {
+      if (!updatedAuction) {
         await session.abortTransaction();
-        await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
-        return res.status(403).json({ message: "رصيدك غير كافٍ لفتح عربون المزايدة في هذا المزاد" });
+        session.endSession();
+        if (attempt === 1) await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
+        return res.status(409).json({ message: "Bid rejected (price changed or auction ended)." });
       }
-    }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // Dynamic Anti-Sniping Extension
-    // Extension window shrinks as more bidders join, keeping the auction fair
-    // but preventing indefinite extensions when competition is high.
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    const uniqueBidderIds = await Bid.distinct("bidder", { auction: auction._id }).session(session);
-    const uniqueBidderCount = uniqueBidderIds.length;
+      // العملية 3: إنشاء سجل المزايدة
+      await Bid.create(
+        [
+          {
+            auction: updatedAuction._id,
+            bidder: req.user._id,
+            amount,
+            depositHeld: !existingBid && deposit > 0,
+          },
+        ],
+        { session }
+      );
 
-    // 1–2 bidders → 60s | 3–4 bidders → 40s | 5+ bidders → 30s
-    let extensionWindowMs;
-    if (uniqueBidderCount <= 2) {
-      extensionWindowMs = 60 * 1000;
-    } else if (uniqueBidderCount <= 4) {
-      extensionWindowMs = 40 * 1000;
-    } else {
-      extensionWindowMs = 30 * 1000;
-    }
+      await session.commitTransaction();
+      session.endSession();
 
-    const remaining = new Date(auction.endTime).getTime() - now.getTime();
+      res.json({ message: "Bid placed", auction: updatedAuction });
 
-    // Only extend if the remaining time is within the extension window
-    // Set newEndTime from NOW (not += endTime) to prevent runaway extensions
-    let newEndTime = new Date(auction.endTime);
-    let extensionApplied = false;
-    if (remaining <= extensionWindowMs) {
-      newEndTime = new Date(now.getTime() + extensionWindowMs);
-      extensionApplied = true;
-    }
-
-    // العملية 2: تحديث المزاد (السعر + الفائز + الوقت)
-    // ✅ Atomic increment enforcement: ensure amount >= currentPrice + increment inside DB
-    const updatedAuction = await Auction.findOneAndUpdate(
-      {
-        _id: auction._id,
-        status: "active",
-        endTime: { $gt: now },
-        // Enforce: currentPrice + increment <= amount (atomically, prevents race conditions)
-        $expr: { $lte: [{ $add: ["$currentPrice", "$increment"] }, amount] },
-      },
-      {
-        $set: {
-          currentPrice: amount,
-          winner: req.user._id,
-          lastBidAt: now,
-          endTime: newEndTime,
-        },
-        $inc: { bidCount: 1 },
-      },
-      { new: true, session }
-    );
-
-    if (!updatedAuction) {
-      await session.abortTransaction();
-      await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
-      return res.status(409).json({ message: "Bid rejected (price changed or auction ended)." });
-    }
-
-    // العملية 3: إنشاء سجل المزايدة
-    await Bid.create(
-      [
-        {
-          auction: updatedAuction._id,
-          bidder: req.user._id,
-          amount,
-          depositHeld: !existingBid && deposit > 0,
-        },
-      ],
-      { session }
-    );
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // Commit — يتم بعد نجاح العمليات الثلاث
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    await session.commitTransaction();
-
-    // الرد على المستخدم
-    res.json({ message: "Bid placed", auction: updatedAuction });
-
-    // إشعار المتزايد السابق (بعد commit وخارج الـ session)
-    if (auction.winner && auction.winner.toString() !== req.user._id.toString()) {
-      sendAppNotification({
-        userId: auction.winner,
-        title: "تمت المزايدة عليك! ⚠️",
-        message: `لقد قام أحدهم بالمزايدة بمبلغ أعلى منك في مزاد "${auction.title}". قم بالمزايدة الآن للاحتفاظ بفرصة الفوز!`,
-        event: "OUTBID",
-        type: "SYSTEM",
-        auctionId: auction._id
-      });
-    }
-
-    // بث WebSocket (بعد commit فقط)
-    const io = req.app.get("io");
-    if (io) {
-      Bid.find({ auction: updatedAuction._id })
-        .sort({ createdAt: -1 })
-        .limit(20)
-        .populate("bidder", "name")
-        .lean()
-        .then((latestBids) => {
-          io.to(updatedAuction._id.toString()).emit("bid:new", {
-            auction: updatedAuction,
-            bids: latestBids,
-            extensionApplied,
-            extensionSeconds: Math.round(extensionWindowMs / 1000),
-          });
+      if (auction.winner && auction.winner.toString() !== req.user._id.toString()) {
+        sendAppNotification({
+          userId: auction.winner,
+          title: "تمت المزايدة عليك! ⚠️",
+          message: `لقد قام أحدهم بالمزايدة بمبلغ أعلى منك في مزاد "${auction.title}". قم بالمزايدة الآن للاحتفاظ بفرصة الفوز!`,
+          event: "OUTBID",
+          type: "SYSTEM",
+          auctionId: auction._id
         });
+      }
+
+      const io = req.app.get("io");
+      if (io) {
+        Bid.find({ auction: updatedAuction._id })
+          .sort({ createdAt: -1 })
+          .limit(20)
+          .populate("bidder", "name")
+          .lean()
+          .then((latestBids) => {
+            io.to(updatedAuction._id.toString()).emit("bid:new", {
+              auction: updatedAuction,
+              bids: latestBids,
+              extensionApplied,
+              extensionSeconds: Math.round(extensionWindowMs / 1000),
+            });
+          });
+      }
+      return;
+    } catch (err) {
+      if (session.inTransaction()) await session.abortTransaction();
+      session.endSession();
+      if (err.code === 112 && attempt < MAX_RETRIES) {
+        console.warn(`WriteConflict in placeBid, attempt ${attempt}/${MAX_RETRIES}. Retrying...`);
+        await new Promise(resolve => setTimeout(resolve, Math.floor(Math.random() * 150) + 50));
+        continue;
+      }
+      console.error("placeBid error:", err);
+      if (attempt === 1) await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id }).catch(() => { });
+      return res.status(500).json({ message: "Server error" });
     }
-  } catch (err) {
-    if (session.inTransaction()) {
-      await session.abortTransaction();
-    }
-    console.error("placeBid error:", err);
-    await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id }).catch(() => { });
-    return res.status(500).json({ message: "Server error" });
-  } finally {
-    session.endSession();
   }
 };
 
@@ -1028,27 +1026,20 @@ export const placeBid = async (req, res) => {
 export const getCompletedAuctions = async (req, res) => {
   try {
     const { result } = req.query;
-
     const query = {
       status: { $in: ["ENDED", "ended"] },
       isDeleted: false,
     };
-
-    if (result === "withWinner") {
-      query.winner = { $ne: null };
-    }
-
-    if (result === "withoutWinner") {
-      query.winner = null;
-    }
+    if (result === "withWinner") query.winner = { $ne: null };
+    if (result === "withoutWinner") query.winner = null;
 
     const auctions = await Auction.find(query).populate("owner", "name").sort({ endTime: -1 });
-
     res.json(auctions);
   } catch (err) {
     res.status(500).json({ message: "Failed to load archive" });
   }
 };
+
 export const releaseDepositsForLosers = async (auctionId) => {
   const auction = await Auction.findById(auctionId);
   if (!auction) return;

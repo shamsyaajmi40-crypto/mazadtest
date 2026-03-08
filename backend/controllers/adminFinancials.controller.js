@@ -134,9 +134,7 @@ export const getFinancialStats = async (req, res) => {
     }
 };
 
-/**
- * Get unified financial logs with advanced filters
- */
+// GET /api/admin/financials/logs
 export const getFinancialLogs = async (req, res) => {
     try {
         const { page = 1, limit = 20, type = "all", startDate, endDate, search } = req.query;
@@ -154,159 +152,179 @@ export const getFinancialLogs = async (req, res) => {
             }
         }
 
-        let userMatchIds = null;
-        if (search && search.trim()) {
+        // 1. Pre-fetch matching user IDs for search
+        let userMatchIds = [];
+        let searchActive = search && search.trim();
+        if (searchActive) {
             const searchRegex = new RegExp(search.trim(), "i");
             const matchingUsers = await User.find({
-                $or: [
-                    { name: searchRegex },
-                    { phone: searchRegex }
-                ]
+                $or: [{ name: searchRegex }, { phone: searchRegex }]
             }).select("_id");
             userMatchIds = matchingUsers.map(u => u._id);
         }
 
-        // Fetch from PaymentTransaction (Subscriptions, Topups)
-        const getTxLogs = async () => {
-            const match = { status: "paid", ...dateFilter };
-            if (type === "subscription") match.kind = "subscription";
-            if (type === "topup") match.kind = "wallet_topup";
+        // 2. Build Pipeline
+        const pipeline = [];
 
-            if (userMatchIds) {
-                match.user = { $in: userMatchIds };
+        // --- BASE: PaymentTransaction ---
+        const ptMatch = { status: "paid", ...dateFilter };
+        if (type === "subscription") ptMatch.kind = "subscription";
+        else if (type === "topup") ptMatch.kind = "wallet_topup";
+        else if (type !== "all") ptMatch._id = null; // Forces empty if type is penalty/refund but starting with PT
+
+        pipeline.push({ $match: ptMatch });
+        pipeline.push({
+            $project: {
+                _id: 1,
+                type: { $cond: [{ $eq: ["$kind", "subscription"] }, "SUBSCRIPTION", "TOPUP"] },
+                status: { $apply: { inputs: [], body: "SUCCESS" } }, // Static success for paid txs
+                amount: "$amountIQD",
+                user: 1,
+                createdAt: 1,
+                orderId: { $ifNull: ["$receiptId", { $ifNull: ["$orderId", "—"] }] },
+                provider: 1,
+                source: { $literal: "قناة دفع" }
             }
+        });
 
-            if (type !== "penalty" && type !== "refund") {
-                const txs = await PaymentTransaction.find(match)
-                    .sort({ createdAt: -1 })
-                    .limit(limitNum * 10) // Broad fetch for local merging
-                    .populate("user", "name phone")
-                    .lean();
+        // --- UNION: AuditLog ---
+        if (type === "all" || type === "penalty" || type === "refund") {
+            const auditActions = [];
+            if (type === "all" || type === "penalty") auditActions.push("CONFISCATE_OK");
+            if (type === "all" || type === "refund") auditActions.push("REFUND");
 
-                return txs.map(t => ({
-                    _id: t._id,
-                    type: t.kind === "subscription" ? "SUBSCRIPTION" : "TOPUP",
-                    status: "SUCCESS",
-                    amount: t.amountIQD,
-                    user: t.user,
-                    createdAt: t.createdAt,
-                    orderId: t.receiptId || t.orderId || "—",
-                    provider: t.provider
-                }));
-            }
-            return [];
-        };
-
-        // Fetch from AuditLog (Penalties, Refunds)
-        const getAuditLogs = async () => {
-            const actions = [];
-            if (type === "all" || type === "penalty") actions.push("CONFISCATE_OK");
-            if (type === "all" || type === "refund") actions.push("REFUND");
-
-            if (actions.length > 0) {
-                const match = { action: { $in: actions }, ...dateFilter };
-                if (userMatchIds) {
-                    match.user = { $in: userMatchIds };
+            pipeline.push({
+                $unionWith: {
+                    coll: "auditlogs",
+                    pipeline: [
+                        { $match: { action: { $in: auditActions }, ...dateFilter } },
+                        {
+                            $lookup: {
+                                from: "auctions",
+                                localField: "auction",
+                                foreignField: "_id",
+                                as: "aucData"
+                            }
+                        },
+                        { $unwind: { path: "$aucData", preserveNullAndEmptyArrays: true } },
+                        {
+                            $project: {
+                                _id: 1,
+                                type: { $cond: [{ $eq: ["$action", "CONFISCATE_OK"] }, "PENALTY", "DEPOSIT_REFUND"] },
+                                status: { $literal: "SUCCESS" },
+                                amount: "$amount",
+                                user: 1,
+                                createdAt: 1,
+                                orderId: { $ifNull: ["$receiptId", { $cond: ["$aucData", { $concat: ["AUC-", { $substr: [{ $toString: "$aucData._id" }, 18, 6] }] }, "—"] }] },
+                                reason: "$reason",
+                                source: { $cond: [{ $eq: ["$source", "SELLER"] }, "بائع", { $cond: [{ $eq: ["$source", "BUYER"] }, "مشتري", "منصة"] }] },
+                                auctionTitle: "$aucData.title"
+                            }
+                        }
+                    ]
                 }
-
-                const audits = await AuditLog.find(match)
-                    .sort({ createdAt: -1 })
-                    .limit(limitNum * 10) // Broad fetch for local merging
-                    .populate("user", "name phone")
-                    .populate("auction", "title")
-                    .lean();
-
-                return audits.map(p => ({
-                    _id: p._id,
-                    type: p.action === "CONFISCATE_OK" ? "PENALTY" : "DEPOSIT_REFUND",
-                    status: "SUCCESS",
-                    amount: p.amount,
-                    user: p.user,
-                    createdAt: p.createdAt,
-                    auction: p.auction,
-                    reason: p.reason,
-                    source: p.source || "OTHER",
-                    orderId: p.receiptId || (p.auction ? `AUC-${p.auction._id.toString().slice(-6).toUpperCase()}` : "—"),
-                    meta: {
-                        reason: p.reason,
-                        auctionTitle: p.auction?.title,
-                        source: p.source
-                    }
-                }));
-            }
-            return [];
-        };
-
-        // Fetch from FinanceLog (Manual Refund Requests & Manual Topups)
-        const getFinanceLogs = async () => {
-            if (type === "all" || type === "refund" || type === "topup") {
-                const types = [];
-                if (type === "all" || type === "refund") types.push("REFUND_REQUEST_APPROVED", "REFUND_REQUEST_REJECTED");
-                if (type === "all" || type === "topup") types.push("WALLET_TOPUP_PAID");
-
-                const match = {
-                    type: { $in: types },
-                    refModel: { $ne: "PaymentTransaction" }, // Avoid duplicates with getTxLogs
-                    ...dateFilter
-                };
-                if (userMatchIds) match.user = { $in: userMatchIds };
-
-                const finLogs = await FinanceLog.find(match)
-                    .sort({ createdAt: -1 })
-                    .limit(limitNum * 10)
-                    .populate("user", "name phone")
-                    .lean();
-
-                return finLogs.map(l => ({
-                    _id: l._id,
-                    type: l.type === "WALLET_TOPUP_PAID" ? "TOPUP" : "WALLET_WITHDRAWAL",
-                    status: l.type === "REFUND_REQUEST_REJECTED" ? "FAILED" : "SUCCESS",
-                    amount: l.amountIQD,
-                    user: l.user,
-                    createdAt: l.createdAt,
-                    reason: l.meta?.adminNote || l.meta?.reason || l.meta?.note || (l.type === "WALLET_TOPUP_PAID" ? "شحن يدوي" : "سحب رصيد"),
-                    source: "منصة (يدوي)",
-                    orderId: l.receiptId || (l.refId ? (l.type === "WALLET_TOPUP_PAID" ? `BAL-${l.refId.toString().slice(-6).toUpperCase()}` : `WDR-${l.refId.toString().slice(-6).toUpperCase()}`) : "—"),
-                    meta: l.meta,
-                    refId: l.refId
-                }));
-            }
-            return [];
-        };
-
-        const [txLogs, auditLogs, finLogs] = await Promise.all([getTxLogs(), getAuditLogs(), getFinanceLogs()]);
-
-        // Merge and sort
-        let merged = [...txLogs, ...auditLogs, ...finLogs].sort((a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-
-        // Refined local search for non-user fields (OrderId, Auction Title)
-        if (search && search.trim()) {
-            const s = search.trim().toUpperCase();
-            merged = merged.filter(l =>
-                (l.orderId && l.orderId.toUpperCase().includes(s)) ||
-                (l.user?.name && l.user.name.includes(search)) ||
-                (l.user?.phone && l.user.phone.includes(search)) ||
-                (l.auction?.title && l.auction.title.toUpperCase().includes(s))
-            );
+            });
         }
 
-        const totalCount = merged.length;
+        // --- UNION: FinanceLog ---
+        if (type === "all" || type === "refund" || type === "topup") {
+            const finTypes = [];
+            if (type === "all" || type === "refund") finTypes.push("REFUND_REQUEST_APPROVED", "REFUND_REQUEST_REJECTED");
+            if (type === "all" || type === "topup") finTypes.push("WALLET_TOPUP_PAID");
+
+            pipeline.push({
+                $unionWith: {
+                    coll: "financelogs",
+                    pipeline: [
+                        {
+                            $match: {
+                                type: { $in: finTypes },
+                                refModel: { $ne: "PaymentTransaction" },
+                                ...dateFilter
+                            }
+                        },
+                        {
+                            $project: {
+                                _id: 1,
+                                type: { $cond: [{ $eq: ["$type", "WALLET_TOPUP_PAID"] }, "TOPUP", "WALLET_WITHDRAWAL"] },
+                                status: { $cond: [{ $eq: ["$type", "REFUND_REQUEST_REJECTED"] }, "FAILED", "SUCCESS"] },
+                                amount: "$amountIQD",
+                                user: 1,
+                                createdAt: 1,
+                                orderId: { $ifNull: ["$receiptId", { $cond: ["$refId", { $concat: [{ $cond: [{ $eq: ["$type", "WALLET_TOPUP_PAID"] }, "BAL-", "WDR-"] }, { $substr: [{ $toString: "$refId" }, 18, 6] }] }, "—"] }] },
+                                reason: { $ifNull: ["$meta.adminNote", { $ifNull: ["$meta.reason", { $ifNull: ["$meta.note", "—"] }] }] },
+                                source: { $literal: "منصة (يدوي)" }
+                            }
+                        }
+                    ]
+                }
+            });
+        }
+
+        // --- Global Filter (Search & Populate) ---
+        if (searchActive) {
+            const s = search.trim().toUpperCase();
+            pipeline.push({
+                $match: {
+                    $or: [
+                        { user: { $in: userMatchIds } },
+                        { orderId: { $regex: s, $options: "i" } },
+                        { auctionTitle: { $regex: s, $options: "i" } }
+                    ]
+                }
+            });
+        }
+
+        pipeline.push({ $sort: { createdAt: -1 } });
+
+        pipeline.push({
+            $facet: {
+                data: [
+                    { $skip: skip },
+                    { $limit: limitNum },
+                    {
+                        $lookup: {
+                            from: "users",
+                            localField: "user",
+                            foreignField: "_id",
+                            as: "userData"
+                        }
+                    },
+                    { $unwind: { path: "$userData", preserveNullAndEmptyArrays: true } },
+                    {
+                        $addFields: {
+                            "user": {
+                                _id: "$userData._id",
+                                name: "$userData.name",
+                                phone: "$userData.phone"
+                            }
+                        }
+                    },
+                    { $project: { userData: 0 } }
+                ],
+                total: [{ $count: "count" }]
+            }
+        });
+
+        const [result] = await PaymentTransaction.aggregate(pipeline);
+        const logs = result.data || [];
+        const totalCount = result.total[0]?.count || 0;
 
         return res.json({
-            logs: merged.slice(skip, skip + limitNum),
+            logs,
             pagination: {
                 total: totalCount,
                 page: parseInt(page),
                 pages: Math.ceil(totalCount / limitNum)
             }
         });
+
     } catch (err) {
         console.error("getFinancialLogs error:", err);
         return res.status(500).json({ message: "Server error" });
     }
 };
+
 
 /**
  * Export financial logs to Excel with advanced filters

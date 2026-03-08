@@ -419,17 +419,8 @@ export const getAuctions = async (req, res) => {
       { $match: matchQuery },
 
       {
-        $lookup: {
-          from: "bids",
-          localField: "_id",
-          foreignField: "auction",
-          as: "bids",
-        },
-      },
-
-      {
         $addFields: {
-          bidsCount: { $size: "$bids" },
+          bidsCount: "$bidCount",
 
           minutesLeft: {
             $divide: [
@@ -532,7 +523,6 @@ export const getAuctions = async (req, res) => {
 
       {
         $project: {
-          bids: 0,
           score: 0,
           minutesLeft: 0,
           createdHours: 0,
@@ -577,17 +567,8 @@ export const getHotAuctions = async (req, res) => {
       },
 
       {
-        $lookup: {
-          from: "bids",
-          localField: "_id",
-          foreignField: "auction",
-          as: "bids",
-        },
-      },
-
-      {
         $addFields: {
-          bidsCount: { $size: "$bids" },
+          bidsCount: "$bidCount",
 
           minutesLeft: {
             $divide: [

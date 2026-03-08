@@ -144,12 +144,13 @@ const auctionSchema = new mongoose.Schema(
     closingLock: { type: Boolean, default: false },
     closedAt: { type: Date, default: null },
 
+    bidCount: { type: Number, default: 0 },
+
     // نظام الاعتراض الذكي الذكي 
     isDisputed: { type: Boolean, default: false },
     disputeReason: { type: String, default: null },
 
     // أسباب الرفض
-    rejectionReasons: [String], // قائمة الأسباب المختارة
     rejectionNote: { type: String, default: null }, // ملاحظة إضافية من الأدمن
     rejectedAt: { type: Date, default: null }, // تاريخ الرفض (للتنظيف التلقائي)
   },

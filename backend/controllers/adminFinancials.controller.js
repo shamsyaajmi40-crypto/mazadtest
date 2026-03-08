@@ -177,7 +177,7 @@ export const getFinancialLogs = async (req, res) => {
             $project: {
                 _id: 1,
                 type: { $cond: [{ $eq: ["$kind", "subscription"] }, "SUBSCRIPTION", "TOPUP"] },
-                status: { $apply: { inputs: [], body: "SUCCESS" } }, // Static success for paid txs
+                status: { $literal: "SUCCESS" }, // Static success for paid txs
                 amount: "$amountIQD",
                 user: 1,
                 createdAt: 1,

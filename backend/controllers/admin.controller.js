@@ -21,16 +21,18 @@ import RefundRequest from "../models/RefundRequest.js";
 // جلب أعداد المراجعة للمسؤول
 export const getAdminCounters = async (req, res) => {
   try {
-    const [pendingAuctions, pendingDisputes, pendingRefundRequests] = await Promise.all([
+    const [pendingAuctions, pendingDisputes, pendingRefundRequests, pendingKYCRequests] = await Promise.all([
       Auction.countDocuments({ status: "pending" }),
       Auction.countDocuments({ isDisputed: true }),
       RefundRequest.countDocuments({ status: "pending" }),
+      User.countDocuments({ "verification.status": "pending" }),
     ]);
 
     res.json({
       pendingAuctions,
       pendingDisputes,
       pendingRefundRequests,
+      pendingKYCRequests,
     });
   } catch (error) {
     console.error("Admin counters error:", error);
@@ -531,6 +533,66 @@ export const toggleUserAdminRole = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+// --- KYC (Verification) ---
+
+export const getPendingKYCRequests = async (req, res) => {
+  try {
+    const users = await User.find({ "verification.status": "pending" })
+      .select("name phone email verification createdAt")
+      .sort({ "verification.submittedAt": 1 });
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: "فشل جلب طلبات التوثيق" });
+  }
+};
+
+export const approveKYC = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    user.verification.status = "verified";
+    user.verification.verifiedAt = new Date();
+    await user.save();
+
+    // إرسال تنبيه للمستخدم
+    await sendAppNotification({
+      user: user._id,
+      title: "تم توثيق حسابك! ✅",
+      message: "تهانينا، تم قبول وثائقك وأصبحت الآن بائعاً موثوقاً بشارة زرقاء.",
+      type: "SYSTEM"
+    });
+
+    res.json({ message: "تم توثيق الحساب بنجاح", user });
+  } catch (err) {
+    res.status(500).json({ message: "فشل توثيق الحساب" });
+  }
+};
+
+export const rejectKYC = async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    user.verification.status = "rejected";
+    user.verification.rejectionReason = reason || "الوثائق المرفوعة غير واضحة أو لا تستوفي المعايير.";
+    await user.save();
+
+    await sendAppNotification({
+      user: user._id,
+      title: "رفض طلب التوثيق ❌",
+      message: `عذراً، تم رفض طلب التوثيق الخاص بك. السبب: ${user.verification.rejectionReason}`,
+      type: "SYSTEM"
+    });
+
+    res.json({ message: "تم رفض طلب التوثيق", user });
+  } catch (err) {
+    res.status(500).json({ message: "فشل رفض طلب التوثيق" });
+  }
+};
+
 
 export const getAdminUserDetails = async (req, res) => {
   try {

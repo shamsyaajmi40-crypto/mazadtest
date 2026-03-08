@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
-  Users, Gavel, CheckCircle, XCircle, DollarSign, Ban, RefreshCw, BarChart2, CheckSquare, Settings, ArrowLeft, ArrowRight
+  Users, Gavel, CheckCircle, XCircle, DollarSign, Ban, RefreshCw, BarChart2, CheckSquare, Settings, ArrowLeft, ArrowRight, ShieldCheck
 } from "lucide-react";
 
 import {
@@ -66,6 +66,7 @@ const AdminDashboard = () => {
   const [platformUpdatedAt, setPlatformUpdatedAt] = useState<string>("");
   const [pendingDisputesCount, setPendingDisputesCount] = useState<number>(0);
   const [pendingRefundRequestsCount, setPendingRefundRequestsCount] = useState<number>(0);
+  const [pendingKYCCount, setPendingKYCCount] = useState<number>(0);
 
   // Rejection Modal State
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -92,6 +93,7 @@ const AdminDashboard = () => {
         setMonthlyStats(monthly);
         setPendingDisputesCount(countersRes.data?.pendingDisputes || 0);
         setPendingRefundRequestsCount(countersRes.data?.pendingRefundRequests || 0);
+        setPendingKYCCount(countersRes.data?.pendingKYCRequests || 0);
       } catch (err) {
         console.error("Admin dashboard load error:", err);
       } finally {
@@ -248,6 +250,15 @@ const AdminDashboard = () => {
           </Link>
           <Link to="/admin/courier" className="flex items-center gap-2 px-4 py-2 bg-white/60 backdrop-blur-xl border border-slate-200/60 rounded-[1.2rem] text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 hover:border-emerald-500/20 transition-all shadow-sm">
             <CheckCircle className="w-4 h-4" /> Courier</Link>
+
+          <Link to="/admin/kyc" className="flex items-center gap-2 px-4 py-2 bg-white/60 backdrop-blur-xl border border-slate-200/60 rounded-[1.2rem] text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-blue-500 hover:border-blue-500/20 transition-all shadow-sm relative">
+            <ShieldCheck className="w-4 h-4" /> KYC Review
+            {pendingKYCCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[9px] font-black text-white">
+                {pendingKYCCount}
+              </span>
+            )}
+          </Link>
 
           <Link to="/admin/disputes" className="flex items-center gap-2 px-4 py-2 bg-white/60 backdrop-blur-xl border border-slate-200/60 rounded-[1.2rem] text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-amber-500 hover:border-amber-500/20 transition-all shadow-sm relative">
             <XCircle className="w-4 h-4" /> Disputes

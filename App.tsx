@@ -39,6 +39,7 @@ import AdminCourierManagement from "./pages/AdminCourierManagement";
 import OpenDeals from "./pages/OpenDeals";
 import AdminDisputes from "./pages/AdminDisputes";
 import AdminFeaturedAuctions from "./pages/AdminFeaturedAuctions";
+import AdminKYC from "./pages/AdminKYC";
 
 /* =======================
    Auth Context
@@ -310,6 +311,15 @@ const App = () => {
             element={
               <ProtectedRoute requireAdmin>
                 <AdminUserDetails />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/kyc"
+            element={
+              <ProtectedRoute requireAdmin>
+                <AdminKYC />
               </ProtectedRoute>
             }
           />

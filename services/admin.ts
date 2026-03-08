@@ -153,3 +153,21 @@ export const downloadFinancialsExcel = (params: {
   endDate?: string;
   search?: string;
 }) => api.get("/admin/financials/export", { params, responseType: 'blob' });
+
+/* =========================
+   KYC (Verification)
+   ========================= */
+export const getPendingKYCRequests = async () => {
+  const res = await api.get("/admin/kyc/pending");
+  return res.data;
+};
+
+export const approveKYC = async (id: string) => {
+  const res = await api.post(`/admin/kyc/${id}/approve`);
+  return res.data;
+};
+
+export const rejectKYC = async (id: string, reason: string) => {
+  const res = await api.post(`/admin/kyc/${id}/reject`, { reason });
+  return res.data;
+};

@@ -329,4 +329,28 @@ router.get(
   adminFinancials.getFeaturedPayments
 );
 
+// ===========================
+// KYC (Verification Review)
+// ===========================
+router.get(
+  "/kyc/pending",
+  protect,
+  requireRole("admin", "superAdmin"),
+  adminController.getPendingKYCRequests
+);
+
+router.post(
+  "/kyc/:id/approve",
+  protect,
+  requireRole("admin", "superAdmin"),
+  adminController.approveKYC
+);
+
+router.post(
+  "/kyc/:id/reject",
+  protect,
+  requireRole("admin", "superAdmin"),
+  adminController.rejectKYC
+);
+
 export default router;

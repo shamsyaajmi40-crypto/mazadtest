@@ -148,26 +148,30 @@ export const createAuction = async (req, res) => {
 
           if (rbResult.modifiedCount > 0) {
             try {
-              await AuditLog.create({
-                action: "REFUND",
+              const receiptId = "ERR-" + Date.now();
+              await FinanceLog.create({
                 user: sellerId,
-                amount: lockedDeposit,
-                reason: "استرجاع عربون بائع بسبب فشل نشر رفع الصور (شبكة)",
-                by: "SYSTEM"
+                type: "DEPOSIT_REFUND",
+                amountIQD: lockedDeposit,
+                receiptId,
+                meta: {
+                  reason: "استرجاع عربون بائع بسبب فشل رفع الصور (شبكة)",
+                  source: "SYSTEM"
+                }
               });
 
               if (seller?.email) {
                 sendReceiptEmail({
                   to: seller.email,
                   userName: req.user?.name || "مستخدم مزاد",
-                  receiptId: "ERR-" + Date.now(),
+                  receiptId,
                   amount: lockedDeposit,
                   type: "DEPOSIT_REFUND",
                   date: new Date(),
                   details: "إرجاع عربون إنشاء المزاد بسبب فشل رفع الصور (حالة استثنائية)."
                 }).catch(e => console.error("Email err:", e));
               }
-            } catch (auditErr) { console.error("Audit log rb1 failed:", auditErr) }
+            } catch (auditErr) { console.error("Finance log rb1 failed:", auditErr) }
           }
         }
         return res.status(500).json({ message: "فشل رفع الصور، يرجى المحاولة لاحقاً" });

@@ -1,3 +1,4 @@
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import sharp from "sharp";
 import fs from "fs/promises";
 

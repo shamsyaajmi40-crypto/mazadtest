@@ -116,7 +116,9 @@ io.on("connection", (socket) => {
       console.warn(`⚠️ User ${socket.user._id} tried to join admin_room without permission`);
     }
   });
-
+  socket.conn.on("close", (reason) => {
+    console.log("Socket closed:", reason);
+  });
   socket.on("disconnect", () => {
     console.log(`🔌 Socket disconnected: ${socket.id}`);
   });

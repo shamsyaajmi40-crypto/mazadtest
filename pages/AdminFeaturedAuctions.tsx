@@ -146,7 +146,7 @@ export default function AdminFeaturedAuctions() {
                                     <tr key={log._id} className="hover:bg-slate-50 transition-colors">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
-                                                <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                                                <ShieldCheck className="w-4 h-4 text-blue-500" />
                                                 <code className="text-[10px] font-black bg-slate-100 px-2 py-1 rounded-lg text-slate-600 select-all">
                                                     {log.receiptId || log._id}
                                                 </code>

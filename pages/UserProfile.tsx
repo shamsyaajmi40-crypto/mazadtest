@@ -91,6 +91,9 @@ const UserProfile = () => {
 
   useEffect(() => {
     setLoading(true);
+    setProfileUser(null);
+    setData({ listings: [], bids: [], wins: [], favorites: [] });
+    setMyBilling(null);
 
     // صفحتي
     if (!id) {
@@ -323,7 +326,7 @@ const UserProfile = () => {
                 <h1 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight flex items-center justify-center md:justify-start gap-3">
                   {profileUser?.name || "—"}
                   {profileUser?.verification?.status === "verified" && (
-                    <ShieldCheck className="w-8 h-8 text-emerald-500 drop-shadow-sm" />
+                    <ShieldCheck className="w-8 h-8 text-blue-500 drop-shadow-sm" />
                   )}
                 </h1>
 

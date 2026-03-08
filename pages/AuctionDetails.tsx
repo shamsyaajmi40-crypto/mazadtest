@@ -651,8 +651,14 @@ const AuctionDetails = () => {
     if (!id) return;
 
     socketRef.current = io(import.meta.env.VITE_API_URL || "http://localhost:5000", {
-      transports: ["websocket"],
+      transports: ["websocket", "polling"],
+
       withCredentials: true,
+
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
     });
 
     socketRef.current.on("connect", () => {
@@ -661,8 +667,8 @@ const AuctionDetails = () => {
       socketRef.current?.emit("auction:join", id);
     });
 
-    socketRef.current.on("disconnect", () => {
-      console.log("🔴 WS disconnected");
+    socketRef.current.on("disconnect", (reason) => {
+      console.log("🔴 WS disconnected:", reason);
       setSocketConnected(false);
     });
 

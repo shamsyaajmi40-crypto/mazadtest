@@ -19,12 +19,13 @@ interface SocketProviderProps {
 }
 
 export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
-    const { user } = useContext(AuthContext);
+    const { user, loading } = useContext(AuthContext);
+    console.log("⚛️ [SocketProvider] Render. User:", user?._id, "Loading:", loading);
     const [isConnected, setIsConnected] = useState(false);
     const socketRef = useRef<Socket | null>(null);
 
     useEffect(() => {
-        // Only attempt connection if we have a user (though technically we could allow guest connections too)
+        console.log("🎬 [SocketProvider] Effect triggered. UserID:", user?._id);
         // For this app, most real-time features require auth.
 
         // Cleanup any existing socket before recreating

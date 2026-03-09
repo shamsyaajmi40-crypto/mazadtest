@@ -189,10 +189,12 @@ app.use("/api/auctions", auctionRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/wallet", walletRoutes);
 console.log("✅ admin routes mounted at /api/admin");
-// app.use((req, _res, next) => {
-//   console.log(req.method, req.url);
-//   next();
-// });
+app.use((req, _res, next) => {
+  if (!req.url.includes("notification")) { // تقليل الزحام
+    console.log(`📡 [HTTP] ${req.method} ${req.url}`);
+  }
+  next();
+});
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/courier", courierRoutes);
 app.set("io", io);

@@ -596,9 +596,6 @@ const applyAuctionPenalty = async () => {
       continue;
     }
 
-    const winnerUser = winner ? await User.findById(winner) : null;
-    const sellerUser = seller ? await User.findById(seller) : null;
-
     /* ================================
        ❌ كلا الطرفين لم يؤكدا
     ================================ */

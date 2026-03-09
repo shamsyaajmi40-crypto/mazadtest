@@ -19,14 +19,12 @@ interface SocketProviderProps {
 }
 
 export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
-    const { user, loading } = useContext(AuthContext);
-    console.log("⚛️ [SocketProvider] Render. User:", user?._id, "Loading:", loading);
+    const { user } = useContext(AuthContext);
     const [isConnected, setIsConnected] = useState(false);
     const socketRef = useRef<Socket | null>(null);
 
     useEffect(() => {
-        console.log("🎬 [SocketProvider] Effect triggered. UserID:", user?._id);
-        // For this app, most real-time features require auth.
+        // Only attempt connection if we have a user (though technically we could allow guest connections too)
 
         // Cleanup any existing socket before recreating
         if (socketRef.current) {
@@ -40,22 +38,13 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
             try {
                 const parsed = JSON.parse(session);
                 token = parsed.token || "";
-                console.log("🔑 [SocketProvider] Session parsed. Token found:", !!token);
             } catch (e) {
-                console.error("❌ [SocketProvider] Failed to parse session", e);
+                console.error("Failed to parse session for socket token", e);
             }
-        } else {
-            console.log("⚠️ [SocketProvider] No 'app_session' found in localStorage");
         }
 
-        // GUARD: If no user or no token, ensure we are disconnected and stop.
         if (!user?._id || !token) {
-            console.warn("🛑 [SocketProvider] Guard triggered: Missing user or token. Exiting connection flow.", {
-                hasUserId: !!user?._id,
-                hasToken: !!token
-            });
             if (socketRef.current) {
-                console.log("🔌 Stopping global WS (No session/user)");
                 socketRef.current.disconnect();
                 socketRef.current = null;
                 setIsConnected(false);
@@ -64,7 +53,6 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         }
 
         const socketUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
-        console.log(`🔌 [Socket Attempt] URL: ${socketUrl} | Token present: ${!!token}`);
 
         const socket = io(socketUrl, {
             auth: { token },
@@ -77,11 +65,10 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         });
 
         socket.on("connect_error", (err) => {
-            console.error("🌐 Global WS connection error:", err.message);
+            // console.error("🌐 Global WS connection error:", err.message);
         });
 
         socket.on("connect", () => {
-            console.log("🌐 Global WS connected:", socket.id);
             setIsConnected(true);
 
             // Auto-join user room for personal notifications
@@ -91,7 +78,6 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         });
 
         socket.on("disconnect", (reason) => {
-            console.log("🌐 Global WS disconnected:", reason);
             setIsConnected(false);
         });
 

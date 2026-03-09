@@ -57,7 +57,7 @@ const allowedOrigins = [
 
 const io = new Server(httpServer, {
   cors: {
-    origin: "*", // مؤقتاً للتشخيص - سنعيده للأصل بعد الحل
+    origin: allowedOrigins,
     credentials: true,
   },
   pingTimeout: 10000,
@@ -75,7 +75,6 @@ if (!fs.existsSync(uploadDir)) {
 }
 // Socket.io Middleware للتحقق من التوكن (JWT)
 io.use(async (socket, next) => {
-  console.log(`🔍 [Socket Auth Attempt] ID: ${socket.id} | Origin: ${socket.handshake.headers.origin}`);
   try {
     let token = socket.handshake.auth?.token;
 
@@ -88,29 +87,20 @@ io.use(async (socket, next) => {
       token = cookies.token;
     }
 
-    if (!token) {
-      console.warn(`❌ [Socket Auth] No token for socket ${socket.id}`);
-      return next(new Error("Authentication error: No token provided"));
-    }
+    if (!token) return next(new Error("Authentication error: No token provided"));
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id).select("-password").lean();
 
-    if (!user) {
-      console.warn(`❌ [Socket Auth] User not found for ID: ${decoded.id}`);
-      return next(new Error("Authentication error: User not found"));
-    }
+    if (!user) return next(new Error("Authentication error: User not found"));
 
     if (user.blocked || user.isBanned) {
-      console.warn(`❌ [Socket Auth] User ${user._id} is blocked/banned`);
       return next(new Error("Authentication error: Unauthorized or Banned"));
     }
 
     socket.user = user;
-    console.log(`✅ [Socket Auth Success] User: ${user._id}`);
     next();
   } catch (err) {
-    console.error(`❌ [Socket Auth] Error:`, err.message);
     next(new Error("Authentication error: Invalid token"));
   }
 });
@@ -189,12 +179,10 @@ app.use("/api/auctions", auctionRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/wallet", walletRoutes);
 console.log("✅ admin routes mounted at /api/admin");
-app.use((req, _res, next) => {
-  if (!req.url.includes("notification")) { // تقليل الزحام
-    console.log(`📡 [HTTP] ${req.method} ${req.url}`);
-  }
-  next();
-});
+// app.use((req, _res, next) => {
+//   console.log(req.method, req.url);
+//   next();
+// });
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/courier", courierRoutes);
 app.set("io", io);

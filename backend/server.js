@@ -107,7 +107,7 @@ io.use(async (socket, next) => {
 
 io.on("connection", (socket) => {
   const count = io.engine.clientsCount;
-  console.log(`🔌 [Connected] ID: ${socket.id} | User: ${socket.user?._id} | Total Active: ${count}`);
+  io.to("admin_room").emit("active_users_count", count);
 
   socket.on("auction:join", (auctionId) => {
     socket.join(auctionId);
@@ -137,7 +137,7 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     const count = io.engine.clientsCount;
-    console.log(`🔌 [Disconnected] ID: ${socket.id} | Total Active: ${count}`);
+    io.to("admin_room").emit("active_users_count", count);
   });
 });
 

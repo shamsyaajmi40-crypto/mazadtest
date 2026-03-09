@@ -28,11 +28,14 @@ export const getAdminCounters = async (req, res) => {
       User.countDocuments({ "verification.status": "pending" }),
     ]);
 
+    const activeUsers = req.app.get("io")?.engine.clientsCount || 0;
+
     res.json({
       pendingAuctions,
       pendingDisputes,
       pendingRefundRequests,
       pendingKYCRequests,
+      activeUsers,
     });
   } catch (error) {
     console.error("Admin counters error:", error);

@@ -68,6 +68,7 @@ const AdminDashboard = () => {
   const [pendingDisputesCount, setPendingDisputesCount] = useState<number>(0);
   const [pendingRefundRequestsCount, setPendingRefundRequestsCount] = useState<number>(0);
   const [pendingKYCCount, setPendingKYCCount] = useState<number>(0);
+  const [activeUsers, setActiveUsers] = useState<number>(0);
 
   // Rejection Modal State
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -93,9 +94,8 @@ const AdminDashboard = () => {
         setPendingAuctions(pendingRes.auctions || []);
         setPendingTotalPages(pendingRes.pagination.totalPages || 1);
         setMonthlyStats(monthly);
-        setPendingDisputesCount(countersRes.data?.pendingDisputes || 0);
-        setPendingRefundRequestsCount(countersRes.data?.pendingRefundRequests || 0);
         setPendingKYCCount(countersRes.data?.pendingKYCRequests || 0);
+        setActiveUsers(countersRes.data?.activeUsers || 0);
       } catch (err) {
         console.error("Admin dashboard load error:", err);
       } finally {
@@ -103,21 +103,25 @@ const AdminDashboard = () => {
       }
     };
 
-    loadAdminData();
-
     // ربط بالـ Socket.io لتحديث البيانات بمجرد ورود مزاد جديد
     const refreshHandler = () => {
       loadAdminData();
     };
 
+    const activeUsersHandler = (count: number) => {
+      setActiveUsers(count);
+    };
+
     if (socket && isConnected) {
       socket.emit("admin:join");
       socket.on("admin_refresh", refreshHandler);
+      socket.on("active_users_count", activeUsersHandler);
     }
 
     return () => {
       if (socket) {
         socket.off("admin_refresh", refreshHandler);
+        socket.off("active_users_count", activeUsersHandler);
       }
     };
   }, [pendingPage, activeReviewSubTab, socket, isConnected]);
@@ -328,7 +332,8 @@ const AdminDashboard = () => {
           {activeTab === "STATS" && stats && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               {/* Stats Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <StatCard title="نشط الآن" value={activeUsers} icon={<RefreshCw className={`w-5 h-5 ${isConnected ? 'text-emerald-500 animate-spin-slow' : 'text-slate-400'}`} />} color={isConnected ? "emerald" : "indigo"} />
                 <StatCard title="المشتركين" value={stats.totalUsers} icon={<Users className="w-5 h-5 text-indigo-500" />} color="indigo" />
                 <StatCard title="المزادات" value={stats.totalAuctions} icon={<Gavel className="w-5 h-5 text-primary" />} color="primary" />
                 <StatCard title="الصفقات الجارية" value={stats.activeAuctions || 0} icon={<RefreshCw className="w-5 h-5 text-blue-500" />} color="primary" />

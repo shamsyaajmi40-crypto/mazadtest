@@ -37,70 +37,76 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         const session = localStorage.getItem("app_session");
         let token = "";
         if (session) {
-            try {
-                const parsed = JSON.parse(session);
-                token = parsed.token || "";
-            } catch (e) {
-                console.error("Failed to parse session for socket token", e);
-            }
+            const parsed = JSON.parse(session);
+            token = parsed.token || "";
+            console.log("🔑 [SocketProvider] Session parsed. Token found:", !!token);
+        } catch (e) {
+            console.error("❌ [SocketProvider] Failed to parse session", e);
         }
+    } else {
+        console.log("⚠️ [SocketProvider] No 'app_session' found in localStorage");
+    }
 
         // GUARD: If no user or no token, ensure we are disconnected and stop.
         if (!user?._id || !token) {
-            if (socketRef.current) {
-                console.log("🔌 Stopping global WS (No session/user)");
-                socketRef.current.disconnect();
-                socketRef.current = null;
-                setIsConnected(false);
-            }
-            return;
-        }
-
-        const socketUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
-        console.log(`🔌 [Socket Attempt] URL: ${socketUrl} | Token present: ${!!token}`);
-
-        const socket = io(socketUrl, {
-            auth: { token },
-            transports: ["websocket", "polling"],
-            withCredentials: true,
-            reconnection: true,
-            reconnectionAttempts: Infinity,
-            reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
+        console.warn("🛑 [SocketProvider] Guard triggered: Missing user or token. Exiting connection flow.", {
+            hasUserId: !!user?._id,
+            hasToken: !!token
         });
-
-        socket.on("connect_error", (err) => {
-            console.error("🌐 Global WS connection error:", err.message);
-        });
-
-        socket.on("connect", () => {
-            console.log("🌐 Global WS connected:", socket.id);
-            setIsConnected(true);
-
-            // Auto-join user room for personal notifications
-            if (user?._id) {
-                socket.emit("user:join", user._id);
-            }
-        });
-
-        socket.on("disconnect", (reason) => {
-            console.log("🌐 Global WS disconnected:", reason);
+        if (socketRef.current) {
+            console.log("🔌 Stopping global WS (No session/user)");
+            socketRef.current.disconnect();
+            socketRef.current = null;
             setIsConnected(false);
-        });
+        }
+        return;
+    }
 
-        socketRef.current = socket;
+    const socketUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+    console.log(`🔌 [Socket Attempt] URL: ${socketUrl} | Token present: ${!!token}`);
 
-        return () => {
-            if (socketRef.current) {
-                socketRef.current.disconnect();
-                socketRef.current = null;
-            }
-        };
-    }, [user?._id]); // Re-connect if user changes (login/logout)
+    const socket = io(socketUrl, {
+        auth: { token },
+        transports: ["websocket", "polling"],
+        withCredentials: true,
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+    });
 
-    return (
-        <SocketContext.Provider value={{ socket: socketRef.current, isConnected }}>
-            {children}
-        </SocketContext.Provider>
-    );
+    socket.on("connect_error", (err) => {
+        console.error("🌐 Global WS connection error:", err.message);
+    });
+
+    socket.on("connect", () => {
+        console.log("🌐 Global WS connected:", socket.id);
+        setIsConnected(true);
+
+        // Auto-join user room for personal notifications
+        if (user?._id) {
+            socket.emit("user:join", user._id);
+        }
+    });
+
+    socket.on("disconnect", (reason) => {
+        console.log("🌐 Global WS disconnected:", reason);
+        setIsConnected(false);
+    });
+
+    socketRef.current = socket;
+
+    return () => {
+        if (socketRef.current) {
+            socketRef.current.disconnect();
+            socketRef.current = null;
+        }
+    };
+}, [user?._id]); // Re-connect if user changes (login/logout)
+
+return (
+    <SocketContext.Provider value={{ socket: socketRef.current, isConnected }}>
+        {children}
+    </SocketContext.Provider>
+);
 };

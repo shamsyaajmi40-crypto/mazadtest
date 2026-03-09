@@ -66,7 +66,7 @@ const closeAuctions = () => {
           await sendAppNotification({
             userId: winnerId,
             title: "🎉 مبروك!",
-            message: "فزت بالمزاد ✅ الحالة الآن: بانتظار تأكيد شركة التوصيل (OTP عند التسليم).",
+            message: "فزت بالمزاد ✅ الحالة الآن: بانتظار البائع لتحديد شركة التوصيل (سيصلك OTP عند التسليم).",
             event: "WIN",
             type: "WIN",
             auctionId: auction._id,
@@ -77,7 +77,7 @@ const closeAuctions = () => {
             await sendAppNotification({
               userId: sellerId,
               title: "تم بيع مزادك! 🎉",
-              message: `لقد رسا مزادك "${auction.title}" على أحد المزايدين.يرجى الاستعداد وتسليم الطلب.`,
+              message: `لقد رسا مزادك "${auction.title}" على أحد المزايدين. يرجى تحديد شركة توصيل خلال 48 ساعة وإلا سيتم إلغاء المزاد ومصادرة العربون.`,
               event: "AUCTION_SOLD",
               type: "SYSTEM",
               auctionId: auction._id,

@@ -553,36 +553,46 @@ const applyAuctionPenalty = async () => {
     }
 
 
-    // Disable legacy manual confirmations completely.
-    // Settlement must be done via courier workflow (delivery OTP + payout OTP).
-    // ⚠️ IMPORTANT
-    // Legacy section below is intentionally unreachable.
-    // Do NOT remove without full financial regression testing.
-    auction.penaltyApplied = false;
-    auction.confirmationDeadline = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+    // ================================
+    // 🚧 Manual Mode / No Order Cleanup
+    // ================================
+    // This happens when deliveryMode is "manual" (seller hasn't picked a courier yet).
+    const winnerUser = auction.winner ? await User.findById(auction.winner) : null;
+    const sellerUser = auction.seller ? await User.findById(auction.seller) : null;
 
-    if (auction.winner) {
-      await notifyUser({
-        userId: auction.winner,
-        auctionId: auction._id,
-        event: "WAITING_COURIER_SETUP",
-        title: "بانتظار بدء التوصيل",
-        message: "التأكيد اليدوي ملغي. سيتم إتمام الصفقة فقط عبر شركة التوصيل وOTP.",
-      });
+    if (auction.deliveryPenaltyReason !== "MANUAL_WAIT_EXTENDED") {
+      // First extension: 48 hours for the seller to choose a courier.
+      auction.deliveryPenaltyReason = "MANUAL_WAIT_EXTENDED";
+      auction.penaltyApplied = false; // Allow the cron to check again later
+      auction.confirmationDeadline = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+
+      if (winnerUser) {
+        await notifyUser({
+          userId: winnerUser._id,
+          auctionId: auction._id,
+          event: "WAITING_COURIER_SETUP",
+          title: "بانتظار البائع",
+          message: "انتهت مهلة المزاد الأولية. تم منح البائع 48 ساعة إضافية لتحديد شركة التوصيل.",
+        });
+      }
+
+      if (sellerUser) {
+        await notifyUser({
+          userId: sellerUser._id,
+          auctionId: auction._id,
+          event: "WAITING_COURIER_SETUP",
+          title: "⚠️ تنبيه: اختر شركة توصيل فوراً",
+          message: "انتهت المهلة ولم تختر شركة توصيل. تم منحك 48 ساعة نهائية قبل إلغاء المزاد ومصادرة عربونك.",
+        });
+      }
+
+      await auction.save();
+      continue;
+    } else {
+      // Second check: Time's up for the seller.
+      await penalizeSellerFailure("SELLER_NOT_READY");
+      continue;
     }
-
-    if (auction.seller) {
-      await notifyUser({
-        userId: auction.seller,
-        auctionId: auction._id,
-        event: "WAITING_COURIER_SETUP",
-        title: "اختر شركة توصيل لإتمام الصفقة",
-        message: "يرجى إنشاء طلب التوصيل لإكمال الصفقة عبر OTP.",
-      });
-    }
-
-    await auction.save();
-    continue;
     const {
       winner,
       seller,

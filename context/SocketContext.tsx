@@ -44,6 +44,17 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
             }
         }
 
+        // GUARD: If no user or no token, ensure we are disconnected and stop.
+        if (!user?._id || !token) {
+            if (socketRef.current) {
+                console.log("🔌 Stopping global WS (No session/user)");
+                socketRef.current.disconnect();
+                socketRef.current = null;
+                setIsConnected(false);
+            }
+            return;
+        }
+
         const socketUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
         const socket = io(socketUrl, {

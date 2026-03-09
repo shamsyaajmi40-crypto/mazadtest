@@ -57,11 +57,12 @@ const allowedOrigins = [
 
 const io = new Server(httpServer, {
   cors: {
-    origin: allowedOrigins,
+    origin: "*", // مؤقتاً للتشخيص - سنعيده للأصل بعد الحل
     credentials: true,
   },
   pingTimeout: 10000,
   pingInterval: 5000,
+  transports: ["websocket", "polling"], // السماح بكلا النوعين لضمان الاتصال
 });
 
 initIo(io);
@@ -74,6 +75,7 @@ if (!fs.existsSync(uploadDir)) {
 }
 // Socket.io Middleware للتحقق من التوكن (JWT)
 io.use(async (socket, next) => {
+  console.log(`🔍 [Socket Auth Attempt] ID: ${socket.id} | Origin: ${socket.handshake.headers.origin}`);
   try {
     let token = socket.handshake.auth?.token;
 
@@ -86,18 +88,29 @@ io.use(async (socket, next) => {
       token = cookies.token;
     }
 
-    if (!token) return next(new Error("Authentication error: No token provided"));
+    if (!token) {
+      console.warn(`❌ [Socket Auth] No token for socket ${socket.id}`);
+      return next(new Error("Authentication error: No token provided"));
+    }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id).select("-password").lean();
 
-    if (!user || user.blocked || user.isBanned) {
+    if (!user) {
+      console.warn(`❌ [Socket Auth] User not found for ID: ${decoded.id}`);
+      return next(new Error("Authentication error: User not found"));
+    }
+
+    if (user.blocked || user.isBanned) {
+      console.warn(`❌ [Socket Auth] User ${user._id} is blocked/banned`);
       return next(new Error("Authentication error: Unauthorized or Banned"));
     }
 
     socket.user = user;
+    console.log(`✅ [Socket Auth Success] User: ${user._id}`);
     next();
   } catch (err) {
+    console.error(`❌ [Socket Auth] Error:`, err.message);
     next(new Error("Authentication error: Invalid token"));
   }
 });

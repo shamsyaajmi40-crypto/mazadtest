@@ -558,7 +558,7 @@ export const approveKYC = async (req, res) => {
 
     // إرسال تنبيه للمستخدم
     await sendAppNotification({
-      user: user._id,
+      userId: user._id,
       title: "تم توثيق حسابك! ✅",
       message: "تهانينا، تم قبول وثائقك وأصبحت الآن بائعاً موثوقاً بشارة زرقاء.",
       type: "SYSTEM"
@@ -581,7 +581,7 @@ export const rejectKYC = async (req, res) => {
     await user.save();
 
     await sendAppNotification({
-      user: user._id,
+      userId: user._id,
       title: "رفض طلب التوثيق ❌",
       message: `عذراً، تم رفض طلب التوثيق الخاص بك. السبب: ${user.verification.rejectionReason}`,
       type: "SYSTEM"

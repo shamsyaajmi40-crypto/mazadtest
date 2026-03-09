@@ -94,6 +94,8 @@ const AdminDashboard = () => {
         setPendingAuctions(pendingRes.auctions || []);
         setPendingTotalPages(pendingRes.pagination.totalPages || 1);
         setMonthlyStats(monthly);
+        setPendingDisputesCount(countersRes.data?.pendingDisputes || 0);
+        setPendingRefundRequestsCount(countersRes.data?.pendingRefundRequests || 0);
         setPendingKYCCount(countersRes.data?.pendingKYCRequests || 0);
         setActiveUsers(countersRes.data?.activeUsers || 0);
       } catch (err) {
@@ -102,6 +104,8 @@ const AdminDashboard = () => {
         setLoading(false);
       }
     };
+
+    loadAdminData();
 
     // ربط بالـ Socket.io لتحديث البيانات بمجرد ورود مزاد جديد
     const refreshHandler = () => {

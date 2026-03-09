@@ -233,12 +233,16 @@ export const createAuction = async (req, res) => {
           { $inc: { heldBalance: -lockedDeposit, balance: lockedDeposit } }
         );
         if (rbRes.modifiedCount > 0) {
-          await AuditLog.create({
-            action: "REFUND",
+          const receiptId = "ERR-" + Date.now();
+          await FinanceLog.create({
             user: sellerId,
-            amount: lockedDeposit,
-            reason: "استرجاع عربون إنشاء מזاد إثر خطأ برمجي بالنظام",
-            by: "SYSTEM"
+            type: "DEPOSIT_REFUND",
+            amountIQD: lockedDeposit,
+            receiptId,
+            meta: {
+              reason: "استرجاع عربون إنشاء مزاد إثر خطأ برمجي بالنظام",
+              source: "SYSTEM"
+            }
           });
         }
       } catch (rbErr) {

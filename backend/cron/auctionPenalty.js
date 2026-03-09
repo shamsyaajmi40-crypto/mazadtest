@@ -307,98 +307,98 @@ const applyAuctionPenalty = async () => {
     );
 
     if (lock.modifiedCount === 0) continue;
+
+    const winnerId = auction.winner;
+    const sellerId = auction.seller;
+
+    const winnerUser = winnerId ? await User.findById(winnerId) : null;
+    const sellerUser = sellerId ? await User.findById(sellerId) : null;
+
+    // helper: مشكلة شركة => لا عقوبات + نعيد جدولة فحص 24 ساعة
+    const rescheduleCourierIssue = async (msgBuyer, msgSeller, newReason = "COURIER_ISSUE") => {
+      // Any grace-period reschedule is treated as a courier-side issue.
+      auction.deliveryPenaltyReason = newReason;
+
+      // رجّع penaltyApplied حتى يعيد الكرون الفحص بعد تمديد المهلة
+      auction.penaltyApplied = false;
+      auction.confirmationDeadline = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000); // +48 ساعة
+
+      if (winnerUser) {
+        await notifyUser({
+          userId: winnerUser._id,
+          auctionId: auction._id,
+          event: "DELIVERY_ISSUE",
+          title: "تعذر/تأخر التوصيل",
+          message: msgBuyer || "صار تأخير/مشكلة من شركة التوصيل. سيتم إعادة المتابعة تلقائياً أو يمكنك تغيير الشركة.",
+        });
+      }
+
+      if (sellerUser) {
+        await notifyUser({
+          userId: sellerUser._id,
+          auctionId: auction._id,
+          event: "DELIVERY_ISSUE",
+          title: "تعذر/تأخر التوصيل",
+          message: msgSeller || "صار تأخير/مشكلة من شركة التوصيل. سيتم إعادة المتابعة تلقائياً أو يمكنك تغيير الشركة.",
+        });
+      }
+
+      await auction.save();
+    };
+
+    const penalizeSellerFailure = async (reason = "SELLER_NOT_READY") => {
+      auction.status = "cancelled_by_seller";
+
+      if (winnerUser) {
+        await transferHeldToBalance({
+          userId: winnerUser._id,
+          amount: auction.depositAmount,
+          reason: "إعادة عربون المشتري بعد فشل التوصيل بسبب البائع",
+          auctionId: auction._id,
+          source: "BUYER",
+        });
+
+        await notifyUser({
+          userId: winnerUser._id,
+          auctionId: auction._id,
+          event: "DEPOSIT_REFUND",
+          title: "تم إرجاع العربون",
+          message: `تم إرجاع عربونك بقيمة ${toNumber(auction.depositAmount).toLocaleString()} د.ع بسبب فشل التوصيل (خطأ من البائع).`,
+        });
+      }
+
+      if (sellerUser) {
+        const confiscation = await confiscateHeld({
+          userId: sellerUser._id,
+          amount: auction.sellerDeposit,
+          reason: `مصادرة عربون البائع بسبب فشل التوصيل (${reason})`,
+          auctionId: auction._id,
+          source: "SELLER",
+        });
+
+        await createAutoNegativeRating({ auctionId: auction._id, toUser: sellerUser._id });
+        await checkAndBanUserIfNeeded(sellerUser._id);
+
+        await notifyUser({
+          userId: sellerUser._id,
+          auctionId: auction._id,
+          event: "PENALTY_CONFISCATE",
+          title: "تمت مصادرة العربون",
+          message: `تمت مصادرة عربونك بقيمة ${toNumber(confiscation.amount).toLocaleString()} د.ع بسبب فشل التوصيل (${reason}).`,
+        });
+      }
+
+      await auction.save();
+    };
+
+
     // ================================
     // 🚚 Courier Mode (COD + OTP)
     // ================================
     if (auction.deliveryMode === "courier") {
-      const winner = auction.winner;
-      const seller = auction.seller;
-
-      const winnerUser = winner ? await User.findById(winner) : null;
-      const sellerUser = seller ? await User.findById(seller) : null;
-
       const order = auction.deliveryOrder
         ? await DeliveryOrder.findById(auction.deliveryOrder)
         : await DeliveryOrder.findOne({ auction: auction._id });
-
-      // helper: مشكلة شركة => لا عقوبات + نعيد جدولة فحص 24 ساعة
-      const rescheduleCourierIssue = async (msgBuyer, msgSeller, newReason = "COURIER_ISSUE") => {
-        // Any grace-period reschedule is treated as a courier-side issue.
-        auction.deliveryPenaltyReason = newReason;
-
-        // رجّع penaltyApplied حتى يعيد الكرون الفحص بعد تمديد المهلة
-        auction.penaltyApplied = false;
-        auction.confirmationDeadline = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000); // +48 ساعة
-
-        if (winnerUser) {
-          await notifyUser({
-            userId: winnerUser._id,
-            auctionId: auction._id,
-            event: "DELIVERY_ISSUE",
-            title: "تعذر/تأخر التوصيل",
-            message: msgBuyer || "صار تأخير/مشكلة من شركة التوصيل. سيتم إعادة المتابعة تلقائياً أو يمكنك تغيير الشركة.",
-          });
-        }
-
-        if (sellerUser) {
-          await notifyUser({
-            userId: sellerUser._id,
-            auctionId: auction._id,
-            event: "DELIVERY_ISSUE",
-            title: "تعذر/تأخر التوصيل",
-            message: msgSeller || "صار تأخير/مشكلة من شركة التوصيل. سيتم إعادة المتابعة تلقائياً أو يمكنك تغيير الشركة.",
-          });
-        }
-
-        await auction.save();
-      };
-
-      const penalizeSellerFailure = async (reason = "SELLER_NOT_READY") => {
-        auction.status = "cancelled_by_seller";
-
-        if (winnerUser) {
-          await transferHeldToBalance({
-            userId: winnerUser._id,
-            amount: auction.depositAmount,
-            reason: "إعادة عربون المشتري بعد فشل التوصيل بسبب البائع",
-            auctionId: auction._id,
-            source: "BUYER",
-          });
-
-
-
-          await notifyUser({
-            userId: winnerUser._id,
-            auctionId: auction._id,
-            event: "DEPOSIT_REFUND",
-            title: "تم إرجاع العربون",
-            message: `تم إرجاع عربونك بقيمة ${toNumber(auction.depositAmount).toLocaleString()} د.ع بسبب فشل التوصيل (خطأ من البائع).`,
-          });
-        }
-
-        if (sellerUser) {
-          const confiscation = await confiscateHeld({
-            userId: sellerUser._id,
-            amount: auction.sellerDeposit,
-            reason: `مصادرة عربون البائع بسبب فشل التوصيل (${reason})`,
-            auctionId: auction._id,
-            source: "SELLER",
-          });
-
-          await createAutoNegativeRating({ auctionId: auction._id, toUser: sellerUser._id });
-          await checkAndBanUserIfNeeded(sellerUser._id);
-
-          await notifyUser({
-            userId: sellerUser._id,
-            auctionId: auction._id,
-            event: "PENALTY_CONFISCATE",
-            title: "تمت مصادرة العربون",
-            message: `تمت مصادرة عربونك بقيمة ${toNumber(confiscation.amount).toLocaleString()} د.ع بسبب فشل التوصيل (${reason}).`,
-          });
-        }
-
-        await auction.save();
-      };
 
       // 1) لا يوجد طلب توصيل:
       // يمنح تمديد فقط إذا كان السبب اللوجستي موثق، وإلا تقصير بائع.
@@ -417,7 +417,6 @@ const applyAuctionPenalty = async () => {
 
       // 2) إذا وصلنا لمرحلة دفع البائع => اكتمال نهائي (COD)
       if (order.status === "COD_PAID_TO_SELLER") {
-
         // ✅ إرجاع عربون المشتري
         if (winnerUser && auction.depositAmount > 0) {
           await transferHeldToBalance({
@@ -447,7 +446,6 @@ const applyAuctionPenalty = async () => {
 
       // 3) إذا تم التسليم للمشتري لكن لم يتم دفع البائع بعد => لا عقوبة (بانتظار payout)
       if (order.status === "DELIVERED") {
-        // لا نخليها completed هنا لأن COD بعده ما اندفع
         await rescheduleCourierIssue(
           "تم تسليم الطلب، بانتظار إتمام دفع المبلغ للبائع من شركة التوصيل.",
           "تم تسليم الطلب للمشتري، بانتظار تأكيد استلامك لمبلغ الـCOD من شركة التوصيل."
@@ -458,9 +456,6 @@ const applyAuctionPenalty = async () => {
       // 4) فشل التوصيل => عقوبة حسب السبب
       if (order.status === "DELIVERY_FAILED") {
         const reason = order.failureReason || auction.deliveryPenaltyReason || "COURIER_ISSUE";
-
-        const BUYER_REASONS = new Set(["BUYER_NO_SHOW", "BUYER_REFUSED", "BUYER_DID_NOT_RECEIVE", "BUYER_UNREACHABLE", "WRONG_ADDRESS"]);
-        const SELLER_REASONS = new Set(["SELLER_NO_SHOW", "SELLER_NOT_READY"]);
 
         // سبب من المشتري => مصادرة عربون المشتري + Refund للبائع
         if (BUYER_REASONS.has(reason)) {
@@ -474,8 +469,6 @@ const applyAuctionPenalty = async () => {
               auctionId: auction._id,
               source: "SELLER",
             });
-
-
 
             await notifyUser({
               userId: sellerUser._id,
@@ -538,7 +531,6 @@ const applyAuctionPenalty = async () => {
       }
 
       // 5) حالات غير مكتملة بعد 4 أيام:
-      // تمديد فقط إذا السبب اللوجستي موثق كـ COURIER_ISSUE، وإلا تعتبر تقصير بائع.
       if (COURIER_REASONS.has(auction.deliveryPenaltyReason) && auction.deliveryPenaltyReason !== "COURIER_ISSUE_EXTENDED") {
         await rescheduleCourierIssue(
           "التوصيل متأخر ولم يكتمل خلال المهلة. سيتم إعادة المتابعة تلقائياً بدون عقوبات.",
@@ -552,18 +544,13 @@ const applyAuctionPenalty = async () => {
       continue;
     }
 
-
     // ================================
     // 🚧 Manual Mode / No Order Cleanup
     // ================================
-    // This happens when deliveryMode is "manual" (seller hasn't picked a courier yet).
-    const winnerUser = auction.winner ? await User.findById(auction.winner) : null;
-    const sellerUser = auction.seller ? await User.findById(auction.seller) : null;
-
     if (auction.deliveryPenaltyReason !== "MANUAL_WAIT_EXTENDED") {
       // First extension: 48 hours for the seller to choose a courier.
       auction.deliveryPenaltyReason = "MANUAL_WAIT_EXTENDED";
-      auction.penaltyApplied = false; // Allow the cron to check again later
+      auction.penaltyApplied = false;
       auction.confirmationDeadline = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
 
       if (winnerUser) {

@@ -13,10 +13,11 @@ import { generateReceiptId, signReceipt } from "../utils/receipt.js";
 import { sendReceiptEmail } from "../utils/email.js";
 import { sendAppNotification } from "../utils/notification.js";
 
-const closeAuctions = () => {
-  console.log("CRON INITIALIZED (Auction Closer - ATOMIC LOCK)");
 
-  cron.schedule("* * * * *", async () => {
+const closeAuctions = () => {
+  console.log("PROCESS INITIALIZED (Auction Closer - 10s Interval)");
+
+  const runClosing = async () => {
     try {
       const now = new Date();
 
@@ -232,9 +233,14 @@ const closeAuctions = () => {
 
       await applyAuctionPenalty();
     } catch (err) {
-      console.error("Auction cron error:", err);
+      console.error("Auction closer error:", err);
     }
-  });
+  };
+
+  // Run every 10 seconds
+  setInterval(runClosing, 10000);
+  // Run once immediately on start
+  runClosing();
 };
 
 export default closeAuctions;

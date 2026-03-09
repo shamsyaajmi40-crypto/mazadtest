@@ -10,6 +10,7 @@ import { sendAppNotification } from "../utils/notification.js";
 import bcrypt from "bcrypt";
 import { getIo } from "../utils/socket.js";
 import { generateReceiptId, signReceipt } from "../utils/receipt.js";
+import { calculateCommission } from "../utils/commission.js";
 
 const FAILURE_REVIEW_MS = 24 * 60 * 60 * 1000; // 24 hours
 const DEFAULT_CONFIRMATION_MS = 4 * 24 * 60 * 60 * 1000; // 4 days
@@ -674,40 +675,111 @@ export const markCodPaidToSeller = async (req, res) => {
       }
     }
 
-    // 🔄 إعادة عربون البائع
-    if (auction.seller && auction.sellerDeposit > 0) {
-      const sellerUpdate = await User.findOneAndUpdate(
-        { _id: auction.seller, heldBalance: { $gte: Number(auction.sellerDeposit || 0) } },
-        {
+    // 🔄 حساب العمولة واقتطاعها من عربون/محفظة البائع
+    if (auction.seller) {
+      const commission = calculateCommission(grossAmount);
+      let sellerDeposit = Number(auction.sellerDeposit || 0);
+
+      const sellerData = await User.findOne({ _id: auction.seller, heldBalance: { $gte: sellerDeposit } }).session(session);
+
+      if (sellerData) {
+        let depositRefundAmount = 0;
+        let balanceDeductionAmount = 0;
+
+        if (sellerDeposit >= commission) {
+          // العربون يغطي العمولة
+          depositRefundAmount = sellerDeposit - commission; // نرجع المتبقي
+        } else {
+          // العربون لا يغطي العمولة، نخصم الباقي من المحفظة الأساسية
+          balanceDeductionAmount = commission - sellerDeposit;
+        }
+
+        const updateQuery = {
           $inc: {
-            balance: auction.sellerDeposit,
-            heldBalance: -auction.sellerDeposit,
-          },
-        },
-        { session, new: true }
-      );
+            heldBalance: -sellerDeposit, // فك الحجز الكامل
+            balance: depositRefundAmount - balanceDeductionAmount // إرجاع القليل إذا تبقى، أو خصم الباقي إذا نقص
+          }
+        };
 
-      if (sellerUpdate) {
-        const receiptId = generateReceiptId();
-        const signData = { action: "REFUND", auction: String(auction._id), user: String(auction.seller), amount: auction.sellerDeposit, receiptId };
-        const signature = signReceipt(signData);
-
-        await AuditLog.create(
-          [
-            {
-              action: "REFUND",
-              auction: auction._id,
-              user: auction.seller,
-              amount: auction.sellerDeposit,
-              receiptId,
-              reason: "إرجاع عربون البائع بعد استلام مبلغ الـ COD",
-              by: "SYSTEM",
-              source: "SELLER",
-              meta: { signature },
-            },
-          ],
-          { session }
+        const sellerUpdate = await User.findOneAndUpdate(
+          { _id: auction.seller },
+          updateQuery,
+          { session, new: true }
         );
+
+        if (sellerUpdate) {
+          const receiptId = generateReceiptId();
+
+          // سجل العمولة للمنصة
+          await AuditLog.create(
+            [
+              {
+                action: "PLATFORM_COMMISSION",
+                auction: auction._id,
+                user: auction.seller,
+                amount: commission,
+                receiptId,
+                reason: `استقطاع عمولة المنصة. من العربون: ${Math.min(sellerDeposit, commission)}, من المحفظة: ${balanceDeductionAmount}`,
+                by: "SYSTEM",
+                source: "SELLER",
+              },
+            ],
+            { session }
+          );
+
+          await FinanceLog.create(
+            [
+              {
+                user: auction.seller,
+                type: "PLATFORM_COMMISSION",
+                amountIQD: -commission,
+                refModel: "Auction",
+                refId: auction._id,
+                receiptId,
+                meta: {
+                  reason: `استقطاع عمولة المنصة`,
+                  deductedFromDeposit: Math.min(sellerDeposit, commission),
+                  deductedFromBalance: balanceDeductionAmount
+                }
+              }
+            ],
+            { session }
+          );
+
+          // إضافة العمولة إلى محفظة المنصة (PLATFORM_USER_ID)
+          const PLATFORM_USER_ID = process.env.PLATFORM_USER_ID;
+          if (PLATFORM_USER_ID) {
+            await User.updateOne(
+              { _id: PLATFORM_USER_ID },
+              { $inc: { balance: commission } },
+              { session }
+            );
+          }
+
+          // توثيق إرجاع باقي العربون (إذا وجد)
+          if (depositRefundAmount > 0) {
+            const refundReceiptId = generateReceiptId();
+            const signData = { action: "REFUND", auction: String(auction._id), user: String(auction.seller), amount: depositRefundAmount, receiptId: refundReceiptId };
+            const signature = signReceipt(signData);
+
+            await AuditLog.create(
+              [
+                {
+                  action: "REFUND",
+                  auction: auction._id,
+                  user: auction.seller,
+                  amount: depositRefundAmount,
+                  receiptId: refundReceiptId,
+                  reason: "إرجاع المتبقي من عربون البائع بعد استقطاع العمولة",
+                  by: "SYSTEM",
+                  source: "SELLER",
+                  meta: { signature },
+                },
+              ],
+              { session }
+            );
+          }
+        }
       }
     }
 
@@ -734,12 +806,13 @@ export const markCodPaidToSeller = async (req, res) => {
     }
 
     if (auction.seller) {
+      const commission = calculateCommission(grossAmount);
       notifyUser({
         userId: auction.seller,
         auctionId: auction._id,
         event: "COD_PAYOUT_CONFIRMED",
         title: "تم تأكيد دفع مبلغ COD",
-        message: `تم تأكيد استلام مبلغك: ${sellerPayout.toLocaleString()} د.ع. أجرة التوصيل (${deliveryFee.toLocaleString()} د.ع) تُدفع من المشتري.`,
+        message: `تم خصم عمولة المنصة (${commission.toLocaleString()} د.ع) وتأكيد استلامك لمبلغ ${sellerPayout.toLocaleString()} د.ع. أجرة التوصيل (${deliveryFee.toLocaleString()} د.ع) تُدفع من المشتري.`,
       }).catch(e => console.error("Notification error:", e));
     }
 

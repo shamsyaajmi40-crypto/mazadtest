@@ -14,7 +14,6 @@ import { auctionImageUpload } from "../middleware/upload.js";
 import { placeBid, getMyArchivedAuctions, disputeAuction, featureAuction, getFeaturedAuctions } from "../controllers/auction.controller.js";
 import { bidLimiter } from "../middleware/rateLimit.js";
 import { getArchivedAuctions, getUpcomingAuctions } from "../controllers/auction.controller.js";
-import { canCreateAuction } from "../middleware/subscriptionGuard.js";
 import { getCreateAuctionDepositPreview } from "../controllers/auction.controller.js";
 const router = express.Router();
 
@@ -42,7 +41,6 @@ router.post(
   "/",
   protect,
   auctionImageUpload.array("images", 6),
-  canCreateAuction,
   createAuction
 );
 // تأكيد الاستلام من قبل البائع

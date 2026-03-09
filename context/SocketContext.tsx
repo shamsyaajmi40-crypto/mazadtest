@@ -56,6 +56,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         }
 
         const socketUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+        console.log(`🔌 [Socket Attempt] URL: ${socketUrl} | Token present: ${!!token}`);
 
         const socket = io(socketUrl, {
             auth: { token },
@@ -65,6 +66,10 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
             reconnectionAttempts: Infinity,
             reconnectionDelay: 1000,
             reconnectionDelayMax: 5000,
+        });
+
+        socket.on("connect_error", (err) => {
+            console.error("🌐 Global WS connection error:", err.message);
         });
 
         socket.on("connect", () => {

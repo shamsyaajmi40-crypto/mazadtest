@@ -308,6 +308,9 @@ const applyAuctionPenalty = async () => {
 
     if (lock.modifiedCount === 0) continue;
 
+    // ✅ Sync memory state to prevent auction.save() from reverting the lock
+    auction.penaltyApplied = true;
+
     const winnerId = auction.winner;
     const sellerId = auction.seller;
 

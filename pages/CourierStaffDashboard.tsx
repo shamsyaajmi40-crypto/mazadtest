@@ -594,6 +594,58 @@ export default function CourierStaffDashboard() {
           </div>
         </div>
 
+        {/* --- السجل المالي للشركة (مبني على الطلبات المكتملة) --- */}
+        {filteredOrders.done.length > 0 && (
+          <div className="rounded-3xl border border-indigo-200/60 bg-indigo-50/30 p-5 shadow-sm">
+            <div className="font-extrabold text-indigo-900 inline-flex items-center gap-2 text-lg mb-4">
+              <Wallet className="w-5 h-5 text-indigo-500" />
+              السجل المالي للشركة (للطلبات المكتملة)
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="rounded-2xl bg-white border border-indigo-100 p-4 shadow-sm">
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">إجمالي الكاش المستلم</div>
+                <div className="text-xl font-black text-slate-900">
+                  {filteredOrders.done.reduce((acc, o) => acc + Number(o.auction?.currentPrice || 0) + Number(o.deliveryFee || 0), 0).toLocaleString()} <span className="text-xs text-slate-500">د.ع</span>
+                </div>
+                <div className="text-[10px] text-slate-400 mt-1">المستلم من المشترين</div>
+              </div>
+
+              <div className="rounded-2xl bg-white border border-emerald-100 p-4 shadow-sm">
+                <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">إيرادات التوصيل لك</div>
+                <div className="text-xl font-black text-emerald-700">
+                  {filteredOrders.done.reduce((acc, o) => acc + Number(o.deliveryFee || 0), 0).toLocaleString()} <span className="text-xs text-emerald-600/70">د.ع</span>
+                </div>
+                <div className="text-[10px] text-emerald-600/70 mt-1">أرباح الشركة الصافية</div>
+              </div>
+
+              <div className="rounded-2xl bg-white border border-violet-100 p-4 shadow-sm">
+                <div className="text-[10px] font-bold text-violet-600 uppercase tracking-wider mb-1">مستحقات البائعين</div>
+                <div className="text-xl font-black text-violet-700">
+                  {filteredOrders.done.reduce((acc, o) => acc + sellerPayout(o), 0).toLocaleString()} <span className="text-xs text-violet-600/70">د.ع</span>
+                </div>
+                <div className="text-[10px] text-violet-600/70 mt-1">تم تسليمها نقداً</div>
+              </div>
+
+              <div className="rounded-2xl bg-white border border-rose-100 p-4 shadow-sm">
+                <div className="text-[10px] font-bold text-rose-600 uppercase tracking-wider mb-1">عمولات المنصة</div>
+                <div className="text-xl font-black text-rose-700">
+                  {filteredOrders.done.reduce((acc, o) => acc + getCommission(o), 0).toLocaleString()} <span className="text-xs text-rose-600/70">د.ع</span>
+                </div>
+                <div className="text-[10px] text-rose-600/70 mt-1">ديون للمنصة</div>
+              </div>
+
+              <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4 shadow-sm text-white">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">إجمالي المزاد المباع</div>
+                <div className="text-xl font-black text-white">
+                  {filteredOrders.done.reduce((acc, o) => acc + Number(o.auction?.currentPrice || 0), 0).toLocaleString()} <span className="text-xs text-slate-400">د.ع</span>
+                </div>
+                <div className="text-[10px] text-slate-400 mt-1">قيمة البضائع</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="rounded-3xl border border-slate-200/60 bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="font-extrabold text-slate-800 inline-flex items-center gap-2 text-lg">

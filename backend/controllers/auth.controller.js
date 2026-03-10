@@ -1,8 +1,6 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
-import Plan from "../models/Plan.js";
-import Subscription from "../models/Subscription.js";
 import { validatePhone, validateText } from "../utils/validation.js";
 
 const addOneMonth = (date) => {
@@ -57,24 +55,7 @@ export const register = async (req, res) => {
       address,
     });
 
-    // ✅ إنشاء اشتراك افتراضي (USER_FREE) بعد التسجيل
-    try {
-      const freePlan = await Plan.findOne({ code: "USER_FREE", isActive: true }).select("_id");
-      if (freePlan) {
-        const now = new Date();
-        await Subscription.create({
-          user: user._id,
-          plan: freePlan._id,
-          status: "active",
-          currentPeriodStart: now,
-          currentPeriodEnd: addOneMonth(now),
-          auctionsUsedThisPeriod: 0,
-        });
-      }
-    } catch (e) {
-      console.error("Create default subscription failed:", e);
-      // لا نوقف التسجيل
-    }
+
 
     const token = generateToken(user._id);
     res.cookie("token", token, {

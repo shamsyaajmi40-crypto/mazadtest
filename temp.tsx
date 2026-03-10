@@ -898,75 +898,78 @@ export default function CourierStaffDashboard() {
         </div>
       )}
 
-      {showAgentModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5">
-            <div className="flex items-center justify-between">
-              <div className="text-lg font-black text-slate-900">إضافة مندوب جديد</div>
-              <button
-                onClick={() => setShowAgentModal(false)}
-                className="rounded-xl border p-2 text-slate-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="mt-4 space-y-3">
-              <input
-                value={newAgentName}
-                onChange={(e) => setNewAgentName(e.target.value)}
-                className="w-full rounded-xl border px-3 py-2 text-sm font-bold"
-                placeholder="اسم المندوب"
-              />
-              <input
-                value={newAgentPhone}
-                onChange={(e) => setNewAgentPhone(e.target.value)}
-                className="w-full rounded-xl border px-3 py-2 text-sm font-bold"
-                placeholder="رقم الهاتف"
-                inputMode="tel"
-              />
-              <input
-                value={newAgentEmail}
-                onChange={(e) => setNewAgentEmail(e.target.value)}
-                className="w-full rounded-xl border px-3 py-2 text-sm font-bold"
-                placeholder="البريد الإلكتروني"
-                type="email"
-              />
-              <input
-                value={newAgentPassword}
-                onChange={(e) => setNewAgentPassword(e.target.value)}
-                className="w-full rounded-xl border px-3 py-2 text-sm font-bold"
-                placeholder="كلمة المرور"
-                type="password"
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <select
-                  value={newAgentGovernorate}
-                  onChange={(e) => setNewAgentGovernorate(e.target.value)}
-                  className="w-full rounded-xl border px-3 py-2 text-sm font-bold bg-white"
+      {
+        showAgentModal && (
+          <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
+            <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-5">
+              <div className="flex items-center justify-between">
+                <div className="text-lg font-black text-slate-900">إضافة مندوب جديد</div>
+                <button
+                  onClick={() => setShowAgentModal(false)}
+                  className="rounded-xl border p-2 text-slate-600"
                 >
-                  <option value="">المحافظة...</option>
-                  {GOVERNORATES.map(gov => (
-                    <option key={gov} value={gov}>{gov}</option>
-                  ))}
-                </select>
-                <input
-                  value={newAgentAddress}
-                  onChange={(e) => setNewAgentAddress(e.target.value)}
-                  className="w-full rounded-xl border px-3 py-2 text-sm font-bold"
-                  placeholder="العنوان"
-                />
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <button
-                onClick={onCreateAgent}
-                disabled={!newAgentName || !newAgentPhone || !newAgentEmail || !newAgentPassword || newAgentPassword.length < 6}
-                className="w-full rounded-xl bg-slate-900 py-3 text-sm font-black text-white shadow-lg active:scale-95 transition-all disabled:opacity-50"
-              >
-                إنشاء المندوب
-              </button>
+              <div className="mt-4 space-y-3">
+                <input
+                  value={newAgentName}
+                  onChange={(e) => setNewAgentName(e.target.value)}
+                  className="w-full rounded-xl border px-3 py-2 text-sm font-bold"
+                  placeholder="اسم المندوب"
+                />
+                <input
+                  value={newAgentPhone}
+                  onChange={(e) => setNewAgentPhone(e.target.value)}
+                  className="w-full rounded-xl border px-3 py-2 text-sm font-bold"
+                  placeholder="رقم الهاتف"
+                  inputMode="tel"
+                />
+                <input
+                  value={newAgentEmail}
+                  onChange={(e) => setNewAgentEmail(e.target.value)}
+                  className="w-full rounded-xl border px-3 py-2 text-sm font-bold"
+                  placeholder="البريد الإلكتروني"
+                  type="email"
+                />
+                <input
+                  value={newAgentPassword}
+                  onChange={(e) => setNewAgentPassword(e.target.value)}
+                  className="w-full rounded-xl border px-3 py-2 text-sm font-bold"
+                  placeholder="كلمة المرور"
+                  type="password"
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <select
+                    value={newAgentGovernorate}
+                    onChange={(e) => setNewAgentGovernorate(e.target.value)}
+                    className="w-full rounded-xl border px-3 py-2 text-sm font-bold bg-white"
+                  >
+                    <option value="">المحافظة...</option>
+                    {GOVERNORATES.map(gov => (
+                      <option key={gov} value={gov}>{gov}</option>
+                    ))}
+                  </select>
+                  <input
+                    value={newAgentAddress}
+                    onChange={(e) => setNewAgentAddress(e.target.value)}
+                    className="w-full rounded-xl border px-3 py-2 text-sm font-bold"
+                    placeholder="العنوان"
+                  />
+                </div>
+                <button
+                  onClick={onCreateAgent}
+                  disabled={!newAgentName || !newAgentPhone || !newAgentEmail || !newAgentPassword || newAgentPassword.length < 6}
+                  className="w-full rounded-xl bg-slate-900 py-3 text-sm font-black text-white shadow-lg active:scale-95 transition-all disabled:opacity-50"
+                >
+                  إنشاء المندوب
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
     </div>
+    </div >
   );
 }

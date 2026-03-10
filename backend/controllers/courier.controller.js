@@ -615,7 +615,8 @@ export const markCodPaidToSeller = async (req, res) => {
 
     const grossAmount = Number(auction.currentPrice || 0);
     const deliveryFee = Number(order.deliveryFee || 0);
-    const sellerPayout = grossAmount;
+    const commission = calculateCommission(grossAmount);
+    const sellerPayout = Math.max(0, grossAmount - commission);  // صافي مستحق البائع بعد العمولة
     const buyerTotalDue = grossAmount + deliveryFee;
 
     // 1. Update Order status
@@ -625,7 +626,7 @@ export const markCodPaidToSeller = async (req, res) => {
     pushLog(order, {
       status: "COD_PAID_TO_SELLER",
       by: req.user._id,
-      note: `receiptNo=${receiptNo};sellerPayout=${sellerPayout};deliveryFee=${deliveryFee};buyerTotalDue=${buyerTotalDue}`,
+      note: `receiptNo=${receiptNo};grossAmount=${grossAmount};commission=${commission};sellerPayout=${sellerPayout};deliveryFee=${deliveryFee};buyerTotalDue=${buyerTotalDue}`,
     });
     await order.save({ session });
 
@@ -676,111 +677,83 @@ export const markCodPaidToSeller = async (req, res) => {
       }
     }
 
-    // 🔄 حساب العمولة واقتطاعها من عربون/محفظة البائع
+    // 🔄 إعادة عربون البائع كاملاً + تسجيل عمولة المنصة من مبلغ الدفع
     if (auction.seller) {
-      const commission = calculateCommission(grossAmount);
-      let sellerDeposit = Number(auction.sellerDeposit || 0);
+      const sellerDeposit = Number(auction.sellerDeposit || 0);
 
-      const sellerData = await User.findOne({ _id: auction.seller, heldBalance: { $gte: sellerDeposit } }).session(session);
-
-      if (sellerData) {
-        let depositRefundAmount = 0;
-        let balanceDeductionAmount = 0;
-
-        if (sellerDeposit >= commission) {
-          // العربون يغطي العمولة
-          depositRefundAmount = sellerDeposit - commission; // نرجع المتبقي
-        } else {
-          // العربون لا يغطي العمولة، نخصم الباقي من المحفظة الأساسية
-          balanceDeductionAmount = commission - sellerDeposit;
-        }
-
-        const updateQuery = {
-          $inc: {
-            heldBalance: -sellerDeposit, // فك الحجز الكامل
-            balance: depositRefundAmount - balanceDeductionAmount // إرجاع القليل إذا تبقى، أو خصم الباقي إذا نقص
-          }
-        };
-
-        const sellerUpdate = await User.findOneAndUpdate(
-          { _id: auction.seller },
-          updateQuery,
+      // إعادة العربون كاملاً
+      if (sellerDeposit > 0) {
+        const sellerDepositUpdate = await User.findOneAndUpdate(
+          { _id: auction.seller, heldBalance: { $gte: sellerDeposit } },
+          { $inc: { heldBalance: -sellerDeposit, balance: sellerDeposit } },
           { session, new: true }
         );
 
-        if (sellerUpdate) {
-          const receiptId = generateReceiptId();
+        if (sellerDepositUpdate) {
+          const depositReceiptId = generateReceiptId();
+          const signData = { action: "REFUND", auction: String(auction._id), user: String(auction.seller), amount: sellerDeposit, receiptId: depositReceiptId };
+          const signature = signReceipt(signData);
 
-          // سجل العمولة للمنصة
           await AuditLog.create(
-            [
-              {
-                action: "PLATFORM_COMMISSION",
-                auction: auction._id,
-                user: auction.seller,
-                amount: commission,
-                receiptId,
-                reason: `استقطاع عمولة المنصة. من العربون: ${Math.min(sellerDeposit, commission)}, من المحفظة: ${balanceDeductionAmount}`,
-                by: "SYSTEM",
-                source: "SELLER",
-              },
-            ],
+            [{
+              action: "REFUND",
+              auction: auction._id,
+              user: auction.seller,
+              amount: sellerDeposit,
+              receiptId: depositReceiptId,
+              reason: "إرجاع عربون البائع كاملاً — العمولة مُستقطعة من مبلغ الدفع",
+              by: "SYSTEM",
+              source: "SELLER",
+              meta: { signature },
+            }],
             { session }
           );
-
-          await FinanceLog.create(
-            [
-              {
-                user: auction.seller,
-                type: "PLATFORM_COMMISSION",
-                amountIQD: -commission,
-                refModel: "Auction",
-                refId: auction._id,
-                receiptId,
-                meta: {
-                  reason: `استقطاع عمولة المنصة`,
-                  deductedFromDeposit: Math.min(sellerDeposit, commission),
-                  deductedFromBalance: balanceDeductionAmount
-                }
-              }
-            ],
-            { session }
-          );
-
-          // إضافة العمولة إلى محفظة المنصة (PLATFORM_USER_ID)
-          const PLATFORM_USER_ID = process.env.PLATFORM_USER_ID;
-          if (PLATFORM_USER_ID) {
-            await User.updateOne(
-              { _id: PLATFORM_USER_ID },
-              { $inc: { balance: commission } },
-              { session }
-            );
-          }
-
-          // توثيق إرجاع باقي العربون (إذا وجد)
-          if (depositRefundAmount > 0) {
-            const refundReceiptId = generateReceiptId();
-            const signData = { action: "REFUND", auction: String(auction._id), user: String(auction.seller), amount: depositRefundAmount, receiptId: refundReceiptId };
-            const signature = signReceipt(signData);
-
-            await AuditLog.create(
-              [
-                {
-                  action: "REFUND",
-                  auction: auction._id,
-                  user: auction.seller,
-                  amount: depositRefundAmount,
-                  receiptId: refundReceiptId,
-                  reason: "إرجاع المتبقي من عربون البائع بعد استقطاع العمولة",
-                  by: "SYSTEM",
-                  source: "SELLER",
-                  meta: { signature },
-                },
-              ],
-              { session }
-            );
-          }
         }
+      }
+
+      // تسجيل العمولة من مبلغ الدفع (لا يُغيّر محفظة البائع)
+      const commissionReceiptId = generateReceiptId();
+      await AuditLog.create(
+        [{
+          action: "PLATFORM_COMMISSION",
+          auction: auction._id,
+          user: auction.seller,
+          amount: commission,
+          receiptId: commissionReceiptId,
+          reason: `عمولة المنصة (${commission.toLocaleString()} د.ع) مُستقطعة من مبلغ الدفع (${grossAmount.toLocaleString()} د.ع). صافي البائع: ${sellerPayout.toLocaleString()} د.ع`,
+          by: "SYSTEM",
+          source: "SELLER",
+        }],
+        { session }
+      );
+
+      await FinanceLog.create(
+        [{
+          user: auction.seller,
+          type: "PLATFORM_COMMISSION",
+          amountIQD: commission,
+          refModel: "Auction",
+          refId: auction._id,
+          receiptId: commissionReceiptId,
+          meta: {
+            note: `عمولة مزاد — مستقطعة من مبلغ الدفع`,
+            grossAmount,
+            commission,
+            sellerPayout,
+            deliveryFee,
+          }
+        }],
+        { session }
+      );
+
+      // إضافة العمولة لمحفظة المنصة
+      const PLATFORM_USER_ID = process.env.PLATFORM_USER_ID;
+      if (PLATFORM_USER_ID) {
+        await User.updateOne(
+          { _id: PLATFORM_USER_ID },
+          { $inc: { balance: commission } },
+          { session }
+        );
       }
     }
 
@@ -807,13 +780,19 @@ export const markCodPaidToSeller = async (req, res) => {
     }
 
     if (auction.seller) {
-      const commission = calculateCommission(grossAmount);
       notifyUser({
         userId: auction.seller,
         auctionId: auction._id,
         event: "COD_PAYOUT_CONFIRMED",
-        title: "تم تأكيد دفع مبلغ COD",
-        message: `تم خصم عمولة المنصة (${commission.toLocaleString()} د.ع) وتأكيد استلامك لمبلغ ${sellerPayout.toLocaleString()} د.ع. أجرة التوصيل (${deliveryFee.toLocaleString()} د.ع) تُدفع من المشتري.`,
+        title: "✅ تمت الصفقة بنجاح",
+        message: [
+          `تفاصيل تسوية مزادك:`,
+          `• سعر الرسو: ${grossAmount.toLocaleString()} د.ع`,
+          `• عمولة المنصة: ${commission.toLocaleString()} د.ع`,
+          `• أجرة التوصيل: ${deliveryFee.toLocaleString()} د.ع (تدفع من المشتري)`,
+          `✔️ صافي مستحقك: ${sellerPayout.toLocaleString()} د.ع`,
+          `✔️ تم إعادة عربونك كاملاً إلى محفظتك`,
+        ].join("\n"),
       }).catch(e => console.error("Notification error:", e));
     }
 

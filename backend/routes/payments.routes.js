@@ -1,7 +1,6 @@
 import express from "express";
 import { protect } from "../middleware/auth.js";
 import {
-  initZaincashSubscription,
   initZaincashTopup,
   zaincashRedirect,
   zaincashStatus,
@@ -9,7 +8,6 @@ import {
 
 const router = express.Router();
 
-router.post("/zaincash/init", protect, initZaincashSubscription);
 router.post("/zaincash/topup/init", protect, initZaincashTopup);
 
 router.get("/zaincash/redirect", zaincashRedirect);

@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { createAuction, getCreateAuctionDepositPreview, featureAuction } from "../services/auction";
 import { calculateSellerDeposit } from "../utils/depositCalculator";
@@ -9,7 +9,7 @@ import {
   Upload, Loader2, PlusCircle, X, Info,
   Type, LayoutGrid, Tag, TrendingUp, Clock,
   CalendarClock, MapPin, AlignRight, Image as ImageIcon,
-  CheckCircle2, ShieldCheck
+  CheckCircle2, ShieldCheck, Wallet
 } from "lucide-react";
 import TermsModal from "../components/TermsModal";
 import { compressImage } from "../utils/imageCompression";
@@ -395,6 +395,9 @@ const CreateAuction = () => {
                     <span className="text-[10px] font-black text-emerald-600 flex items-center gap-1 mt-1">
                       <CheckCircle2 className="w-3 h-3" /> مسترد بالكامل
                     </span>
+                    <span className="text-[10px] font-bold text-slate-500 mt-0.5">
+                      رصيدك الحالي: <span className={`font-black ${(user?.balance || 0) >= Number(sellerDeposit) ? 'text-emerald-600' : 'text-rose-500'}`}>{(user?.balance || 0).toLocaleString()} د.ع</span>
+                    </span>
                   </div>
                 )}
 
@@ -406,11 +409,25 @@ const CreateAuction = () => {
               </div>
 
               {sellerDeposit !== null && (user?.balance || 0) < Number(sellerDeposit) && (
-                <div className="mt-6 p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 animate-bounce">
-                  <Info className="w-5 h-5 text-rose-500 shrink-0" />
-                  <p className="text-xs font-black text-rose-700">
-                    عذراً، رصيدك الحالي غير كافٍ. تحتاج لشحن محفظتك بـ {(Number(sellerDeposit) - (user?.balance || 0)).toLocaleString()} د.ع إضافية.
-                  </p>
+                <div className="mt-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex items-start gap-3 flex-1">
+                    <Info className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-black text-rose-700 mb-0.5">رصيدك غير كافٍ</p>
+                      <p className="text-xs font-bold text-rose-600">
+                        رصيدك الحالي: <span className="font-black">{(user?.balance || 0).toLocaleString()} د.ع</span>
+                        &nbsp;—&nbsp;
+                        تحتاج: <span className="font-black">{(Number(sellerDeposit) - (user?.balance || 0)).toLocaleString()} د.ع</span> إضافية
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    to="/wallet"
+                    className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2.5 rounded-xl text-xs font-black transition-all shrink-0 shadow-md shadow-rose-200 hover:shadow-lg hover:-translate-y-0.5"
+                  >
+                    <Wallet className="w-4 h-4" />
+                    شحن المحفظة
+                  </Link>
                 </div>
               )}
             </div>

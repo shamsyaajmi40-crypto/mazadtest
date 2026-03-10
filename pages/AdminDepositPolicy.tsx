@@ -21,9 +21,7 @@ const AdminDepositPolicy = () => {
     bidderMinAmount: 5000,
     bidderMaxAmount: 250000,
 
-    sellerFreeRatePct: 3,
-    sellerPlusRatePct: 1.5,
-    sellerMaxRatePct: 0.5,
+    sellerDefaultRatePct: 3,
     sellerOneStrikePct: 1,
     sellerTwoPlusStrikePct: 2,
     sellerMaxTotalRatePct: 6,
@@ -45,9 +43,7 @@ const AdminDepositPolicy = () => {
           bidderMinAmount: Number(p?.bidder?.minAmount ?? 5000),
           bidderMaxAmount: Number(p?.bidder?.maxAmount ?? 250000),
 
-          sellerFreeRatePct: toPercent(p?.seller?.planRates?.USER_FREE ?? 0.03),
-          sellerPlusRatePct: toPercent(p?.seller?.planRates?.USER_PLUS ?? 0.015),
-          sellerMaxRatePct: toPercent(p?.seller?.planRates?.USER_MAX ?? 0.005),
+          sellerDefaultRatePct: toPercent(p?.seller?.defaultRate ?? 0.03),
           sellerOneStrikePct: toPercent(p?.seller?.strikeSurcharge?.oneStrike ?? 0.01),
           sellerTwoPlusStrikePct: toPercent(p?.seller?.strikeSurcharge?.twoPlusStrike ?? 0.02),
           sellerMaxTotalRatePct: toPercent(p?.seller?.maxTotalRate ?? 0.06),
@@ -81,11 +77,7 @@ const AdminDepositPolicy = () => {
           maxAmount: Number(form.bidderMaxAmount),
         },
         seller: {
-          planRates: {
-            USER_FREE: toRate(form.sellerFreeRatePct),
-            USER_PLUS: toRate(form.sellerPlusRatePct),
-            USER_MAX: toRate(form.sellerMaxRatePct),
-          },
+          defaultRate: toRate(form.sellerDefaultRatePct),
           strikeSurcharge: {
             oneStrike: toRate(form.sellerOneStrikePct),
             twoPlusStrike: toRate(form.sellerTwoPlusStrikePct),
@@ -142,9 +134,7 @@ const AdminDepositPolicy = () => {
       <section className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
         <h2 className="font-black text-slate-800">عربون البائع</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Field label="FREE (%)" value={form.sellerFreeRatePct} onChange={(v) => setNum("sellerFreeRatePct", v)} isPercent />
-          <Field label="PLUS (%)" value={form.sellerPlusRatePct} onChange={(v) => setNum("sellerPlusRatePct", v)} isPercent />
-          <Field label="MAX (%)" value={form.sellerMaxRatePct} onChange={(v) => setNum("sellerMaxRatePct", v)} isPercent />
+          <Field label="النسبة الافتراضية (%)" value={form.sellerDefaultRatePct} onChange={(v) => setNum("sellerDefaultRatePct", v)} isPercent />
           <Field label="زيادة مخالفة واحدة (%)" value={form.sellerOneStrikePct} onChange={(v) => setNum("sellerOneStrikePct", v)} isPercent />
           <Field label="زيادة مخالفتين+ (%)" value={form.sellerTwoPlusStrikePct} onChange={(v) => setNum("sellerTwoPlusStrikePct", v)} isPercent />
           <Field label="السقف الأعلى للنسبة (%)" value={form.sellerMaxTotalRatePct} onChange={(v) => setNum("sellerMaxTotalRatePct", v)} isPercent />

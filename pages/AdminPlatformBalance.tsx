@@ -37,7 +37,7 @@ import {
 
 type FinancialLog = {
   _id: string;
-  type: "SUBSCRIPTION" | "TOPUP" | "PENALTY" | "REFUND" | "DEPOSIT_REFUND" | "WALLET_WITHDRAWAL";
+  type: "SUBSCRIPTION" | "TOPUP" | "PENALTY" | "REFUND" | "DEPOSIT_REFUND" | "WALLET_WITHDRAWAL" | "COMMISSION";
   status?: "SUCCESS" | "FAILED";
   amount: number;
   user?: { name: string; phone: string; _id: string };
@@ -74,7 +74,7 @@ export default function AdminPlatformBalance() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [logs, setLogs] = useState<FinancialLog[]>([]);
-  const [typeFilter, setTypeFilter] = useState<"all" | "subscription" | "topup" | "penalty" | "refund">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "subscription" | "topup" | "penalty" | "refund" | "commission">("all");
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [totalLogs, setTotalLogs] = useState(0);
@@ -272,9 +272,23 @@ export default function AdminPlatformBalance() {
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Chart Section */}
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+              <div className="absolute -right-4 -top-4 w-24 h-24 bg-violet-50 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
+              <div className="relative z-10 space-y-4">
+                <div className="w-12 h-12 bg-violet-100 rounded-2xl flex items-center justify-center text-violet-600">
+                  <TrendingUp className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-500">من عمولات المزاد</p>
+                  <p className="text-3xl font-black text-slate-900">{formatMoney(stats.commissionRevenue || 0)} <span className="text-sm">د.ع</span></p>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs font-black text-violet-600 bg-violet-50 w-fit px-2.5 py-1 rounded-full">
+                  <ArrowUpRight className="w-3 h-3" /> عمولة مزاد
+                </div>
+              </div>
+            </div>
+          </div>
           <div className="bg-white/70 backdrop-blur-xl border border-slate-200 p-6 md:p-8 rounded-[2rem] shadow-sm relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl"></div>
             <div className="relative z-10">
@@ -418,6 +432,10 @@ export default function AdminPlatformBalance() {
               onClick={() => { setTypeFilter("refund"); setPage(1); }}
               className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${typeFilter === 'refund' ? 'bg-amber-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
             >إرجاع</button>
+            <button
+              onClick={() => { setTypeFilter("commission"); setPage(1); }}
+              className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${typeFilter === 'commission' ? 'bg-violet-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+            >عمولات</button>
           </div>
         </div>
 
@@ -456,13 +474,15 @@ export default function AdminPlatformBalance() {
                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black ${log.type === 'SUBSCRIPTION' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
                             log.type === 'PENALTY' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
                               log.type === 'DEPOSIT_REFUND' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                                log.type === 'WALLET_WITHDRAWAL' ? (log.status === 'FAILED' ? 'bg-slate-100 text-slate-500 border border-slate-200' : 'bg-orange-50 text-orange-600 border border-orange-100') :
-                                  'bg-blue-50 text-blue-600 border border-blue-100'
+                                log.type === 'COMMISSION' ? 'bg-violet-50 text-violet-600 border border-violet-100' :
+                                  log.type === 'WALLET_WITHDRAWAL' ? (log.status === 'FAILED' ? 'bg-slate-100 text-slate-500 border border-slate-200' : 'bg-orange-50 text-orange-600 border border-orange-100') :
+                                    'bg-blue-50 text-blue-600 border border-blue-100'
                             }`}>
                             {log.type === 'SUBSCRIPTION' ? 'اشتراك' :
                               log.type === 'PENALTY' ? 'مصادرة' :
                                 log.type === 'DEPOSIT_REFUND' ? 'إرجاع عربون' :
-                                  log.type === 'WALLET_WITHDRAWAL' ? (log.status === 'FAILED' ? 'فشل سحب' : 'سحب رصيد') : 'شحن رصيد'}
+                                  log.type === 'COMMISSION' ? 'عمولة مزاد' :
+                                    log.type === 'WALLET_WITHDRAWAL' ? (log.status === 'FAILED' ? 'فشل سحب' : 'سحب رصيد') : 'شحن رصيد'}
                           </span>
                           {log.source && log.source !== "OTHER" && (
                             <span className="text-[9px] font-black text-slate-400 px-2 py-0.5 bg-slate-100 w-fit rounded border border-slate-200">
@@ -714,7 +734,8 @@ export default function AdminPlatformBalance() {
                       {selectedLog.type === 'SUBSCRIPTION' ? 'اشتراك باقة' :
                         selectedLog.type === 'PENALTY' ? 'مصادرة رصيد' :
                           selectedLog.type === 'DEPOSIT_REFUND' ? 'إرجاع عربون' :
-                            selectedLog.type === 'WALLET_WITHDRAWAL' ? 'سحب رصيد' : 'شحن رصيد'}
+                            selectedLog.type === 'COMMISSION' ? 'عمولة مزاد' :
+                              selectedLog.type === 'WALLET_WITHDRAWAL' ? 'سحب رصيد' : 'شحن رصيد'}
                     </p>
                   </div>
                   <div>

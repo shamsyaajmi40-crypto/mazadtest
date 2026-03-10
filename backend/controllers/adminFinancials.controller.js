@@ -54,11 +54,19 @@ export const getFinancialStats = async (req, res) => {
             }
         ]);
 
+        // 4. Commission Revenue
+        const commissionRevenueAgg = await FinanceLog.aggregate([
+            { $match: { type: "PLATFORM_COMMISSION" } },
+            { $group: { _id: null, total: { $sum: "$amountIQD" }, count: { $sum: 1 } } }
+        ]);
+        const commissionRevenue = commissionRevenueAgg[0]?.total || 0;
+
         const stats = {
             subscriptionRevenue: subRevenueAgg[0]?.total || 0,
+            commissionRevenue,
             penaltyRevenue: totalPenaltyRevenue,
             penaltyBreakdown,
-            totalPlatformRevenue: (subRevenueAgg[0]?.total || 0) + totalPenaltyRevenue,
+            totalPlatformRevenue: (subRevenueAgg[0]?.total || 0) + totalPenaltyRevenue + commissionRevenue,
             platformWalletBalance,
             reconciliation: {
                 auditTotalConfiscated: totalPenaltyRevenue,
@@ -261,7 +269,40 @@ export const getFinancialLogs = async (req, res) => {
             });
         }
 
-        // --- Global Filter (Search & Populate) ---
+        // --- UNION: FinanceLog (Commission) ---
+        if (type === "all" || type === "commission") {
+            pipeline.push({
+                $unionWith: {
+                    coll: "financelogs",
+                    pipeline: [
+                        { $match: { type: "PLATFORM_COMMISSION", ...dateFilter } },
+                        {
+                            $lookup: {
+                                from: "auctions",
+                                localField: "refId",
+                                foreignField: "_id",
+                                as: "aucData"
+                            }
+                        },
+                        { $unwind: { path: "$aucData", preserveNullAndEmptyArrays: true } },
+                        {
+                            $project: {
+                                _id: 1,
+                                type: { $literal: "COMMISSION" },
+                                status: { $literal: "SUCCESS" },
+                                amount: "$amountIQD",
+                                user: 1,
+                                createdAt: 1,
+                                orderId: { $ifNull: ["$receiptId", "—"] },
+                                reason: { $ifNull: ["$meta.note", "عمولة منصة"] },
+                                source: { $literal: "عمولة" },
+                                auctionTitle: "$aucData.title"
+                            }
+                        }
+                    ]
+                }
+            });
+        }
         if (searchActive) {
             const s = search.trim().toUpperCase();
             pipeline.push({

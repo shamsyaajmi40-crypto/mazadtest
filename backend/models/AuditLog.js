@@ -16,8 +16,6 @@ const auditLogSchema = new mongoose.Schema(
         "REFUND_REQUEST_CREATED",
         "REFUND_REQUEST_APPROVED",
         "REFUND_REQUEST_REJECTED",
-        "SUBSCRIPTION_ACTIVATED",
-        "SUBSCRIPTION_UPGRADED",
         "UNDO_REJECT",
         "FEATURE_AUCTION_PAYMENT",
       ],

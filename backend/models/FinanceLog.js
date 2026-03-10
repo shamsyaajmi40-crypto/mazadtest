@@ -11,8 +11,6 @@ const FinanceLogSchema = new mongoose.Schema(
         "REFUND_REQUEST_APPROVED",
         "REFUND_REQUEST_REJECTED",
         "WALLET_TOPUP_PAID",
-        "SUBSCRIPTION_ACTIVATED",
-        "SUBSCRIPTION_UPGRADED",
         "FEATURE_AUCTION_PAYMENT",
         "DEPOSIT_REFUND",
         "DEPOSIT_CONFISCATE",

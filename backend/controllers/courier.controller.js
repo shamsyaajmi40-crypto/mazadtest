@@ -6,6 +6,7 @@ import CourierCompany from "../models/CourierCompany.js";
 import Notification from "../models/Notification.js";
 import User from "../models/User.js";
 import AuditLog from "../models/AuditLog.js";
+import FinanceLog from "../models/FinanceLog.js";
 import { sendAppNotification } from "../utils/notification.js";
 import bcrypt from "bcrypt";
 import { getIo } from "../utils/socket.js";

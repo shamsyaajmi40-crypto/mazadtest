@@ -14,6 +14,7 @@ const FinanceLogSchema = new mongoose.Schema(
         "FEATURE_AUCTION_PAYMENT",
         "DEPOSIT_REFUND",
         "DEPOSIT_CONFISCATE",
+        "PLATFORM_COMMISSION",
       ],
       required: true,
     },

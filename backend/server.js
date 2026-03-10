@@ -12,8 +12,6 @@ import helmet from "helmet";
 import mongoSanitize from "mongo-sanitize";
 import cookieParser from "cookie-parser";
 import { initIo } from "./utils/socket.js";
-import { seedPlansIfEmpty } from "./utils/seedPlans.js";
-import { startSubscriptionCron } from "./cron/subscription.cron.js";
 import { activateScheduledAuctions } from "./cron/activateScheduledAuctions.js";
 import jwt from "jsonwebtoken";
 import User from "./models/User.js";
@@ -27,7 +25,6 @@ import balanceRoutes from "./routes/balance.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import ratingRoutes from "./routes/rating.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
-import billingRoutes from "./routes/billing.routes.js";
 import paymentsRoutes from "./routes/payments.routes.js";
 import walletRoutes from "./routes/wallet.routes.js";
 import courierRoutes from "./routes/courier.routes.js";
@@ -170,7 +167,6 @@ app.use(express.urlencoded({ extended: true }));
    Routes
 ====================== */
 app.use("/api/payments", paymentsRoutes);
-app.use("/api/billing", billingRoutes);
 app.use("/api/balance", balanceRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/ratings", ratingRoutes);
@@ -218,10 +214,8 @@ const startServer = async () => {
     console.log("MONGO_URI =", process.env.MONGO_URI);
     // ⬅️ انتظر الاتصال أولًا
     await connectDB();
-    await seedPlansIfEmpty();
     // // ⬅️ Cron jobs
     closeAuctions();
-    startSubscriptionCron();
     startAuctionCleanupCron();
     await activateScheduledAuctions();
     // كل 30 ثانية

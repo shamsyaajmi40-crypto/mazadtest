@@ -32,7 +32,6 @@ import AdminUserDetails from "./pages/AdminUserDetails";
 import EndingSoonAuctions from "./pages/EndingSoonAuctions";
 import AdminPlatformBalance from "./pages/AdminPlatformBalance";
 import AdminDepositPolicy from "./pages/AdminDepositPolicy";
-import Pricing from "./pages/Pricing";
 import AdminRefundRequests from "./pages/AdminRefundRequests";
 import CourierAgentDashboard from "./pages/CourierAgentDashboard";
 import CourierStaffDashboard from "./pages/CourierStaffDashboard";
@@ -228,14 +227,7 @@ const App = () => {
 
             <Route path="/admin/refund-requests" element={<AdminRefundRequests />} />
 
-            <Route
-              path="/pricing"
-              element={
-                <ProtectedRoute>
-                  <Pricing />
-                </ProtectedRoute>
-              }
-            />
+
 
             {/* ✅ صفحات الكورير مباشرة بدون RoleGate */}
             <Route

@@ -182,16 +182,7 @@ export default function TopBar() {
               الأرشيف
             </Link>
 
-            <Link
-              to="/pricing"
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all ${location.pathname === "/pricing"
-                ? "bg-amber-100 text-amber-700 shadow-sm border border-amber-200/50"
-                : "text-slate-600 hover:bg-amber-50 hover:text-amber-600"
-                }`}
-            >
-              <Diamond className="w-4 h-4" />
-              الباقات
-            </Link>
+
 
             {user && (
               <Link
@@ -429,9 +420,7 @@ export default function TopBar() {
                 <Archive className="w-5 h-5 opacity-60" /> الأرشيف
               </Link>
 
-              <Link to="/pricing" className="flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-slate-700 hover:bg-amber-50">
-                <Diamond className="w-5 h-5 text-amber-500" /> الباقات
-              </Link>
+
 
               {user && (
                 <Link to="/deals/open" className="flex items-center justify-between px-4 py-3 rounded-xl font-bold text-slate-700 hover:bg-emerald-50">

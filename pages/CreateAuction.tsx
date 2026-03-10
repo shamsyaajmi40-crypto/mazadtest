@@ -119,8 +119,7 @@ const CreateAuction = () => {
 
     const { startPrice } = formData;
     if (startPrice && user) {
-      const planCode = user.subscription?.plan?.code || user.planCode || "USER_FREE";
-      const requiredDeposit = calculateSellerDeposit(Number(startPrice) || 0, planCode, user.penaltyCount || 0);
+      const requiredDeposit = calculateSellerDeposit(Number(startPrice) || 0, user.penaltyCount || 0);
 
       if ((user.balance || 0) < requiredDeposit) {
         alert(`عذراً، رصيدك غير كافٍ لإنشاء مزاد بهذا السعر الافتتاحي.يتطلب نشر هذا المزاد حجز عربون جدية بقيمة ${requiredDeposit.toLocaleString()} د.ع.`);

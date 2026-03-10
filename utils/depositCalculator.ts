@@ -7,11 +7,7 @@ export const DEFAULT_DEPOSIT_POLICY = {
         maxAmount: 250000,
     },
     seller: {
-        planRates: {
-            USER_FREE: 0.03,
-            USER_PLUS: 0.015,
-            USER_MAX: 0.005,
-        },
+        defaultRate: 0.03,
         strikeSurcharge: {
             oneStrike: 0.01,
             twoPlusStrike: 0.02,
@@ -36,7 +32,6 @@ const normalizeCount = (value: any, fallback: number) => Math.max(0, Math.floor(
 export const normalizeDepositPolicy = (raw: any = {}) => {
     const bidderRaw = raw?.bidder || {};
     const sellerRaw = raw?.seller || {};
-    const planRatesRaw = sellerRaw?.planRates || {};
     const strikeRaw = sellerRaw?.strikeSurcharge || {};
 
     const bidderMin = normalizeMoney(bidderRaw.minAmount, DEFAULT_DEPOSIT_POLICY.bidder.minAmount);
@@ -55,20 +50,10 @@ export const normalizeDepositPolicy = (raw: any = {}) => {
             maxAmount: bidderMax,
         },
         seller: {
-            planRates: {
-                USER_FREE: normalizeRate(
-                    planRatesRaw.USER_FREE,
-                    DEFAULT_DEPOSIT_POLICY.seller.planRates.USER_FREE
-                ),
-                USER_PLUS: normalizeRate(
-                    planRatesRaw.USER_PLUS,
-                    DEFAULT_DEPOSIT_POLICY.seller.planRates.USER_PLUS
-                ),
-                USER_MAX: normalizeRate(
-                    planRatesRaw.USER_MAX,
-                    DEFAULT_DEPOSIT_POLICY.seller.planRates.USER_MAX
-                ),
-            },
+            defaultRate: normalizeRate(
+                sellerRaw.defaultRate,
+                DEFAULT_DEPOSIT_POLICY.seller.defaultRate
+            ),
             strikeSurcharge: {
                 oneStrike: normalizeRate(
                     strikeRaw.oneStrike,
@@ -89,20 +74,14 @@ export const normalizeDepositPolicy = (raw: any = {}) => {
     };
 };
 
-export const getSellerDepositRateByPlanAndStrikes = (
-    planCode = "USER_FREE",
+export const getSellerDepositRateByStrikes = (
     strikes = 0,
     policy = DEFAULT_DEPOSIT_POLICY
 ) => {
     const p = normalizeDepositPolicy(policy);
-    const code = String(planCode || "USER_FREE").toUpperCase();
     const s = Number(strikes) || 0;
 
-    const baseRate = code.includes("MAX")
-        ? p.seller.planRates.USER_MAX
-        : code.includes("PLUS")
-            ? p.seller.planRates.USER_PLUS
-            : p.seller.planRates.USER_FREE;
+    const baseRate = p.seller.defaultRate;
 
     const surcharge =
         s >= 2
@@ -116,13 +95,12 @@ export const getSellerDepositRateByPlanAndStrikes = (
 
 export const calculateSellerDeposit = (
     startingPrice: number | string,
-    planCode = "USER_FREE",
     strikes = 0,
     policy = DEFAULT_DEPOSIT_POLICY
 ) => {
     const p = normalizeDepositPolicy(policy);
     const price = Math.max(0, Number(startingPrice) || 0);
-    const rate = getSellerDepositRateByPlanAndStrikes(planCode, strikes, p);
+    const rate = getSellerDepositRateByStrikes(strikes, p);
 
     if (rate <= 0) return 0;
     if (price < p.seller.smallPriceThreshold) return p.seller.minAmount;

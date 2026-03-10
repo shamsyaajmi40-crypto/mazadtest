@@ -16,7 +16,6 @@ import { getIo } from "../utils/socket.js";
 import { enforceBidCooldown, rollbackBidCooldown } from "../utils/bidCooldown.js";
 import AuditLog from "../models/AuditLog.js";
 import FinanceLog from "../models/FinanceLog.js";
-import Subscription from "../models/Subscription.js";
 import { validateText, validateNumber, validateFutureDate } from "../utils/validation.js";
 import { uploadToR2, deleteFromR2 } from "../utils/r2.js";
 import { generateReceiptId, signReceipt } from "../utils/receipt.js";
@@ -83,7 +82,7 @@ export const createAuction = async (req, res) => {
     if (!Number.isFinite(depositAmount) || depositAmount <= 0) {
       return res.status(400).json({ message: "Invalid bidder deposit amount" });
     }
-    const subscription = await Subscription.findOne({ user: req.user._id }).populate("plan");
+
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     const strikes = await AuditLog.countDocuments({
@@ -92,8 +91,7 @@ export const createAuction = async (req, res) => {
       createdAt: { $gte: since },
     });
     // عربون البائع
-    const planCode = subscription?.plan?.code || subscription?.planCode || "USER_FREE";
-    const sellerDeposit = calculateSellerDeposit(startingPrice, planCode, strikes, depositPolicy);
+    const sellerDeposit = calculateSellerDeposit(startingPrice, strikes, depositPolicy);
 
     sellerId = req.user._id;
 
@@ -196,10 +194,7 @@ export const createAuction = async (req, res) => {
       owner: sellerId,
       status: "pending",
     });
-    await Subscription.updateOne(
-      { user: req.user._id },
-      { $inc: { auctionsUsedThisPeriod: 1 } }
-    );
+
     // (اختياري) سجل لوج للحجز
     try {
       await AuditLog.create({

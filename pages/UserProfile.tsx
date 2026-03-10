@@ -2,7 +2,6 @@ import { useEffect, useState, useContext, FormEvent } from "react";
 import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
 import { getAuctions, getWonAuctions, getMyBids } from "../services/auction";
-import { fetchMyBillingMe } from "../services/billing.service";
 import type { Auction, User } from "../types";
 import AuctionCard from "../components/AuctionCard";
 import {
@@ -87,13 +86,11 @@ const UserProfile = () => {
 
 
   const [loading, setLoading] = useState(true);
-  const [myBilling, setMyBilling] = useState<any>(null);
 
   useEffect(() => {
     setLoading(true);
     setProfileUser(null);
     setData({ listings: [], bids: [], wins: [], favorites: [] });
-    setMyBilling(null);
 
     // صفحتي
     if (!id) {
@@ -103,12 +100,10 @@ const UserProfile = () => {
         getMyAuctions(),
         getMyBids(),
         getWonAuctions(),
-        fetchMyBillingMe().catch((err) => { console.error("Billing err:", err); return null; }),
         getMyFavorites().catch(() => []),
       ])
-        .then(([a, b, w, billing, favs]) => {
+        .then(([a, b, w, favs]) => {
           console.log("Logged In User:", user);
-          console.log("Billing Data fetched:", billing);
           setProfileUser(user);
           setData({
             listings: a.data,
@@ -116,7 +111,6 @@ const UserProfile = () => {
             wins: w.data,
             favorites: favs,
           });
-          if (billing) setMyBilling(billing);
         })
         .finally(() => setLoading(false));
 
@@ -372,44 +366,7 @@ const UserProfile = () => {
                   </div>
                 )}
 
-                {isOwnProfile && (() => {
-                  const planCode = myBilling?.subscription?.plan?.code || user?.subscription?.plan?.code || (user as any)?.planCode || "USER_FREE";
 
-                  let planName = "FREE";
-                  let badgeColors = "bg-slate-200 text-slate-700 border-slate-300";
-
-                  if (planCode === "USER_MAX") {
-                    planName = "MAX";
-                    badgeColors = "bg-amber-100 text-amber-700 border-amber-200";
-                  } else if (planCode === "USER_PLUS") {
-                    planName = "PLUS";
-                    badgeColors = "bg-indigo-100 text-indigo-700 border-indigo-200";
-                  } else if (planCode.includes("TRADER")) {
-                    planName = planCode.replace("TRADER_", "");
-                    badgeColors = "bg-rose-100 text-rose-700 border-rose-200";
-                  }
-
-                  return (
-                    <div className="flex flex-col gap-2 w-full mt-2">
-                      <div className="flex justify-between items-center bg-slate-50 border border-slate-100 px-4 py-2.5 rounded-2xl">
-                        <span className="text-xs font-bold text-slate-500">باقتك الحالية</span>
-                        <span className={`text-xs font-black px-2.5 py-1 rounded-md border ${badgeColors}`}>
-                          {planName}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => navigate("/pricing")}
-                        className="group relative overflow-hidden bg-slate-900 text-white rounded-2xl py-3 px-6 font-bold shadow-lg shadow-slate-900/20 hover:shadow-xl hover:shadow-slate-900/30 transition-all active:scale-[0.98] w-full"
-                      >
-                        <div className="absolute inset-0 bg-white/20 translate-x-[-100%] skew-x-[-15deg] group-hover:animate-[shimmer_1.5s_infinite]"></div>
-                        <span className="flex items-center justify-center gap-2 relative z-10">
-                          <Award className="w-5 h-5 text-amber-400" />
-                          إدارة الباقة
-                        </span>
-                      </button>
-                    </div>
-                  );
-                })()}
               </div>
             </div>
           </div>

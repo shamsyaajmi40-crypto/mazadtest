@@ -6,7 +6,6 @@ import {
   getCompletedAuctions,
   deleteAuction,
 } from "../controllers/auction.controller.js";
-import * as subReq from "../controllers/subscriptionRequest.controller.js";
 import {
   adminListRefundRequests,
   adminApproveRefundRequest,
@@ -24,26 +23,7 @@ router.get(
   getAdminAuctionArchive
 );
 
-router.get(
-  "/subscription-requests",
-  protect,
-  requireRole("admin", "superAdmin"),
-  subReq.listRequests
-);
 
-router.post(
-  "/subscription-requests/:id/approve",
-  protect,
-  requireRole("admin", "superAdmin"),
-  subReq.approveRequest
-);
-
-router.post(
-  "/subscription-requests/:id/reject",
-  protect,
-  requireRole("admin", "superAdmin"),
-  subReq.rejectRequest
-);
 
 router.get(
   "/auctions/pending",

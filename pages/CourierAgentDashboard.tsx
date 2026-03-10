@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
+import { calculateCommission } from "../utils/commission";
 
 type DeliveryOrder = {
   _id: string;
@@ -79,6 +80,9 @@ const totalDueWithDelivery = (order: DeliveryOrder) => {
   const fee = Number(order.deliveryFee || 0);
   return Math.max(0, gross + fee);
 };
+
+const getCommission = (order: DeliveryOrder) => calculateCommission(order.auction?.currentPrice || 0);
+const sellerPayout = (order: DeliveryOrder) => Math.max(0, Number(order.auction?.currentPrice || 0) - getCommission(order));
 
 const formatRemaining = (ms: number) => {
   const totalSec = Math.max(0, Math.floor(ms / 1000));
@@ -244,11 +248,20 @@ export default function CourierAgentDashboard() {
               <span className="font-bold text-slate-700">التتبع:</span> <span className="font-mono">{o.trackingCode || "غير متوفر"}</span>
             </div>
 
-            <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 shadow-sm relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-1 h-full bg-emerald-400" />
-              <div className="text-xs text-emerald-600 font-bold uppercase tracking-wider mb-1">المبلغ المراد جمعه من المشتري (COD)</div>
-              <div className="text-2xl font-black text-emerald-900">{totalDueWithDelivery(o).toLocaleString()} د.ع</div>
-              <div className="text-[10px] text-emerald-700/70 mt-1">يُسلّم كاش عند إعطاء البضاعة.</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-1 h-full bg-emerald-400" />
+                <div className="text-xs text-emerald-600 font-bold uppercase tracking-wider mb-1">استحصال من المشتري (COD)</div>
+                <div className="text-2xl font-black text-emerald-900">{totalDueWithDelivery(o).toLocaleString()} د.ع</div>
+                <div className="text-[10px] text-emerald-700/70 mt-1">سعر المزاد + أجرة التوصيل</div>
+              </div>
+
+              <div className="rounded-xl border border-violet-200 bg-violet-50/50 p-4 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-1 h-full bg-violet-400" />
+                <div className="text-xs text-violet-600 font-bold uppercase tracking-wider mb-1">صافي مستحق البائع</div>
+                <div className="text-2xl font-black text-violet-900">{sellerPayout(o).toLocaleString()} د.ع</div>
+                <div className="text-[10px] text-violet-700/70 mt-1">مخصوم منه العمولة ({getCommission(o).toLocaleString()} د.ع)</div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">

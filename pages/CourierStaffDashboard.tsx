@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
+import { calculateCommission } from "../utils/commission";
 
 type DeliveryOrder = {
   _id: string;
@@ -88,7 +89,8 @@ const statusLabel: Record<string, string> = {
 const isFinal = (status: string) =>
   ["COD_PAID_TO_SELLER", "COMPLETED"].includes(status);
 
-const sellerPayout = (order: DeliveryOrder) => Number(order.auction?.currentPrice || 0);
+const getCommission = (order: DeliveryOrder) => calculateCommission(order.auction?.currentPrice || 0);
+const sellerPayout = (order: DeliveryOrder) => Math.max(0, Number(order.auction?.currentPrice || 0) - getCommission(order));
 
 const formatRemaining = (ms: number) => {
   const totalSec = Math.max(0, Math.floor(ms / 1000));
@@ -350,17 +352,21 @@ export default function CourierStaffDashboard() {
               <span className="font-bold text-slate-700">التتبع (Tracking):</span> <span className="font-mono">{o.trackingCode || "غير متوفر"}</span>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
               <div className="rounded-xl bg-slate-50 p-3 border border-slate-100/50">
                 <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 font-bold">المندوب المكلّف</div>
                 <div className="font-black text-slate-800 text-xs">{agentName(o.agentUser)}</div>
               </div>
               <div className="rounded-xl bg-slate-50 p-3 border border-slate-100/50">
-                <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 font-bold">قيمة المزاد</div>
+                <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 font-bold">سعر الرسو</div>
                 <div className="font-black text-slate-800 text-xs">{Number(o.auction?.currentPrice || 0).toLocaleString()} د.ع</div>
               </div>
+              <div className="rounded-xl bg-rose-50 p-3 border border-rose-100/50">
+                <div className="text-[10px] text-rose-600 uppercase tracking-wider mb-1 font-bold">عمولة المنصة</div>
+                <div className="font-black text-rose-900 text-xs">{getCommission(o).toLocaleString()} د.ع</div>
+              </div>
               <div className="rounded-xl bg-emerald-50 p-3 border border-emerald-100/50">
-                <div className="text-[10px] text-emerald-600 uppercase tracking-wider mb-1 font-bold">المستحق للبائع</div>
+                <div className="text-[10px] text-emerald-600 uppercase tracking-wider mb-1 font-bold">صافي البائع</div>
                 <div className="font-black text-emerald-900 text-xs">{sellerPayout(o).toLocaleString()} د.ع</div>
               </div>
               <div className="rounded-xl bg-indigo-50 p-3 border border-indigo-100/50">

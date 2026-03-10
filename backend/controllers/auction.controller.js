@@ -256,10 +256,7 @@ export const getCreateAuctionDepositPreview = async (req, res) => {
       return res.status(400).json({ message: "Invalid starting price" });
     }
 
-    const [policyDoc, subscription] = await Promise.all([
-      PlatformSetting.findOne({ key: DEPOSIT_POLICY_KEY }).select("value").lean(),
-      Subscription.findOne({ user: req.user._id }).populate("plan"),
-    ]);
+    const policyDoc = await PlatformSetting.findOne({ key: DEPOSIT_POLICY_KEY }).select("value").lean();
 
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const strikes = await AuditLog.countDocuments({
@@ -268,14 +265,12 @@ export const getCreateAuctionDepositPreview = async (req, res) => {
       createdAt: { $gte: since },
     });
 
-    const planCode = subscription?.plan?.code || subscription?.planCode || "USER_FREE";
     const policy = normalizeDepositPolicy(policyDoc?.value || DEFAULT_DEPOSIT_POLICY);
-    const sellerDeposit = calculateSellerDeposit(startingPrice, planCode, strikes, policy);
+    const sellerDeposit = calculateSellerDeposit(startingPrice, strikes, policy);
 
     return res.json({
       sellerDeposit,
       currency: "IQD",
-      planCode,
       strikes,
       message:
         "This amount will be held during review/publish and returned when rules are respected.",

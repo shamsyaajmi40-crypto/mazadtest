@@ -196,10 +196,11 @@ export const getFinancialLogs = async (req, res) => {
         });
 
         // --- UNION: AuditLog ---
-        if (type === "all" || type === "penalty" || type === "refund") {
+        if (type === "all" || type === "penalty" || type === "refund" || type === "commission") {
             const auditActions = [];
             if (type === "all" || type === "penalty") auditActions.push("CONFISCATE_OK");
             if (type === "all" || type === "refund") auditActions.push("REFUND");
+            if (type === "all" || type === "commission") auditActions.push("PLATFORM_COMMISSION");
 
             pipeline.push({
                 $unionWith: {
@@ -218,14 +219,24 @@ export const getFinancialLogs = async (req, res) => {
                         {
                             $project: {
                                 _id: 1,
-                                type: { $cond: [{ $eq: ["$action", "CONFISCATE_OK"] }, "PENALTY", "DEPOSIT_REFUND"] },
+                                type: {
+                                    $cond: [
+                                        { $eq: ["$action", "CONFISCATE_OK"] }, "PENALTY",
+                                        { $cond: [{ $eq: ["$action", "REFUND"] }, "DEPOSIT_REFUND", "COMMISSION"] }
+                                    ]
+                                },
                                 status: { $literal: "SUCCESS" },
                                 amount: "$amount",
                                 user: 1,
                                 createdAt: 1,
                                 orderId: { $ifNull: ["$receiptId", { $cond: ["$aucData", { $concat: ["AUC-", { $substr: [{ $toString: "$aucData._id" }, 18, 6] }] }, "—"] }] },
                                 reason: "$reason",
-                                source: { $cond: [{ $eq: ["$source", "SELLER"] }, "بائع", { $cond: [{ $eq: ["$source", "BUYER"] }, "مشتري", "منصة"] }] },
+                                source: {
+                                    $cond: [
+                                        { $eq: ["$source", "SELLER"] }, "بائع",
+                                        { $cond: [{ $eq: ["$source", "BUYER"] }, "مشتري", "عمولة منصة"] }
+                                    ]
+                                },
                                 auctionTitle: "$aucData.title"
                             }
                         }
@@ -269,40 +280,7 @@ export const getFinancialLogs = async (req, res) => {
             });
         }
 
-        // --- UNION: FinanceLog (Commission) ---
-        if (type === "all" || type === "commission") {
-            pipeline.push({
-                $unionWith: {
-                    coll: "financelogs",
-                    pipeline: [
-                        { $match: { type: "PLATFORM_COMMISSION", ...dateFilter } },
-                        {
-                            $lookup: {
-                                from: "auctions",
-                                localField: "refId",
-                                foreignField: "_id",
-                                as: "aucData"
-                            }
-                        },
-                        { $unwind: { path: "$aucData", preserveNullAndEmptyArrays: true } },
-                        {
-                            $project: {
-                                _id: 1,
-                                type: { $literal: "COMMISSION" },
-                                status: { $literal: "SUCCESS" },
-                                amount: "$amountIQD",
-                                user: 1,
-                                createdAt: 1,
-                                orderId: { $ifNull: ["$receiptId", "—"] },
-                                reason: { $ifNull: ["$meta.note", "عمولة منصة"] },
-                                source: { $literal: "عمولة" },
-                                auctionTitle: "$aucData.title"
-                            }
-                        }
-                    ]
-                }
-            });
-        }
+
         if (searchActive) {
             const s = search.trim().toUpperCase();
             pipeline.push({
@@ -416,11 +394,12 @@ export const exportFinancialsExcel = async (req, res) => {
 
         let logs = [];
 
-        // 1. Penalties & Refunds (AuditLog)
-        if (type === "all" || type === "penalty" || type === "refund") {
+        // 1. Penalties & Refunds & Commissions (AuditLog)
+        if (type === "all" || type === "penalty" || type === "refund" || type === "commission") {
             const actions = [];
             if (type === "all" || type === "penalty") actions.push("CONFISCATE_OK");
             if (type === "all" || type === "refund") actions.push("REFUND");
+            if (type === "all" || type === "commission") actions.push("PLATFORM_COMMISSION");
 
             const match = { action: { $in: actions }, ...dateFilter };
             if (userMatchIds) match.user = { $in: userMatchIds };
@@ -430,13 +409,13 @@ export const exportFinancialsExcel = async (req, res) => {
             audits.forEach(p => {
                 logs.push({
                     date: p.createdAt,
-                    type: p.action === "CONFISCATE_OK" ? "مصادرة" : "إرجاع عربون",
+                    type: p.action === "CONFISCATE_OK" ? "مصادرة" : (p.action === "REFUND" ? "إرجاع عربون" : "عمولة مزاد"),
                     status: "ناجحة",
                     user: p.user?.name || "—",
                     phone: p.user?.phone || "—",
                     amount: p.amount,
                     orderId: p.receiptId || (p.auction ? `AUC-${p.auction._id.toString().slice(-6).toUpperCase()}` : "—"),
-                    source: p.source === "SELLER" ? "بائع" : (p.source === "BUYER" ? "مشتري" : (p.source === "PLATFORM" ? "منصة" : "—")),
+                    source: p.source === "SELLER" ? "بائع" : (p.source === "BUYER" ? "مشتري" : "عمولة منصة"),
                     details: p.reason + (p.auction ? ` (مزاد: ${p.auction.title})` : "")
                 });
             });

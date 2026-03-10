@@ -39,6 +39,7 @@ const deliveryOrderSchema = new mongoose.Schema(
     },
 
     trackingCode: { type: String, default: "" },
+    receiptId: { type: String, default: null },
 
     pickedUpAt: { type: Date, default: null },
     deliveredAt: { type: Date, default: null },

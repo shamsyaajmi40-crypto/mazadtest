@@ -623,6 +623,7 @@ export const markCodPaidToSeller = async (req, res) => {
     order.status = "COD_PAID_TO_SELLER";
     order.codPaidAt = new Date();
     order.staffUser = req.user._id;
+    order.receiptId = receiptNo || null;
     pushLog(order, {
       status: "COD_PAID_TO_SELLER",
       by: req.user._id,

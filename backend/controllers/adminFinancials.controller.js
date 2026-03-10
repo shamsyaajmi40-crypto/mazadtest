@@ -245,7 +245,7 @@ export const getFinancialLogs = async (req, res) => {
             });
         }
 
-        // --- UNION: FinanceLog ---
+        // --- UNION: FinanceLog (Refund / Topup) ---
         if (type === "all" || type === "refund" || type === "topup") {
             const finTypes = [];
             if (type === "all" || type === "refund") finTypes.push("REFUND_REQUEST_APPROVED", "REFUND_REQUEST_REJECTED");
@@ -280,6 +280,40 @@ export const getFinancialLogs = async (req, res) => {
             });
         }
 
+        // --- UNION: FinanceLog (Commission) ---
+        if (type === "all" || type === "commission") {
+            pipeline.push({
+                $unionWith: {
+                    coll: "financelogs",
+                    pipeline: [
+                        { $match: { type: "PLATFORM_COMMISSION", ...dateFilter } },
+                        {
+                            $lookup: {
+                                from: "auctions",
+                                localField: "refId",
+                                foreignField: "_id",
+                                as: "aucData"
+                            }
+                        },
+                        { $unwind: { path: "$aucData", preserveNullAndEmptyArrays: true } },
+                        {
+                            $project: {
+                                _id: 1,
+                                type: { $literal: "COMMISSION" },
+                                status: { $literal: "SUCCESS" },
+                                amount: "$amountIQD",
+                                user: 1,
+                                createdAt: 1,
+                                orderId: { $ifNull: ["$receiptId", "—"] },
+                                reason: { $ifNull: ["$meta.note", "عمولة منصة"] },
+                                source: { $literal: "عمولة منصة" },
+                                auctionTitle: "$aucData.title"
+                            }
+                        }
+                    ]
+                }
+            });
+        }
 
         if (searchActive) {
             const s = search.trim().toUpperCase();

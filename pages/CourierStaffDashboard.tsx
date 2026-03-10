@@ -45,6 +45,7 @@ type DeliveryOrder = {
       address?: string;
     } | null;
   } | null;
+  receiptId?: string | null;
   createdAt?: string;
 };
 
@@ -93,7 +94,10 @@ const isFinal = (status: string) =>
 
 const getCommission = (order: DeliveryOrder) => calculateCommission(order.auction?.currentPrice || 0);
 const sellerPayout = (order: DeliveryOrder) => Math.max(0, Number(order.auction?.currentPrice || 0) - getCommission(order));
-const extractReceiptNo = (order: DeliveryOrder) => {
+const extractReceiptNo = (order: DeliveryOrder): string => {
+  // Prefer the top-level receiptId stored directly on the order
+  if (order.receiptId) return order.receiptId;
+  // Fallback: parse from logs note for older orders
   const log = order.logs?.find((l) => l.status === "COD_PAID_TO_SELLER" || l.status === "COMPLETED" || l.note?.includes("receiptNo="));
   if (!log || !log.note) return "-";
   const match = log.note.match(/receiptNo=([^;]+)/);

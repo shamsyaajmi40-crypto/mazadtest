@@ -18,6 +18,7 @@ const auditLogSchema = new mongoose.Schema(
         "REFUND_REQUEST_REJECTED",
         "UNDO_REJECT",
         "FEATURE_AUCTION_PAYMENT",
+        "PLATFORM_COMMISSION",
       ],
       required: true,
     },

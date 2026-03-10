@@ -196,11 +196,10 @@ export const getFinancialLogs = async (req, res) => {
         });
 
         // --- UNION: AuditLog ---
-        if (type === "all" || type === "penalty" || type === "refund" || type === "commission") {
+        if (type === "all" || type === "penalty" || type === "refund") {
             const auditActions = [];
             if (type === "all" || type === "penalty") auditActions.push("CONFISCATE_OK");
             if (type === "all" || type === "refund") auditActions.push("REFUND");
-            if (type === "all" || type === "commission") auditActions.push("PLATFORM_COMMISSION");
 
             pipeline.push({
                 $unionWith: {
@@ -222,7 +221,7 @@ export const getFinancialLogs = async (req, res) => {
                                 type: {
                                     $cond: [
                                         { $eq: ["$action", "CONFISCATE_OK"] }, "PENALTY",
-                                        { $cond: [{ $eq: ["$action", "REFUND"] }, "DEPOSIT_REFUND", "COMMISSION"] }
+                                        "DEPOSIT_REFUND"
                                     ]
                                 },
                                 status: { $literal: "SUCCESS" },

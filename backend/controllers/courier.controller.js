@@ -61,7 +61,7 @@ const notifyUser = async ({ userId, title, message, auctionId, event }) => {
 
 const courierAuctionPopulate = {
   path: "auction",
-  select: "currentPrice confirmationDeadline status winner seller",
+  select: "currentPrice startingPrice confirmationDeadline status winner seller",
   populate: [
     { path: "winner", select: "name phone governorate address" },
     { path: "seller", select: "name phone governorate address" },
@@ -614,8 +614,9 @@ export const markCodPaidToSeller = async (req, res) => {
     }
 
     const grossAmount = Number(auction.currentPrice || 0);
+    const startPrice = Number(auction.startingPrice || 0);
     const deliveryFee = Number(order.deliveryFee || 0);
-    const commission = calculateCommission(grossAmount);
+    const commission = calculateCommission(grossAmount, startPrice);
     const sellerPayout = Math.max(0, grossAmount - commission);  // صافي مستحق البائع بعد العمولة
     const buyerTotalDue = grossAmount + deliveryFee;
 

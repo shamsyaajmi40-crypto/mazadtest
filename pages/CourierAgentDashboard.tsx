@@ -23,6 +23,7 @@ type DeliveryOrder = {
   trackingCode?: string;
   auction?: {
     currentPrice?: number;
+    startingPrice?: number;
     confirmationDeadline?: string;
     winner?: {
       name?: string;
@@ -81,7 +82,7 @@ const totalDueWithDelivery = (order: DeliveryOrder) => {
   return Math.max(0, gross + fee);
 };
 
-const getCommission = (order: DeliveryOrder) => calculateCommission(order.auction?.currentPrice || 0);
+const getCommission = (order: DeliveryOrder) => calculateCommission(order.auction?.currentPrice || 0, order.auction?.startingPrice || 0);
 const sellerPayout = (order: DeliveryOrder) => Math.max(0, Number(order.auction?.currentPrice || 0) - getCommission(order));
 
 const formatRemaining = (ms: number) => {

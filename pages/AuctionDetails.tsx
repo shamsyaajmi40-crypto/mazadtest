@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useContext, useRef } from "react";
+import React, { useEffect, useState, useContext, useRef } from "react";
 import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 import { Auction, Bid, } from "../types";
 import { getAuctionDetails, placeBid, featureAuction } from "../services/auction";
@@ -491,6 +491,13 @@ const AuctionDetails = () => {
 
   const executeBid = async () => {
     if (!auction || bidLoading) return;
+
+    // 🔥 ضمان تأكيد الموافقة على الشروط
+    const acceptedKey = `hasAcceptedBidTerms_${auction._id}`;
+    if (!localStorage.getItem(acceptedKey)) {
+      setShowBidTermsModal(true);
+      return;
+    }
 
     const basePrice =
       optimisticBid !== null ? optimisticBid : auction.currentPrice;

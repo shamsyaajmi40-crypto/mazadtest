@@ -40,9 +40,12 @@ export const createLedgerEntry = async ({
     heldAfter: heldAfter === null || heldAfter === undefined ? null : ensureIntegerIQD(heldAfter, "heldAfter"),
     refModel: referenceModel || "",
     refId: referenceId || null,
-    receiptId: receiptId || null,
     meta: metadata || {},
   };
+
+  if (receiptId) {
+    payload.receiptId = receiptId;
+  }
 
   const createOptions = session ? { session } : undefined;
   const [created] = await FinanceLog.create([payload], createOptions);

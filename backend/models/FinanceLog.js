@@ -76,7 +76,7 @@ const FinanceLogSchema = new mongoose.Schema(
     },
     refModel: { type: String, default: "" },
     refId: { type: mongoose.Schema.Types.ObjectId, default: null, alias: "referenceId" },
-    receiptId: { type: String, unique: true, sparse: true, index: true },
+    receiptId: { type: String, sparse: true, index: true },
     isImmutable: { type: Boolean, default: true, immutable: true },
     meta: { type: mongoose.Schema.Types.Mixed, default: {}, alias: "metadata" },
   },

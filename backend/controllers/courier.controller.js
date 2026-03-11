@@ -676,6 +676,24 @@ export const markCodPaidToSeller = async (req, res) => {
           ],
           { session }
         );
+
+        await FinanceLog.create(
+          [
+            {
+              user: auction.winner,
+              type: "DEPOSIT_REFUND",
+              amountIQD: auction.depositAmount,
+              refModel: "Auction",
+              refId: auction._id,
+              receiptId,
+              meta: {
+                reason: "إرجاع عربون المشتري بعد إتمام التوصيل والدفع",
+                signature,
+              },
+            },
+          ],
+          { session }
+        );
       }
     }
 
@@ -707,6 +725,22 @@ export const markCodPaidToSeller = async (req, res) => {
               by: "SYSTEM",
               source: "SELLER",
               meta: { signature },
+            }],
+            { session }
+          );
+
+          await FinanceLog.create(
+            [{
+              user: auction.seller,
+              type: "DEPOSIT_REFUND",
+              amountIQD: sellerDeposit,
+              refModel: "Auction",
+              refId: auction._id,
+              receiptId: depositReceiptId,
+              meta: {
+                reason: "إرجاع عربون البائع كاملاً — العمولة مُستقطعة من مبلغ الدفع",
+                signature,
+              },
             }],
             { session }
           );

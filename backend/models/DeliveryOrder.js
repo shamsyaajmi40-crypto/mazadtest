@@ -4,7 +4,16 @@ const deliveryOrderSchema = new mongoose.Schema(
   {
     auction: { type: mongoose.Schema.Types.ObjectId, ref: "Auction", required: true, unique: true },
     company: { type: mongoose.Schema.Types.ObjectId, ref: "CourierCompany", required: true },
-    deliveryFee: { type: Number, default: 0, min: 0 },
+    deliveryFee: {
+      type: Number,
+      default: 0,
+      min: 0,
+      set: (v) => Math.floor(Number(v || 0)),
+      validate: {
+        validator: (v) => Number.isInteger(Number(v)),
+        message: "deliveryFee must be an integer IQD value",
+      },
+    },
 
     agentUser: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }, // courier_agent
     staffUser: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }, // courier_staff (آخر موظف عدّل)

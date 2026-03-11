@@ -1,0 +1,1200 @@
+diff --git a/backend/controllers/auction.controller.js b/backend/controllers/auction.controller.js
+index 99f11a0..b012d57 100644
+--- a/backend/controllers/auction.controller.js
++++ b/backend/controllers/auction.controller.js
+@@ -15,12 +15,12 @@ import {
+ import { getIo } from "../utils/socket.js";
+ import { enforceBidCooldown, rollbackBidCooldown } from "../utils/bidCooldown.js";
+ import AuditLog from "../models/AuditLog.js";
+-import FinanceLog from "../models/FinanceLog.js";
+ import { validateText, validateNumber, validateFutureDate } from "../utils/validation.js";
+ import { uploadToR2, deleteFromR2 } from "../utils/r2.js";
+ import { generateReceiptId, signReceipt } from "../utils/receipt.js";
+ import { sendReceiptEmail } from "../utils/email.js";
+ import { sendAppNotification } from "../utils/notification.js";
++import { createLedgerEntry, generateOperationId } from "../utils/ledger.js";
+ 
+ const BID_COOLDOWN_MS = 5000; // نخليها 5 ثواني
+ // DEPOSIT_POLICY_KEY is now imported from helpers.js
+@@ -29,6 +29,7 @@ const BID_COOLDOWN_MS = 5000; // نخليها 5 ثواني
+ export const createAuction = async (req, res) => {
+   let lockedDeposit = 0;
+   let sellerId = null;
++  let sellerDepositSnapshot = null;
+ 
+   try {
+     const {
+@@ -113,18 +114,29 @@ export const createAuction = async (req, res) => {
+       return res.status(400).json({ message: "Insufficient balance to create auction" });
+     }
+ 
+-    // 🔐 حجز عربون البائع (atomic)
+-    const updated = await User.updateOne(
++    // Seller deposit hold.
++    const updatedSeller = await User.findOneAndUpdate(
+       { _id: sellerId, balance: { $gte: Number(sellerDeposit) } },
+-      { $inc: { balance: -sellerDeposit, heldBalance: sellerDeposit } }
++      { $inc: { balance: -sellerDeposit, heldBalance: sellerDeposit } },
++      { new: true }
+     );
+ 
+-    if (updated.modifiedCount === 0) {
++    if (!updatedSeller) {
+       return res.status(409).json({ message: "Failed to lock seller deposit" });
+     }
+ 
+     lockedDeposit = sellerDeposit;
+ 
++    const sellerAfterBalance = Number(updatedSeller.balance || 0);
++    const sellerAfterHeld = Number(updatedSeller.heldBalance || 0);
++    sellerDepositSnapshot = {
++      amountIQD: Number(sellerDeposit || 0),
++      balanceBefore: sellerAfterBalance + Number(sellerDeposit || 0),
++      balanceAfter: sellerAfterBalance,
++      heldBefore: sellerAfterHeld - Number(sellerDeposit || 0),
++      heldAfter: sellerAfterHeld,
++    };
++
+     const start = dateVal.date || new Date();
+     const durationHours = durVal.value;
+     const end = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
+@@ -139,23 +151,32 @@ export const createAuction = async (req, res) => {
+         console.error("Failed to upload images to R2:", uploadErr);
+         // في حال فشل الرفع، نُعيد العربون المحجوز (Rollback)
+         if (lockedDeposit > 0 && sellerId) {
+-          const rbResult = await User.updateOne(
++          const rolledBackUser = await User.findOneAndUpdate(
+             { _id: sellerId, heldBalance: { $gte: lockedDeposit } },
+-            { $inc: { heldBalance: -lockedDeposit, balance: lockedDeposit } }
++            { $inc: { heldBalance: -lockedDeposit, balance: lockedDeposit } },
++            { new: true }
+           );
+ 
+-          if (rbResult.modifiedCount > 0) {
++          if (rolledBackUser) {
+             try {
+               const receiptId = "ERR-" + Date.now();
+-              await FinanceLog.create({
+-                user: sellerId,
++              const afterBalance = Number(rolledBackUser.balance || 0);
++              const afterHeld = Number(rolledBackUser.heldBalance || 0);
++              await createLedgerEntry({
++                operationId: generateOperationId("seller_deposit_refund"),
++                userId: sellerId,
+                 type: "DEPOSIT_REFUND",
+-                amountIQD: lockedDeposit,
++                amountIQD: Number(lockedDeposit || 0),
++                balanceBefore: afterBalance - Number(lockedDeposit || 0),
++                balanceAfter: afterBalance,
++                heldBefore: afterHeld + Number(lockedDeposit || 0),
++                heldAfter: afterHeld,
++                referenceModel: "Auction",
+                 receiptId,
+-                meta: {
+-                  reason: "استرجاع عربون بائع بسبب فشل رفع الصور (شبكة)",
+-                  source: "SYSTEM"
+-                }
++                metadata: {
++                  reason: "Seller deposit rollback after image upload failure",
++                  source: "SYSTEM",
++                },
+               });
+ 
+               if (seller?.email) {
+@@ -195,6 +216,24 @@ export const createAuction = async (req, res) => {
+       status: "pending",
+     });
+ 
++    if (sellerDepositSnapshot) {
++      await createLedgerEntry({
++        operationId: generateOperationId("seller_deposit_hold"),
++        userId: sellerId,
++        type: "DEPOSIT_HOLD",
++        amountIQD: sellerDepositSnapshot.amountIQD,
++        balanceBefore: sellerDepositSnapshot.balanceBefore,
++        balanceAfter: sellerDepositSnapshot.balanceAfter,
++        heldBefore: sellerDepositSnapshot.heldBefore,
++        heldAfter: sellerDepositSnapshot.heldAfter,
++        referenceModel: "Auction",
++        referenceId: auction._id,
++        metadata: {
++          reason: "Seller deposit locked on auction creation",
++        },
++      });
++    }
++
+     // (اختياري) سجل لوج للحجز
+     try {
+       await AuditLog.create({
+@@ -223,21 +262,30 @@ export const createAuction = async (req, res) => {
+     // ✅ Rollback إذا تم حجز عربون وفشل إنشاء المزاد لأي سبب
+     if (lockedDeposit > 0 && sellerId) {
+       try {
+-        const rbRes = await User.updateOne(
++        const rolledBackUser = await User.findOneAndUpdate(
+           { _id: sellerId, heldBalance: { $gte: lockedDeposit } },
+-          { $inc: { heldBalance: -lockedDeposit, balance: lockedDeposit } }
++          { $inc: { heldBalance: -lockedDeposit, balance: lockedDeposit } },
++          { new: true }
+         );
+-        if (rbRes.modifiedCount > 0) {
++        if (rolledBackUser) {
+           const receiptId = "ERR-" + Date.now();
+-          await FinanceLog.create({
+-            user: sellerId,
++          const afterBalance = Number(rolledBackUser.balance || 0);
++          const afterHeld = Number(rolledBackUser.heldBalance || 0);
++          await createLedgerEntry({
++            operationId: generateOperationId("seller_deposit_refund"),
++            userId: sellerId,
+             type: "DEPOSIT_REFUND",
+-            amountIQD: lockedDeposit,
++            amountIQD: Number(lockedDeposit || 0),
++            balanceBefore: afterBalance - Number(lockedDeposit || 0),
++            balanceAfter: afterBalance,
++            heldBefore: afterHeld + Number(lockedDeposit || 0),
++            heldAfter: afterHeld,
++            referenceModel: "Auction",
+             receiptId,
+-            meta: {
+-              reason: "استرجاع عربون إنشاء مزاد إثر خطأ برمجي بالنظام",
+-              source: "SYSTEM"
+-            }
++            metadata: {
++              reason: "Seller deposit rollback after create auction failure",
++              source: "SYSTEM",
++            },
+           });
+         }
+       } catch (rbErr) {
+@@ -660,7 +708,7 @@ export const getAuctionById = async (req, res) => {
+       return res.status(400).json({ message: "Invalid auction ID" });
+     }
+ 
+-    const auction = await Auction.findById(id)
++    const auction = await Auction.findById(id).select("+deliveryOtpCode +payoutOtpCode")
+       .populate("seller", "name phone rating verification")
+       .populate("winner", "name phone rating verification")
+       .populate("owner", "name rating verification")
+@@ -717,6 +765,9 @@ export const getAuctionById = async (req, res) => {
+       String(auction.seller._id || auction.seller) === userId;
+ 
+     const auctionObj = auction.toObject();
++    // Never expose OTP hashes in API responses.
++    auctionObj.deliveryOtpHash = null;
++    auctionObj.payoutOtpHash = null;
+ 
+     if (auctionObj.deliveryMode === "courier") {
+       auctionObj.deliveryOtpCode = isWinner ? auctionObj.deliveryOtpCode : null;
+@@ -895,6 +946,27 @@ export const placeBid = async (req, res) => {
+           if (attempt === 1) await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
+           return res.status(403).json({ message: "رصيدك غير كافٍ لفتح عربون المزايدة في هذا المزاد" });
+         }
++
++        const afterBalance = Number(updatedUser.balance || 0);
++        const afterHeld = Number(updatedUser.heldBalance || 0);
++        const depositIQD = Number(deposit || 0);
++
++        await createLedgerEntry({
++          session,
++          operationId: generateOperationId("bid_deposit_hold"),
++          userId: req.user._id,
++          type: "DEPOSIT_HOLD",
++          amountIQD: depositIQD,
++          balanceBefore: afterBalance + depositIQD,
++          balanceAfter: afterBalance,
++          heldBefore: afterHeld - depositIQD,
++          heldAfter: afterHeld,
++          referenceModel: "Auction",
++          referenceId: auction._id,
++          metadata: {
++            reason: "Bidder deposit hold on first bid",
++          },
++        });
+       }
+ 
+       // Dynamic Anti-Sniping Extension logic
+@@ -1282,12 +1354,16 @@ export const featureAuction = async (req, res) => {
+     const tier = validDurations[duration];
+     let responsePayload = null;
+ 
++    const PLATFORM_USER_ID = process.env.PLATFORM_USER_ID;
++    if (!PLATFORM_USER_ID || !mongoose.Types.ObjectId.isValid(PLATFORM_USER_ID)) {
++      return res.status(500).json({ message: "PLATFORM_USER_ID is not configured correctly." });
++    }
++
+     await session.withTransaction(async () => {
+-      const [auction, basePlatformUser] = await Promise.all([
++      const [auction, basePlatformUser, ownerWallet] = await Promise.all([
+         Auction.findById(id).session(session),
+-        process.env.PLATFORM_USER_ID
+-          ? User.findById(process.env.PLATFORM_USER_ID).session(session)
+-          : null,
++        User.findById(PLATFORM_USER_ID).select("balance heldBalance").session(session),
++        User.findById(userId).select("balance heldBalance").session(session),
+       ]);
+ 
+       if (!auction) {
+@@ -1308,6 +1384,18 @@ export const featureAuction = async (req, res) => {
+         throw err;
+       }
+ 
++      if (!basePlatformUser) {
++        const err = new Error("Configured platform user not found.");
++        err.status = 500;
++        throw err;
++      }
++
++      if (!ownerWallet) {
++        const err = new Error("Auction owner wallet not found.");
++        err.status = 404;
++        throw err;
++      }
++
+       const activeFeaturedCount = await Auction.countDocuments({
+         owner: userId,
+         isFeatured: true,
+@@ -1321,8 +1409,16 @@ export const featureAuction = async (req, res) => {
+         throw err;
+       }
+ 
++      const ownerBeforeBalance = Number(ownerWallet.balance || 0);
++      const ownerBeforeHeld = Number(ownerWallet.heldBalance || 0);
++      if (ownerBeforeBalance < Number(tier.price || 0)) {
++        const err = new Error("Insufficient balance for featuring.");
++        err.status = 400;
++        throw err;
++      }
++
+       const debitResult = await User.updateOne(
+-        { _id: userId, balance: { $gte: tier.price } },
++        { _id: userId, balance: ownerBeforeBalance, heldBalance: ownerBeforeHeld },
+         { $inc: { balance: -tier.price } },
+         { session }
+       );
+@@ -1333,12 +1429,18 @@ export const featureAuction = async (req, res) => {
+         throw err;
+       }
+ 
+-      if (basePlatformUser) {
+-        await User.updateOne(
+-          { _id: basePlatformUser._id },
+-          { $inc: { balance: tier.price } },
+-          { session }
+-        );
++      const platformBeforeBalance = Number(basePlatformUser.balance || 0);
++      const platformBeforeHeld = Number(basePlatformUser.heldBalance || 0);
++
++      const creditPlatform = await User.updateOne(
++        { _id: basePlatformUser._id, balance: platformBeforeBalance, heldBalance: platformBeforeHeld },
++        { $inc: { balance: tier.price } },
++        { session }
++      );
++      if (creditPlatform.modifiedCount === 0) {
++        const err = new Error("Platform wallet update conflict.");
++        err.status = 409;
++        throw err;
+       }
+ 
+       const now = new Date();
+@@ -1373,23 +1475,47 @@ export const featureAuction = async (req, res) => {
+         },
+       ], { session });
+ 
+-      await FinanceLog.create([
+-        {
+-          user: userId,
+-          type: "FEATURE_AUCTION_PAYMENT",
+-          amountIQD: tier.price,
+-          refModel: "Auction",
+-          refId: auction._id,
++      await createLedgerEntry({
++        session,
++        operationId: generateOperationId("feature_payment"),
++        userId,
++        type: "FEATURE_AUCTION_PAYMENT",
++        amountIQD: Number(tier.price || 0),
++        balanceBefore: ownerBeforeBalance,
++        balanceAfter: ownerBeforeBalance - Number(tier.price || 0),
++        heldBefore: ownerBeforeHeld,
++        heldAfter: ownerBeforeHeld,
++        referenceModel: "Auction",
++        referenceId: auction._id,
++        receiptId,
++        metadata: {
++          duration,
++          featuredUntil: newExpiry,
++          platformUserId: basePlatformUser?._id || null,
++          note: 'Featured auction "' + auction.title + '" for ' + duration,
++          signature,
++        },
++      });
++
++      await createLedgerEntry({
++        session,
++        operationId: generateOperationId("feature_platform_transfer"),
++        userId: basePlatformUser._id,
++        type: "PLATFORM_TRANSFER",
++        amountIQD: Number(tier.price || 0),
++        balanceBefore: platformBeforeBalance,
++        balanceAfter: platformBeforeBalance + Number(tier.price || 0),
++        heldBefore: platformBeforeHeld,
++        heldAfter: platformBeforeHeld,
++        referenceModel: "Auction",
++        referenceId: auction._id,
++        metadata: {
++          sourceType: "FEATURE_AUCTION_PAYMENT",
++          fromUserId: userId,
++          duration,
+           receiptId,
+-          meta: {
+-            duration,
+-            featuredUntil: newExpiry,
+-            platformUserId: basePlatformUser?._id || null,
+-            note: 'Featured auction "' + auction.title + '" for ' + duration,
+-            signature,
+-          },
+         },
+-      ], { session });
++      });
+ 
+       responsePayload = {
+         message: "Auction featured successfully.",
+@@ -1493,3 +1619,5 @@ export const getPendingCourierAuctions = async (req, res) => {
+     return res.status(500).json({ message: "خطأ بالخادم" });
+   }
+ };
++
++
+diff --git a/backend/controllers/courier.controller.js b/backend/controllers/courier.controller.js
+index 782104b..b4e68d8 100644
+--- a/backend/controllers/courier.controller.js
++++ b/backend/controllers/courier.controller.js
+@@ -6,12 +6,12 @@ import CourierCompany from "../models/CourierCompany.js";
+ import Notification from "../models/Notification.js";
+ import User from "../models/User.js";
+ import AuditLog from "../models/AuditLog.js";
+-import FinanceLog from "../models/FinanceLog.js";
+ import { sendAppNotification } from "../utils/notification.js";
+ import bcrypt from "bcrypt";
+ import { getIo } from "../utils/socket.js";
+ import { generateReceiptId, signReceipt } from "../utils/receipt.js";
+ import { calculateCommission } from "../utils/commission.js";
++import { createLedgerEntry, ensureIntegerIQD, generateOperationId } from "../utils/ledger.js";
+ 
+ const FAILURE_REVIEW_MS = 24 * 60 * 60 * 1000; // 24 hours
+ const DEFAULT_CONFIRMATION_MS = 4 * 24 * 60 * 60 * 1000; // 4 days
+@@ -206,10 +206,12 @@ export const createDeliveryOrder = async (req, res) => {
+     // ✅ buyer OTP only
+     auction.deliveryOtpCode = buyerOtp;
+     auction.deliveryOtpHash = hashOtp(buyerOtp);
++    auction.deliveryOtpAttempts = 0;
+ 
+     // ✅ payout OTP للبائع لاحقاً بعد DELIVERED
+     auction.payoutOtpCode = null;
+     auction.payoutOtpHash = null;
++    auction.payoutOtpAttempts = 0;
+ 
+     await auction.save();
+ 
+@@ -283,64 +285,93 @@ export const markDeliveredByOtp = async (req, res) => {
+   try {
+     const { orderId } = req.params;
+     const { otp } = req.body;
++    const MAX_OTP_ATTEMPTS = 5;
+ 
+     const order = await DeliveryOrder.findById(orderId).populate("auction");
+     if (!order) {
+       await session.abortTransaction();
+-      session.endSession();
+       return res.status(404).json({ message: "Order not found" });
+     }
+ 
+     const access = await ensureOrderAccess(req.user, order);
+     if (!access.ok) {
+       await session.abortTransaction();
+-      session.endSession();
+       return res.status(access.status).json({ message: access.message });
+     }
+ 
+-    const auction = await Auction.findById(order.auction._id);
++    if (["DELIVERED", "COD_PAID_TO_SELLER", "COMPLETED"].includes(order.status)) {
++      await session.abortTransaction();
++      return res.json({ message: "Delivery already confirmed", duplicate: true });
++    }
++
++    const auction = await Auction.findById(order.auction._id).select(
++      "+deliveryOtpHash +deliveryOtpCode +payoutOtpHash +payoutOtpCode"
++    );
+     if (!auction) {
+       await session.abortTransaction();
+-      session.endSession();
+       return res.status(404).json({ message: "Auction not found" });
+     }
+ 
+     if (auction.deliveryMode !== "courier") {
+       await session.abortTransaction();
+-      session.endSession();
+       return res.status(400).json({ message: "Not courier mode" });
+     }
+ 
+     if (order.status !== "PICKED_UP") {
+       await session.abortTransaction();
+-      session.endSession();
+       return res.status(400).json({ message: "Order must be in PICKED_UP status to be delivered" });
+     }
+ 
++    if (Number(auction.deliveryOtpAttempts || 0) >= MAX_OTP_ATTEMPTS) {
++      await session.abortTransaction();
++      return res.status(429).json({ message: "OTP attempts exceeded. Generate a new OTP." });
++    }
++
+     if (!auction.deliveryOtpHash) {
+       await session.abortTransaction();
+-      session.endSession();
+       return res.status(400).json({ message: "Delivery OTP not set" });
+     }
+ 
+     const ok = hashOtp(normalizeOtp(otp)) === auction.deliveryOtpHash;
+     if (!ok) {
+       await session.abortTransaction();
+-      session.endSession();
+-      return res.status(400).json({ message: "Invalid OTP" });
++      const updatedAttempts = await Auction.findByIdAndUpdate(
++        auction._id,
++        { $inc: { deliveryOtpAttempts: 1 } },
++        { new: true }
++      ).select("deliveryOtpAttempts");
++
++      const attemptsUsed = Number(updatedAttempts?.deliveryOtpAttempts || 0);
++      const remainingAttempts = Math.max(0, MAX_OTP_ATTEMPTS - attemptsUsed);
++      const statusCode = remainingAttempts === 0 ? 429 : 400;
++
++      return res.status(statusCode).json({
++        message: remainingAttempts === 0 ? "OTP attempts exceeded. Generate a new OTP." : "Invalid OTP",
++        remainingAttempts,
++      });
+     }
+ 
+-    // Update order atomically
+-    order.status = "DELIVERED";
+-    order.deliveredAt = new Date();
+-    order.staffUser = req.user._id;
+-    pushLog(order, { status: "DELIVERED", by: req.user._id, note: "Delivered by OTP" });
+-    await order.save({ session });
++    // Update order atomically and idempotently to avoid double delivery confirmation.
++    const deliveredAt = new Date();
++    const orderUpdate = await DeliveryOrder.updateOne(
++      { _id: order._id, status: "PICKED_UP" },
++      {
++        $set: { status: "DELIVERED", deliveredAt, staffUser: req.user._id },
++        $push: { logs: { status: "DELIVERED", by: req.user._id, note: "Delivered by OTP", at: deliveredAt } },
++      },
++      { session }
++    );
++
++    if (orderUpdate.modifiedCount === 0) {
++      await session.abortTransaction();
++      return res.status(409).json({ message: "Order status changed by another request" });
++    }
+ 
+     // Update auction atomically
+     auction.winnerConfirmed = true;
+     auction.deliveryOtpCode = null;
+     auction.deliveryOtpHash = null;
++    auction.deliveryOtpAttempts = 0;
+ 
+     // توليد OTP البائع لاستلام مبلغ COD
+     if (!auction.payoutOtpHash) {
+@@ -348,11 +379,11 @@ export const markDeliveredByOtp = async (req, res) => {
+       auction.payoutOtpCode = sellerOtp;
+       auction.payoutOtpHash = hashOtp(sellerOtp);
+     }
++    auction.payoutOtpAttempts = 0;
+ 
+     await auction.save({ session });
+ 
+     await session.commitTransaction();
+-    session.endSession();
+ 
+     // Async notification (don't block response)
+     if (auction.payoutOtpCode) {
+@@ -367,9 +398,10 @@ export const markDeliveredByOtp = async (req, res) => {
+ 
+     return res.json({ message: "Delivered confirmed" });
+   } catch (e) {
+-    if (session.inAtomicity) await session.abortTransaction();
+-    session.endSession();
++    if (session.inTransaction()) await session.abortTransaction();
+     return res.status(500).json({ message: e.message });
++  } finally {
++    session.endSession();
+   }
+ };
+ 
+@@ -393,7 +425,9 @@ export const markFailed = async (req, res) => {
+       return res.status(400).json({ message: "Order already finalized" });
+     }
+ 
+-    const auction = await Auction.findById(order.auction._id);
++    const auction = await Auction.findById(order.auction._id).select(
++      "+payoutOtpHash +payoutOtpCode"
++    );
+     if (!auction) return res.status(404).json({ message: "Auction not found" });
+ 
+     if (order.status === "DELIVERY_FAILED" && order.failureReason) {
+@@ -572,70 +606,110 @@ export const markCodPaidToSeller = async (req, res) => {
+   try {
+     const { orderId } = req.params;
+     const { otp, receiptNo = "" } = req.body;
++    const MAX_OTP_ATTEMPTS = 5;
+ 
+     const order = await DeliveryOrder.findById(orderId).populate("auction");
+     if (!order) {
+       await session.abortTransaction();
+-      session.endSession();
+       return res.status(404).json({ message: "Order not found" });
+     }
+ 
+     const access = await ensureOrderAccess(req.user, order);
+     if (!access.ok) {
+       await session.abortTransaction();
+-      session.endSession();
+       return res.status(access.status).json({ message: access.message });
+     }
+ 
++    if (["COD_PAID_TO_SELLER", "COMPLETED"].includes(order.status)) {
++      await session.abortTransaction();
++      return res.json({ message: "COD payout already confirmed", duplicate: true });
++    }
++
+     if (order.status !== "DELIVERED") {
+       await session.abortTransaction();
+-      session.endSession();
+       return res.status(400).json({ message: "Order must be in DELIVERED status to settle COD" });
+     }
+ 
+-    const auction = await Auction.findById(order.auction._id);
++    const auction = await Auction.findById(order.auction._id).select(
++      "+payoutOtpHash +payoutOtpCode"
++    );
+     if (!auction) {
+       await session.abortTransaction();
+-      session.endSession();
+       return res.status(404).json({ message: "Auction not found" });
+     }
+ 
++    if (Number(auction.payoutOtpAttempts || 0) >= MAX_OTP_ATTEMPTS) {
++      await session.abortTransaction();
++      return res.status(429).json({ message: "OTP attempts exceeded. Contact support to regenerate payout OTP." });
++    }
++
+     if (!auction.payoutOtpHash) {
+       await session.abortTransaction();
+-      session.endSession();
+       return res.status(400).json({ message: "Payout OTP not set yet" });
+     }
+ 
+     const ok = hashOtp(normalizeOtp(otp)) === auction.payoutOtpHash;
+     if (!ok) {
+       await session.abortTransaction();
+-      session.endSession();
+-      return res.status(400).json({ message: "Invalid OTP" });
++      const updatedAttempts = await Auction.findByIdAndUpdate(
++        auction._id,
++        { $inc: { payoutOtpAttempts: 1 } },
++        { new: true }
++      ).select("payoutOtpAttempts");
++      const attemptsUsed = Number(updatedAttempts?.payoutOtpAttempts || 0);
++      const remainingAttempts = Math.max(0, MAX_OTP_ATTEMPTS - attemptsUsed);
++      const statusCode = remainingAttempts === 0 ? 429 : 400;
++      return res.status(statusCode).json({
++        message: remainingAttempts === 0 ? "OTP attempts exceeded. Contact support to regenerate payout OTP." : "Invalid OTP",
++        remainingAttempts,
++      });
+     }
+ 
+-    const grossAmount = Number(auction.currentPrice || 0);
+-    const startPrice = Number(auction.startingPrice || 0);
+-    const deliveryFee = Number(order.deliveryFee || 0);
+-    const commission = calculateCommission(grossAmount, startPrice);
++    const grossAmount = ensureIntegerIQD(auction.currentPrice || 0, "grossAmount");
++    const startPrice = ensureIntegerIQD(auction.startingPrice || 0, "startPrice");
++    const deliveryFee = ensureIntegerIQD(order.deliveryFee || 0, "deliveryFee");
++    const commission = ensureIntegerIQD(calculateCommission(grossAmount, startPrice), "commission");
+     const sellerPayout = Math.max(0, grossAmount - commission);  // صافي مستحق البائع بعد العمولة
+     const buyerTotalDue = grossAmount + deliveryFee;
+ 
+-    // 1. Update Order status
+-    order.status = "COD_PAID_TO_SELLER";
+-    order.codPaidAt = new Date();
+-    order.staffUser = req.user._id;
+-    order.receiptId = receiptNo || null;
+-    pushLog(order, {
+-      status: "COD_PAID_TO_SELLER",
+-      by: req.user._id,
+-      note: `receiptNo=${receiptNo};grossAmount=${grossAmount};commission=${commission};sellerPayout=${sellerPayout};deliveryFee=${deliveryFee};buyerTotalDue=${buyerTotalDue}`,
+-    });
+-    await order.save({ session });
++    const PLATFORM_USER_ID = process.env.PLATFORM_USER_ID;
++    if (!PLATFORM_USER_ID || !mongoose.Types.ObjectId.isValid(PLATFORM_USER_ID)) {
++      throw new Error("Missing PLATFORM_USER_ID configuration for COD settlement");
++    }
++
++    // 1. Update Order status idempotently to avoid double settlement.
++    const codPaidAt = new Date();
++    const orderUpdate = await DeliveryOrder.updateOne(
++      { _id: order._id, status: "DELIVERED" },
++      {
++        $set: {
++          status: "COD_PAID_TO_SELLER",
++          codPaidAt,
++          staffUser: req.user._id,
++          receiptId: receiptNo || null,
++        },
++        $push: {
++          logs: {
++            status: "COD_PAID_TO_SELLER",
++            by: req.user._id,
++            note: `receiptNo=${receiptNo};grossAmount=${grossAmount};commission=${commission};sellerPayout=${sellerPayout};deliveryFee=${deliveryFee};buyerTotalDue=${buyerTotalDue}`,
++            at: codPaidAt,
++          },
++        },
++      },
++      { session }
++    );
++
++    if (orderUpdate.modifiedCount === 0) {
++      await session.abortTransaction();
++      return res.status(409).json({ message: "Order status changed by another request" });
++    }
+ 
+     // 2. Update Auction status
+     auction.sellerConfirmed = true;
+     auction.payoutOtpCode = null;
+     auction.payoutOtpHash = null;
++    auction.payoutOtpAttempts = 0;
+     auction.status = "completed";
+     auction.penaltyApplied = true;
+     await auction.save({ session });
+@@ -677,23 +751,28 @@ export const markCodPaidToSeller = async (req, res) => {
+           { session }
+         );
+ 
+-        await FinanceLog.create(
+-          [
+-            {
+-              user: auction.winner,
+-              type: "DEPOSIT_REFUND",
+-              amountIQD: auction.depositAmount,
+-              refModel: "Auction",
+-              refId: auction._id,
+-              receiptId,
+-              meta: {
+-                reason: "إرجاع عربون المشتري بعد إتمام التوصيل والدفع",
+-                signature,
+-              },
+-            },
+-          ],
+-          { session }
+-        );
++        const buyerAfterBalance = Number(buyerUpdate.balance || 0);
++        const buyerAfterHeld = Number(buyerUpdate.heldBalance || 0);
++        const buyerDeposit = Number(auction.depositAmount || 0);
++
++        await createLedgerEntry({
++          session,
++          operationId: generateOperationId("cod_buyer_deposit_refund"),
++          userId: auction.winner,
++          type: "DEPOSIT_REFUND",
++          amountIQD: buyerDeposit,
++          balanceBefore: buyerAfterBalance - buyerDeposit,
++          balanceAfter: buyerAfterBalance,
++          heldBefore: buyerAfterHeld + buyerDeposit,
++          heldAfter: buyerAfterHeld,
++          referenceModel: "Auction",
++          referenceId: auction._id,
++          receiptId,
++          metadata: {
++            reason: "Buyer deposit refund after successful COD settlement",
++            signature,
++          },
++        });
+       }
+     }
+ 
+@@ -729,21 +808,26 @@ export const markCodPaidToSeller = async (req, res) => {
+             { session }
+           );
+ 
+-          await FinanceLog.create(
+-            [{
+-              user: auction.seller,
+-              type: "DEPOSIT_REFUND",
+-              amountIQD: sellerDeposit,
+-              refModel: "Auction",
+-              refId: auction._id,
+-              receiptId: depositReceiptId,
+-              meta: {
+-                reason: "إرجاع عربون البائع كاملاً — العمولة مُستقطعة من مبلغ الدفع",
+-                signature,
+-              },
+-            }],
+-            { session }
+-          );
++          const sellerAfterBalance = Number(sellerDepositUpdate.balance || 0);
++          const sellerAfterHeld = Number(sellerDepositUpdate.heldBalance || 0);
++          await createLedgerEntry({
++            session,
++            operationId: generateOperationId("cod_seller_deposit_refund"),
++            userId: auction.seller,
++            type: "DEPOSIT_REFUND",
++            amountIQD: sellerDeposit,
++            balanceBefore: sellerAfterBalance - sellerDeposit,
++            balanceAfter: sellerAfterBalance,
++            heldBefore: sellerAfterHeld + sellerDeposit,
++            heldAfter: sellerAfterHeld,
++            referenceModel: "Auction",
++            referenceId: auction._id,
++            receiptId: depositReceiptId,
++            metadata: {
++              reason: "Seller deposit refund after successful COD settlement",
++              signature,
++            },
++          });
+         }
+       }
+ 
+@@ -763,38 +847,116 @@ export const markCodPaidToSeller = async (req, res) => {
+         { session }
+       );
+ 
+-      await FinanceLog.create(
+-        [{
+-          user: auction.seller,
+-          type: "PLATFORM_COMMISSION",
+-          amountIQD: commission,
+-          refModel: "Auction",
+-          refId: auction._id,
+-          receiptId: commissionReceiptId,
+-          meta: {
+-            note: `عمولة مزاد — مستقطعة من مبلغ الدفع`,
+-            grossAmount,
+-            commission,
+-            sellerPayout,
+-            deliveryFee,
+-          }
+-        }],
++      const sellerLedgerWallet = await User.findById(auction.seller).select("balance heldBalance").session(session);
++      if (!sellerLedgerWallet) {
++        throw new Error("Seller wallet not found for COD ledger posting");
++      }
++
++      const sellerLedgerBalance = Number(sellerLedgerWallet.balance || 0);
++      const sellerLedgerHeld = Number(sellerLedgerWallet.heldBalance || 0);
++
++      await createLedgerEntry({
++        session,
++        operationId: generateOperationId("cod_platform_commission"),
++        userId: auction.seller,
++        type: "PLATFORM_COMMISSION",
++        amountIQD: Number(commission || 0),
++        balanceBefore: sellerLedgerBalance,
++        balanceAfter: sellerLedgerBalance,
++        heldBefore: sellerLedgerHeld,
++        heldAfter: sellerLedgerHeld,
++        referenceModel: "Auction",
++        referenceId: auction._id,
++        receiptId: commissionReceiptId,
++        metadata: {
++          note: "Platform commission from COD settlement",
++          grossAmount,
++          commission,
++          sellerPayout,
++          deliveryFee,
++        },
++      });
++
++      await createLedgerEntry({
++        session,
++        operationId: generateOperationId("cod_seller_payout"),
++        userId: auction.seller,
++        type: "COD_SELLER_PAYOUT",
++        amountIQD: Number(sellerPayout || 0),
++        balanceBefore: sellerLedgerBalance,
++        balanceAfter: sellerLedgerBalance,
++        heldBefore: sellerLedgerHeld,
++        heldAfter: sellerLedgerHeld,
++        referenceModel: "Auction",
++        referenceId: auction._id,
++        receiptId: commissionReceiptId,
++        metadata: {
++          grossAmount,
++          commission,
++          buyerTotalDue,
++          note: "COD seller payout recorded for settlement traceability",
++        },
++      });
++
++      await createLedgerEntry({
++        session,
++        operationId: generateOperationId("cod_delivery_fee"),
++        userId: auction.seller,
++        type: "COD_DELIVERY_FEE",
++        amountIQD: Number(deliveryFee || 0),
++        balanceBefore: sellerLedgerBalance,
++        balanceAfter: sellerLedgerBalance,
++        heldBefore: sellerLedgerHeld,
++        heldAfter: sellerLedgerHeld,
++        referenceModel: "Auction",
++        referenceId: auction._id,
++        receiptId: commissionReceiptId,
++        metadata: {
++          buyerTotalDue,
++          note: "Delivery fee accounted in COD settlement ledger",
++        },
++      });
++      // %6'A) 'D9EHD) DE-A8) 'DEF5)
++      const platformBefore = await User.findById(PLATFORM_USER_ID).select("balance heldBalance").session(session);
++      if (!platformBefore) {
++        throw new Error("Configured PLATFORM_USER_ID user not found");
++      }
++
++      const platformBeforeBalance = Number(platformBefore.balance || 0);
++      const platformBeforeHeld = Number(platformBefore.heldBalance || 0);
++
++      const platformUpdate = await User.updateOne(
++        { _id: PLATFORM_USER_ID, balance: platformBeforeBalance, heldBalance: platformBeforeHeld },
++        { $inc: { balance: commission } },
+         { session }
+       );
+-
+-      // إضافة العمولة لمحفظة المنصة
+-      const PLATFORM_USER_ID = process.env.PLATFORM_USER_ID;
+-      if (PLATFORM_USER_ID) {
+-        await User.updateOne(
+-          { _id: PLATFORM_USER_ID },
+-          { $inc: { balance: commission } },
+-          { session }
+-        );
++      if (platformUpdate.modifiedCount === 0) {
++        throw new Error("Platform wallet update conflict during commission settlement");
+       }
++
++      await createLedgerEntry({
++        session,
++        operationId: generateOperationId("cod_platform_transfer"),
++        userId: PLATFORM_USER_ID,
++        type: "PLATFORM_TRANSFER",
++        amountIQD: Number(commission || 0),
++        balanceBefore: platformBeforeBalance,
++        balanceAfter: platformBeforeBalance + Number(commission || 0),
++        heldBefore: platformBeforeHeld,
++        heldAfter: platformBeforeHeld,
++        referenceModel: "Auction",
++        referenceId: auction._id,
++        metadata: {
++          sourceType: "PLATFORM_COMMISSION",
++          fromUserId: auction.seller,
++          grossAmount,
++          sellerPayout,
++          deliveryFee,
++        },
++      });
+     }
+ 
+     await session.commitTransaction();
+-    session.endSession();
+ 
+     // Async notifications
+     if (auction.winner) {
+@@ -841,9 +1003,10 @@ export const markCodPaidToSeller = async (req, res) => {
+       },
+     });
+   } catch (e) {
+-    if (session.inAtomicity) await session.abortTransaction();
+-    session.endSession();
++    if (session.inTransaction()) await session.abortTransaction();
+     return res.status(500).json({ message: e.message });
++  } finally {
++    session.endSession();
+   }
+ };
+ 
+@@ -991,3 +1154,8 @@ export const adminCreateCourierStaffForCompany = async (req, res) => {
+     return res.status(500).json({ message: "Failed to create staff" });
+   }
+ };
++
++
++
++
++
+diff --git a/backend/cron/auctionPenalty.js b/backend/cron/auctionPenalty.js
+index afd9b5a..b2ea2c1 100644
+--- a/backend/cron/auctionPenalty.js
++++ b/backend/cron/auctionPenalty.js
+@@ -4,12 +4,12 @@ import User from "../models/User.js";
+ import Notification from "../models/Notification.js";
+ import Rating from "../models/Rating.js";
+ import AuditLog from "../models/AuditLog.js";
+-import FinanceLog from "../models/FinanceLog.js";
+ import DeliveryOrder from "../models/DeliveryOrder.js";
+ import { getIo } from "../utils/socket.js";
+ import { sendAppNotification } from "../utils/notification.js";
+ import { generateReceiptId, signReceipt } from "../utils/receipt.js";
+ import { sendReceiptEmail } from "../utils/email.js";
++import { createLedgerEntry, generateOperationId } from "../utils/ledger.js";
+ /**
+  * حركة مالية آمنة:
+  * - REFUND: يرجع heldBalance إلى balance (ذرّي)
+@@ -44,12 +44,13 @@ async function transferHeldToBalance({ userId, amount, reason, auctionId, source
+   const amt = toNumber(amount);
+   if (!userId || amt <= 0) return;
+ 
+-  const res = await User.updateOne(
++  const updatedUser = await User.findOneAndUpdate(
+     { _id: userId, heldBalance: { $gte: amt } },
+-    { $inc: { heldBalance: -amt, balance: amt } }
++    { $inc: { heldBalance: -amt, balance: amt } },
++    { new: true }
+   );
+ 
+-  if (res.modifiedCount > 0) {
++  if (updatedUser) {
+     const receiptId = generateReceiptId();
+     const signData = { action: "REFUND", auction: String(auctionId), user: String(userId), amount: amt, receiptId };
+     const signature = signReceipt(signData);
+@@ -66,18 +67,25 @@ async function transferHeldToBalance({ userId, amount, reason, auctionId, source
+       meta: { signature }
+     });
+ 
+-    await FinanceLog.create({
+-      user: userId,
++    const afterBalance = Number(updatedUser.balance || 0);
++    const afterHeld = Number(updatedUser.heldBalance || 0);
++    await createLedgerEntry({
++      operationId: generateOperationId("penalty_refund"),
++      userId,
+       type: "DEPOSIT_REFUND",
+       amountIQD: amt,
+-      refModel: "Auction",
+-      refId: auctionId,
++      balanceBefore: afterBalance - amt,
++      balanceAfter: afterBalance,
++      heldBefore: afterHeld + amt,
++      heldAfter: afterHeld,
++      referenceModel: "Auction",
++      referenceId: auctionId,
+       receiptId,
+-      meta: {
++      metadata: {
+         reason: reason || "refunded",
+         source: source || "OTHER",
+-        signature
+-      }
++        signature,
++      },
+     });
+ 
+     const user = await User.findById(userId).select("name email");
+@@ -99,6 +107,9 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
+   const amt = toNumber(amount);
+   const PLATFORM_USER_ID = process.env.PLATFORM_USER_ID || null;
+   if (!userId || amt <= 0) return { ok: false, amount: 0, rate: 0 };
++  if (!PLATFORM_USER_ID || !mongoose.Types.ObjectId.isValid(PLATFORM_USER_ID)) {
++    throw new Error("Missing PLATFORM_USER_ID configuration for confiscation settlement");
++  }
+ 
+   const session = await mongoose.startSession();
+   session.startTransaction();
+@@ -107,6 +118,16 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
+   let confiscationRate = 0;
+   let receiptId = null;
+ 
++  let userBalanceBefore = 0;
++  let userBalanceAfter = 0;
++  let userHeldBefore = 0;
++  let userHeldAfter = 0;
++
++  let platformBalanceBefore = 0;
++  let platformBalanceAfter = 0;
++  let platformHeldBefore = 0;
++  let platformHeldAfter = 0;
++
+   try {
+     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+     const previousConfiscations = await AuditLog.countDocuments({
+@@ -120,7 +141,6 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
+     confiscatedAmount = Math.max(1, Math.ceil(amt * confiscationRate));
+     const remainingAmount = amt - confiscatedAmount;
+ 
+-    // 1. محاولة خصم المبلغ بالكامل وإرجاع الباقي
+     const userUpdate = await User.findOneAndUpdate(
+       { _id: userId, heldBalance: { $gte: amt } },
+       { $inc: { heldBalance: -amt, balance: remainingAmount } },
+@@ -128,7 +148,6 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
+     );
+ 
+     if (!userUpdate) {
+-      // في حال فشل التحديث الأول (heldBalance أقل من اجمالي العربون)
+       const altUpdate = await User.findOneAndUpdate(
+         { _id: userId, heldBalance: { $gte: confiscatedAmount } },
+         { $inc: { heldBalance: -confiscatedAmount } },
+@@ -136,7 +155,6 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
+       );
+ 
+       if (!altUpdate) {
+-        // فشلت المصادرة بالكامل
+         await AuditLog.create([{
+           action: "CONFISCATE_FAILED",
+           auction: auctionId,
+@@ -149,18 +167,36 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
+         await session.commitTransaction();
+         return { ok: false, amount: 0, rate: confiscationRate };
+       }
++
++      userBalanceAfter = Number(altUpdate.balance || 0);
++      userHeldAfter = Number(altUpdate.heldBalance || 0);
++      userBalanceBefore = userBalanceAfter;
++      userHeldBefore = userHeldAfter + confiscatedAmount;
++    } else {
++      userBalanceAfter = Number(userUpdate.balance || 0);
++      userHeldAfter = Number(userUpdate.heldBalance || 0);
++      userBalanceBefore = userBalanceAfter - remainingAmount;
++      userHeldBefore = userHeldAfter + amt;
+     }
+ 
+-    // 2. زيادة رصيد المنصة (مصدر الحقيقة)
+-    if (PLATFORM_USER_ID) {
+-      await User.findByIdAndUpdate(
+-        PLATFORM_USER_ID,
+-        { $inc: { balance: confiscatedAmount } },
+-        { session }
+-      );
++    const platformWallet = await User.findById(PLATFORM_USER_ID).select("balance heldBalance").session(session);
++    if (!platformWallet) {
++      throw new Error("Configured PLATFORM_USER_ID user not found");
+     }
++    platformBalanceBefore = Number(platformWallet.balance || 0);
++    platformHeldBefore = Number(platformWallet.heldBalance || 0);
++
++    const platformUpdate = await User.updateOne(
++      { _id: PLATFORM_USER_ID, balance: platformBalanceBefore, heldBalance: platformHeldBefore },
++      { $inc: { balance: confiscatedAmount } },
++      { session }
++    );
++    if (platformUpdate.modifiedCount === 0) {
++      throw new Error("Platform wallet update conflict during confiscation");
++    }
++    platformBalanceAfter = platformBalanceBefore + confiscatedAmount;
++    platformHeldAfter = platformHeldBefore;
+ 
+-    // 3. توثيق العملية في السجل (AuditLog)
+     receiptId = generateReceiptId();
+     const signData = { action: "CONFISCATE_OK", auction: String(auctionId), user: String(userId), amount: confiscatedAmount, receiptId };
+     const signature = signReceipt(signData);
+@@ -179,32 +215,59 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
+         requestedAmount: amt,
+         confiscationRate,
+         previousConfiscations30d: previousConfiscations,
+-        signature
++        signature,
+       },
+     }], { session });
+ 
+-    await FinanceLog.create([{
+-      user: userId,
++    await createLedgerEntry({
++      session,
++      operationId: generateOperationId("deposit_confiscate"),
++      userId,
+       type: "DEPOSIT_CONFISCATE",
+       amountIQD: confiscatedAmount,
+-      refModel: "Auction",
+-      refId: auctionId,
++      balanceBefore: userBalanceBefore,
++      balanceAfter: userBalanceAfter,
++      heldBefore: userHeldBefore,
++      heldAfter: userHeldAfter,
++      referenceModel: "Auction",
++      referenceId: auctionId,
+       receiptId,
+-      meta: {
++      metadata: {
+         platformUserId: PLATFORM_USER_ID || null,
+         requestedAmount: amt,
+         confiscationRate,
+         previousConfiscations30d: previousConfiscations,
+         reason: reason || "confiscated",
+         source: source || "OTHER",
+-        signature
+-      }
+-    }], { session });
++        signature,
++      },
++    });
++
++    await createLedgerEntry({
++      session,
++      operationId: generateOperationId("confiscation_platform_transfer"),
++      userId: PLATFORM_USER_ID,
++      type: "PLATFORM_TRANSFER",
++      amountIQD: confiscatedAmount,
++      balanceBefore: platformBalanceBefore,
++      balanceAfter: platformBalanceAfter,
++      heldBefore: platformHeldBefore,
++      heldAfter: platformHeldAfter,
++      referenceModel: "Auction",
++      referenceId: auctionId,
++      receiptId,
++      metadata: {
++        sourceType: "DEPOSIT_CONFISCATE",
++        fromUserId: String(userId),
++        reason: reason || "confiscated",
++        source: source || "OTHER",
++      },
++    });
+ 
+     await session.commitTransaction();
+     return { ok: true, amount: confiscatedAmount, rate: confiscationRate, receiptId };
+   } catch (error) {
+-    await session.abortTransaction();
++    if (session.inTransaction()) await session.abortTransaction();
+     console.error("Confiscate transaction error:", error);
+     return { ok: false, amount: 0, rate: 0 };
+   } finally {
+@@ -212,7 +275,6 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
+   }
+ }
+ 
+-
+ async function notifyUser({ userId, title, message, auctionId, event }) {
+   await sendAppNotification({
+     userId,
+diff --git a/backend/models/Auction.js b/backend/models/Auction.js
+index a38a2e1..9d23762 100644
+--- a/backend/models/Auction.js
++++ b/backend/models/Auction.js
+@@ -134,10 +134,12 @@ const auctionSchema = new mongoose.Schema(
+       enum: ["pending", "processing", "done"],
+       default: "pending"
+     },
+-    deliveryOtpHash: { type: String, default: null }, // OTP للمشتري (hashed)
+-    payoutOtpHash: { type: String, default: null },   // OTP للبائع (hashed)
+-    deliveryOtpCode: { type: String, default: null },
+-    payoutOtpCode: { type: String, default: null },
++    deliveryOtpHash: { type: String, default: null, select: false }, // OTP للمشتري (hashed)
++    payoutOtpHash: { type: String, default: null, select: false },   // OTP للبائع (hashed)
++    deliveryOtpCode: { type: String, default: null, select: false },
++    payoutOtpCode: { type: String, default: null, select: false },
++    deliveryOtpAttempts: { type: Number, default: 0, min: 0, max: 100 },
++    payoutOtpAttempts: { type: Number, default: 0, min: 0, max: 100 },
+     completedAt: {
+       type: Date,
+     },
+@@ -166,3 +168,4 @@ auctionSchema.index({ isFeatured: -1, featuredPriority: -1, createdAt: -1 }); //
+ auctionSchema.index({ createdAt: -1 });
+ 
+ export default mongoose.model("Auction", auctionSchema);
++

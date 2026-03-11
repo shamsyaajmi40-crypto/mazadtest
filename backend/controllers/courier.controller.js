@@ -6,12 +6,12 @@ import CourierCompany from "../models/CourierCompany.js";
 import Notification from "../models/Notification.js";
 import User from "../models/User.js";
 import AuditLog from "../models/AuditLog.js";
-import FinanceLog from "../models/FinanceLog.js";
 import { sendAppNotification } from "../utils/notification.js";
 import bcrypt from "bcrypt";
 import { getIo } from "../utils/socket.js";
 import { generateReceiptId, signReceipt } from "../utils/receipt.js";
 import { calculateCommission } from "../utils/commission.js";
+import { createLedgerEntry, ensureIntegerIQD, generateOperationId } from "../utils/ledger.js";
 
 const FAILURE_REVIEW_MS = 24 * 60 * 60 * 1000; // 24 hours
 const DEFAULT_CONFIRMATION_MS = 4 * 24 * 60 * 60 * 1000; // 4 days
@@ -206,10 +206,12 @@ export const createDeliveryOrder = async (req, res) => {
     // ✅ buyer OTP only
     auction.deliveryOtpCode = buyerOtp;
     auction.deliveryOtpHash = hashOtp(buyerOtp);
+    auction.deliveryOtpAttempts = 0;
 
     // ✅ payout OTP للبائع لاحقاً بعد DELIVERED
     auction.payoutOtpCode = null;
     auction.payoutOtpHash = null;
+    auction.payoutOtpAttempts = 0;
 
     await auction.save();
 
@@ -283,64 +285,93 @@ export const markDeliveredByOtp = async (req, res) => {
   try {
     const { orderId } = req.params;
     const { otp } = req.body;
+    const MAX_OTP_ATTEMPTS = 5;
 
     const order = await DeliveryOrder.findById(orderId).populate("auction");
     if (!order) {
       await session.abortTransaction();
-      session.endSession();
       return res.status(404).json({ message: "Order not found" });
     }
 
     const access = await ensureOrderAccess(req.user, order);
     if (!access.ok) {
       await session.abortTransaction();
-      session.endSession();
       return res.status(access.status).json({ message: access.message });
     }
 
-    const auction = await Auction.findById(order.auction._id);
+    if (["DELIVERED", "COD_PAID_TO_SELLER", "COMPLETED"].includes(order.status)) {
+      await session.abortTransaction();
+      return res.json({ message: "Delivery already confirmed", duplicate: true });
+    }
+
+    const auction = await Auction.findById(order.auction._id).select(
+      "+deliveryOtpHash +deliveryOtpCode +payoutOtpHash +payoutOtpCode"
+    );
     if (!auction) {
       await session.abortTransaction();
-      session.endSession();
       return res.status(404).json({ message: "Auction not found" });
     }
 
     if (auction.deliveryMode !== "courier") {
       await session.abortTransaction();
-      session.endSession();
       return res.status(400).json({ message: "Not courier mode" });
     }
 
     if (order.status !== "PICKED_UP") {
       await session.abortTransaction();
-      session.endSession();
       return res.status(400).json({ message: "Order must be in PICKED_UP status to be delivered" });
+    }
+
+    if (Number(auction.deliveryOtpAttempts || 0) >= MAX_OTP_ATTEMPTS) {
+      await session.abortTransaction();
+      return res.status(429).json({ message: "OTP attempts exceeded. Generate a new OTP." });
     }
 
     if (!auction.deliveryOtpHash) {
       await session.abortTransaction();
-      session.endSession();
       return res.status(400).json({ message: "Delivery OTP not set" });
     }
 
     const ok = hashOtp(normalizeOtp(otp)) === auction.deliveryOtpHash;
     if (!ok) {
       await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ message: "Invalid OTP" });
+      const updatedAttempts = await Auction.findByIdAndUpdate(
+        auction._id,
+        { $inc: { deliveryOtpAttempts: 1 } },
+        { new: true }
+      ).select("deliveryOtpAttempts");
+
+      const attemptsUsed = Number(updatedAttempts?.deliveryOtpAttempts || 0);
+      const remainingAttempts = Math.max(0, MAX_OTP_ATTEMPTS - attemptsUsed);
+      const statusCode = remainingAttempts === 0 ? 429 : 400;
+
+      return res.status(statusCode).json({
+        message: remainingAttempts === 0 ? "OTP attempts exceeded. Generate a new OTP." : "Invalid OTP",
+        remainingAttempts,
+      });
     }
 
-    // Update order atomically
-    order.status = "DELIVERED";
-    order.deliveredAt = new Date();
-    order.staffUser = req.user._id;
-    pushLog(order, { status: "DELIVERED", by: req.user._id, note: "Delivered by OTP" });
-    await order.save({ session });
+    // Update order atomically and idempotently to avoid double delivery confirmation.
+    const deliveredAt = new Date();
+    const orderUpdate = await DeliveryOrder.updateOne(
+      { _id: order._id, status: "PICKED_UP" },
+      {
+        $set: { status: "DELIVERED", deliveredAt, staffUser: req.user._id },
+        $push: { logs: { status: "DELIVERED", by: req.user._id, note: "Delivered by OTP", at: deliveredAt } },
+      },
+      { session }
+    );
+
+    if (orderUpdate.modifiedCount === 0) {
+      await session.abortTransaction();
+      return res.status(409).json({ message: "Order status changed by another request" });
+    }
 
     // Update auction atomically
     auction.winnerConfirmed = true;
     auction.deliveryOtpCode = null;
     auction.deliveryOtpHash = null;
+    auction.deliveryOtpAttempts = 0;
 
     // توليد OTP البائع لاستلام مبلغ COD
     if (!auction.payoutOtpHash) {
@@ -348,11 +379,11 @@ export const markDeliveredByOtp = async (req, res) => {
       auction.payoutOtpCode = sellerOtp;
       auction.payoutOtpHash = hashOtp(sellerOtp);
     }
+    auction.payoutOtpAttempts = 0;
 
     await auction.save({ session });
 
     await session.commitTransaction();
-    session.endSession();
 
     // Async notification (don't block response)
     if (auction.payoutOtpCode) {
@@ -367,9 +398,10 @@ export const markDeliveredByOtp = async (req, res) => {
 
     return res.json({ message: "Delivered confirmed" });
   } catch (e) {
-    if (session.inAtomicity) await session.abortTransaction();
-    session.endSession();
+    if (session.inTransaction()) await session.abortTransaction();
     return res.status(500).json({ message: e.message });
+  } finally {
+    session.endSession();
   }
 };
 
@@ -393,7 +425,9 @@ export const markFailed = async (req, res) => {
       return res.status(400).json({ message: "Order already finalized" });
     }
 
-    const auction = await Auction.findById(order.auction._id);
+    const auction = await Auction.findById(order.auction._id).select(
+      "+payoutOtpHash +payoutOtpCode"
+    );
     if (!auction) return res.status(404).json({ message: "Auction not found" });
 
     if (order.status === "DELIVERY_FAILED" && order.failureReason) {
@@ -572,70 +606,110 @@ export const markCodPaidToSeller = async (req, res) => {
   try {
     const { orderId } = req.params;
     const { otp, receiptNo = "" } = req.body;
+    const MAX_OTP_ATTEMPTS = 5;
 
     const order = await DeliveryOrder.findById(orderId).populate("auction");
     if (!order) {
       await session.abortTransaction();
-      session.endSession();
       return res.status(404).json({ message: "Order not found" });
     }
 
     const access = await ensureOrderAccess(req.user, order);
     if (!access.ok) {
       await session.abortTransaction();
-      session.endSession();
       return res.status(access.status).json({ message: access.message });
+    }
+
+    if (["COD_PAID_TO_SELLER", "COMPLETED"].includes(order.status)) {
+      await session.abortTransaction();
+      return res.json({ message: "COD payout already confirmed", duplicate: true });
     }
 
     if (order.status !== "DELIVERED") {
       await session.abortTransaction();
-      session.endSession();
       return res.status(400).json({ message: "Order must be in DELIVERED status to settle COD" });
     }
 
-    const auction = await Auction.findById(order.auction._id);
+    const auction = await Auction.findById(order.auction._id).select(
+      "+payoutOtpHash +payoutOtpCode"
+    );
     if (!auction) {
       await session.abortTransaction();
-      session.endSession();
       return res.status(404).json({ message: "Auction not found" });
+    }
+
+    if (Number(auction.payoutOtpAttempts || 0) >= MAX_OTP_ATTEMPTS) {
+      await session.abortTransaction();
+      return res.status(429).json({ message: "OTP attempts exceeded. Contact support to regenerate payout OTP." });
     }
 
     if (!auction.payoutOtpHash) {
       await session.abortTransaction();
-      session.endSession();
       return res.status(400).json({ message: "Payout OTP not set yet" });
     }
 
     const ok = hashOtp(normalizeOtp(otp)) === auction.payoutOtpHash;
     if (!ok) {
       await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ message: "Invalid OTP" });
+      const updatedAttempts = await Auction.findByIdAndUpdate(
+        auction._id,
+        { $inc: { payoutOtpAttempts: 1 } },
+        { new: true }
+      ).select("payoutOtpAttempts");
+      const attemptsUsed = Number(updatedAttempts?.payoutOtpAttempts || 0);
+      const remainingAttempts = Math.max(0, MAX_OTP_ATTEMPTS - attemptsUsed);
+      const statusCode = remainingAttempts === 0 ? 429 : 400;
+      return res.status(statusCode).json({
+        message: remainingAttempts === 0 ? "OTP attempts exceeded. Contact support to regenerate payout OTP." : "Invalid OTP",
+        remainingAttempts,
+      });
     }
 
-    const grossAmount = Number(auction.currentPrice || 0);
-    const startPrice = Number(auction.startingPrice || 0);
-    const deliveryFee = Number(order.deliveryFee || 0);
-    const commission = calculateCommission(grossAmount, startPrice);
+    const grossAmount = ensureIntegerIQD(auction.currentPrice || 0, "grossAmount");
+    const startPrice = ensureIntegerIQD(auction.startingPrice || 0, "startPrice");
+    const deliveryFee = ensureIntegerIQD(order.deliveryFee || 0, "deliveryFee");
+    const commission = ensureIntegerIQD(calculateCommission(grossAmount, startPrice), "commission");
     const sellerPayout = Math.max(0, grossAmount - commission);  // صافي مستحق البائع بعد العمولة
     const buyerTotalDue = grossAmount + deliveryFee;
 
-    // 1. Update Order status
-    order.status = "COD_PAID_TO_SELLER";
-    order.codPaidAt = new Date();
-    order.staffUser = req.user._id;
-    order.receiptId = receiptNo || null;
-    pushLog(order, {
-      status: "COD_PAID_TO_SELLER",
-      by: req.user._id,
-      note: `receiptNo=${receiptNo};grossAmount=${grossAmount};commission=${commission};sellerPayout=${sellerPayout};deliveryFee=${deliveryFee};buyerTotalDue=${buyerTotalDue}`,
-    });
-    await order.save({ session });
+    const PLATFORM_USER_ID = process.env.PLATFORM_USER_ID;
+    if (!PLATFORM_USER_ID || !mongoose.Types.ObjectId.isValid(PLATFORM_USER_ID)) {
+      throw new Error("Missing PLATFORM_USER_ID configuration for COD settlement");
+    }
+
+    // 1. Update Order status idempotently to avoid double settlement.
+    const codPaidAt = new Date();
+    const orderUpdate = await DeliveryOrder.updateOne(
+      { _id: order._id, status: "DELIVERED" },
+      {
+        $set: {
+          status: "COD_PAID_TO_SELLER",
+          codPaidAt,
+          staffUser: req.user._id,
+          receiptId: receiptNo || null,
+        },
+        $push: {
+          logs: {
+            status: "COD_PAID_TO_SELLER",
+            by: req.user._id,
+            note: `receiptNo=${receiptNo};grossAmount=${grossAmount};commission=${commission};sellerPayout=${sellerPayout};deliveryFee=${deliveryFee};buyerTotalDue=${buyerTotalDue}`,
+            at: codPaidAt,
+          },
+        },
+      },
+      { session }
+    );
+
+    if (orderUpdate.modifiedCount === 0) {
+      await session.abortTransaction();
+      return res.status(409).json({ message: "Order status changed by another request" });
+    }
 
     // 2. Update Auction status
     auction.sellerConfirmed = true;
     auction.payoutOtpCode = null;
     auction.payoutOtpHash = null;
+    auction.payoutOtpAttempts = 0;
     auction.status = "completed";
     auction.penaltyApplied = true;
     await auction.save({ session });
@@ -677,23 +751,28 @@ export const markCodPaidToSeller = async (req, res) => {
           { session }
         );
 
-        await FinanceLog.create(
-          [
-            {
-              user: auction.winner,
-              type: "DEPOSIT_REFUND",
-              amountIQD: auction.depositAmount,
-              refModel: "Auction",
-              refId: auction._id,
-              receiptId,
-              meta: {
-                reason: "إرجاع عربون المشتري بعد إتمام التوصيل والدفع",
-                signature,
-              },
-            },
-          ],
-          { session }
-        );
+        const buyerAfterBalance = Number(buyerUpdate.balance || 0);
+        const buyerAfterHeld = Number(buyerUpdate.heldBalance || 0);
+        const buyerDeposit = Number(auction.depositAmount || 0);
+
+        await createLedgerEntry({
+          session,
+          operationId: generateOperationId("cod_buyer_deposit_refund"),
+          userId: auction.winner,
+          type: "DEPOSIT_REFUND",
+          amountIQD: buyerDeposit,
+          balanceBefore: buyerAfterBalance - buyerDeposit,
+          balanceAfter: buyerAfterBalance,
+          heldBefore: buyerAfterHeld + buyerDeposit,
+          heldAfter: buyerAfterHeld,
+          referenceModel: "Auction",
+          referenceId: auction._id,
+          receiptId,
+          metadata: {
+            reason: "Buyer deposit refund after successful COD settlement",
+            signature,
+          },
+        });
       }
     }
 
@@ -729,21 +808,26 @@ export const markCodPaidToSeller = async (req, res) => {
             { session }
           );
 
-          await FinanceLog.create(
-            [{
-              user: auction.seller,
-              type: "DEPOSIT_REFUND",
-              amountIQD: sellerDeposit,
-              refModel: "Auction",
-              refId: auction._id,
-              receiptId: depositReceiptId,
-              meta: {
-                reason: "إرجاع عربون البائع كاملاً — العمولة مُستقطعة من مبلغ الدفع",
-                signature,
-              },
-            }],
-            { session }
-          );
+          const sellerAfterBalance = Number(sellerDepositUpdate.balance || 0);
+          const sellerAfterHeld = Number(sellerDepositUpdate.heldBalance || 0);
+          await createLedgerEntry({
+            session,
+            operationId: generateOperationId("cod_seller_deposit_refund"),
+            userId: auction.seller,
+            type: "DEPOSIT_REFUND",
+            amountIQD: sellerDeposit,
+            balanceBefore: sellerAfterBalance - sellerDeposit,
+            balanceAfter: sellerAfterBalance,
+            heldBefore: sellerAfterHeld + sellerDeposit,
+            heldAfter: sellerAfterHeld,
+            referenceModel: "Auction",
+            referenceId: auction._id,
+            receiptId: depositReceiptId,
+            metadata: {
+              reason: "Seller deposit refund after successful COD settlement",
+              signature,
+            },
+          });
         }
       }
 
@@ -763,38 +847,116 @@ export const markCodPaidToSeller = async (req, res) => {
         { session }
       );
 
-      await FinanceLog.create(
-        [{
-          user: auction.seller,
-          type: "PLATFORM_COMMISSION",
-          amountIQD: commission,
-          refModel: "Auction",
-          refId: auction._id,
-          receiptId: commissionReceiptId,
-          meta: {
-            note: `عمولة مزاد — مستقطعة من مبلغ الدفع`,
-            grossAmount,
-            commission,
-            sellerPayout,
-            deliveryFee,
-          }
-        }],
+      const sellerLedgerWallet = await User.findById(auction.seller).select("balance heldBalance").session(session);
+      if (!sellerLedgerWallet) {
+        throw new Error("Seller wallet not found for COD ledger posting");
+      }
+
+      const sellerLedgerBalance = Number(sellerLedgerWallet.balance || 0);
+      const sellerLedgerHeld = Number(sellerLedgerWallet.heldBalance || 0);
+
+      await createLedgerEntry({
+        session,
+        operationId: generateOperationId("cod_platform_commission"),
+        userId: auction.seller,
+        type: "PLATFORM_COMMISSION",
+        amountIQD: Number(commission || 0),
+        balanceBefore: sellerLedgerBalance,
+        balanceAfter: sellerLedgerBalance,
+        heldBefore: sellerLedgerHeld,
+        heldAfter: sellerLedgerHeld,
+        referenceModel: "Auction",
+        referenceId: auction._id,
+        receiptId: commissionReceiptId,
+        metadata: {
+          note: "Platform commission from COD settlement",
+          grossAmount,
+          commission,
+          sellerPayout,
+          deliveryFee,
+        },
+      });
+
+      await createLedgerEntry({
+        session,
+        operationId: generateOperationId("cod_seller_payout"),
+        userId: auction.seller,
+        type: "COD_SELLER_PAYOUT",
+        amountIQD: Number(sellerPayout || 0),
+        balanceBefore: sellerLedgerBalance,
+        balanceAfter: sellerLedgerBalance,
+        heldBefore: sellerLedgerHeld,
+        heldAfter: sellerLedgerHeld,
+        referenceModel: "Auction",
+        referenceId: auction._id,
+        receiptId: commissionReceiptId,
+        metadata: {
+          grossAmount,
+          commission,
+          buyerTotalDue,
+          note: "COD seller payout recorded for settlement traceability",
+        },
+      });
+
+      await createLedgerEntry({
+        session,
+        operationId: generateOperationId("cod_delivery_fee"),
+        userId: auction.seller,
+        type: "COD_DELIVERY_FEE",
+        amountIQD: Number(deliveryFee || 0),
+        balanceBefore: sellerLedgerBalance,
+        balanceAfter: sellerLedgerBalance,
+        heldBefore: sellerLedgerHeld,
+        heldAfter: sellerLedgerHeld,
+        referenceModel: "Auction",
+        referenceId: auction._id,
+        receiptId: commissionReceiptId,
+        metadata: {
+          buyerTotalDue,
+          note: "Delivery fee accounted in COD settlement ledger",
+        },
+      });
+      // %6'A) 'D9EHD) DE-A8) 'DEF5)
+      const platformBefore = await User.findById(PLATFORM_USER_ID).select("balance heldBalance").session(session);
+      if (!platformBefore) {
+        throw new Error("Configured PLATFORM_USER_ID user not found");
+      }
+
+      const platformBeforeBalance = Number(platformBefore.balance || 0);
+      const platformBeforeHeld = Number(platformBefore.heldBalance || 0);
+
+      const platformUpdate = await User.updateOne(
+        { _id: PLATFORM_USER_ID, balance: platformBeforeBalance, heldBalance: platformBeforeHeld },
+        { $inc: { balance: commission } },
         { session }
       );
-
-      // إضافة العمولة لمحفظة المنصة
-      const PLATFORM_USER_ID = process.env.PLATFORM_USER_ID;
-      if (PLATFORM_USER_ID) {
-        await User.updateOne(
-          { _id: PLATFORM_USER_ID },
-          { $inc: { balance: commission } },
-          { session }
-        );
+      if (platformUpdate.modifiedCount === 0) {
+        throw new Error("Platform wallet update conflict during commission settlement");
       }
+
+      await createLedgerEntry({
+        session,
+        operationId: generateOperationId("cod_platform_transfer"),
+        userId: PLATFORM_USER_ID,
+        type: "PLATFORM_TRANSFER",
+        amountIQD: Number(commission || 0),
+        balanceBefore: platformBeforeBalance,
+        balanceAfter: platformBeforeBalance + Number(commission || 0),
+        heldBefore: platformBeforeHeld,
+        heldAfter: platformBeforeHeld,
+        referenceModel: "Auction",
+        referenceId: auction._id,
+        metadata: {
+          sourceType: "PLATFORM_COMMISSION",
+          fromUserId: auction.seller,
+          grossAmount,
+          sellerPayout,
+          deliveryFee,
+        },
+      });
     }
 
     await session.commitTransaction();
-    session.endSession();
 
     // Async notifications
     if (auction.winner) {
@@ -841,9 +1003,10 @@ export const markCodPaidToSeller = async (req, res) => {
       },
     });
   } catch (e) {
-    if (session.inAtomicity) await session.abortTransaction();
-    session.endSession();
+    if (session.inTransaction()) await session.abortTransaction();
     return res.status(500).json({ message: e.message });
+  } finally {
+    session.endSession();
   }
 };
 
@@ -991,3 +1154,8 @@ export const adminCreateCourierStaffForCompany = async (req, res) => {
     return res.status(500).json({ message: "Failed to create staff" });
   }
 };
+
+
+
+
+

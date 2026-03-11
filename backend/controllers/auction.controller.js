@@ -15,12 +15,12 @@ import {
 import { getIo } from "../utils/socket.js";
 import { enforceBidCooldown, rollbackBidCooldown } from "../utils/bidCooldown.js";
 import AuditLog from "../models/AuditLog.js";
-import FinanceLog from "../models/FinanceLog.js";
 import { validateText, validateNumber, validateFutureDate } from "../utils/validation.js";
 import { uploadToR2, deleteFromR2 } from "../utils/r2.js";
 import { generateReceiptId, signReceipt } from "../utils/receipt.js";
 import { sendReceiptEmail } from "../utils/email.js";
 import { sendAppNotification } from "../utils/notification.js";
+import { createLedgerEntry, generateOperationId } from "../utils/ledger.js";
 
 const BID_COOLDOWN_MS = 5000; // نخليها 5 ثواني
 // DEPOSIT_POLICY_KEY is now imported from helpers.js
@@ -29,6 +29,7 @@ const BID_COOLDOWN_MS = 5000; // نخليها 5 ثواني
 export const createAuction = async (req, res) => {
   let lockedDeposit = 0;
   let sellerId = null;
+  let sellerDepositSnapshot = null;
 
   try {
     const {
@@ -113,17 +114,28 @@ export const createAuction = async (req, res) => {
       return res.status(400).json({ message: "Insufficient balance to create auction" });
     }
 
-    // 🔐 حجز عربون البائع (atomic)
-    const updated = await User.updateOne(
+    // Seller deposit hold.
+    const updatedSeller = await User.findOneAndUpdate(
       { _id: sellerId, balance: { $gte: Number(sellerDeposit) } },
-      { $inc: { balance: -sellerDeposit, heldBalance: sellerDeposit } }
+      { $inc: { balance: -sellerDeposit, heldBalance: sellerDeposit } },
+      { new: true }
     );
 
-    if (updated.modifiedCount === 0) {
+    if (!updatedSeller) {
       return res.status(409).json({ message: "Failed to lock seller deposit" });
     }
 
     lockedDeposit = sellerDeposit;
+
+    const sellerAfterBalance = Number(updatedSeller.balance || 0);
+    const sellerAfterHeld = Number(updatedSeller.heldBalance || 0);
+    sellerDepositSnapshot = {
+      amountIQD: Number(sellerDeposit || 0),
+      balanceBefore: sellerAfterBalance + Number(sellerDeposit || 0),
+      balanceAfter: sellerAfterBalance,
+      heldBefore: sellerAfterHeld - Number(sellerDeposit || 0),
+      heldAfter: sellerAfterHeld,
+    };
 
     const start = dateVal.date || new Date();
     const durationHours = durVal.value;
@@ -139,23 +151,32 @@ export const createAuction = async (req, res) => {
         console.error("Failed to upload images to R2:", uploadErr);
         // في حال فشل الرفع، نُعيد العربون المحجوز (Rollback)
         if (lockedDeposit > 0 && sellerId) {
-          const rbResult = await User.updateOne(
+          const rolledBackUser = await User.findOneAndUpdate(
             { _id: sellerId, heldBalance: { $gte: lockedDeposit } },
-            { $inc: { heldBalance: -lockedDeposit, balance: lockedDeposit } }
+            { $inc: { heldBalance: -lockedDeposit, balance: lockedDeposit } },
+            { new: true }
           );
 
-          if (rbResult.modifiedCount > 0) {
+          if (rolledBackUser) {
             try {
               const receiptId = "ERR-" + Date.now();
-              await FinanceLog.create({
-                user: sellerId,
+              const afterBalance = Number(rolledBackUser.balance || 0);
+              const afterHeld = Number(rolledBackUser.heldBalance || 0);
+              await createLedgerEntry({
+                operationId: generateOperationId("seller_deposit_refund"),
+                userId: sellerId,
                 type: "DEPOSIT_REFUND",
-                amountIQD: lockedDeposit,
+                amountIQD: Number(lockedDeposit || 0),
+                balanceBefore: afterBalance - Number(lockedDeposit || 0),
+                balanceAfter: afterBalance,
+                heldBefore: afterHeld + Number(lockedDeposit || 0),
+                heldAfter: afterHeld,
+                referenceModel: "Auction",
                 receiptId,
-                meta: {
-                  reason: "استرجاع عربون بائع بسبب فشل رفع الصور (شبكة)",
-                  source: "SYSTEM"
-                }
+                metadata: {
+                  reason: "Seller deposit rollback after image upload failure",
+                  source: "SYSTEM",
+                },
               });
 
               if (seller?.email) {
@@ -195,6 +216,24 @@ export const createAuction = async (req, res) => {
       status: "pending",
     });
 
+    if (sellerDepositSnapshot) {
+      await createLedgerEntry({
+        operationId: generateOperationId("seller_deposit_hold"),
+        userId: sellerId,
+        type: "DEPOSIT_HOLD",
+        amountIQD: sellerDepositSnapshot.amountIQD,
+        balanceBefore: sellerDepositSnapshot.balanceBefore,
+        balanceAfter: sellerDepositSnapshot.balanceAfter,
+        heldBefore: sellerDepositSnapshot.heldBefore,
+        heldAfter: sellerDepositSnapshot.heldAfter,
+        referenceModel: "Auction",
+        referenceId: auction._id,
+        metadata: {
+          reason: "Seller deposit locked on auction creation",
+        },
+      });
+    }
+
     // (اختياري) سجل لوج للحجز
     try {
       await AuditLog.create({
@@ -223,21 +262,30 @@ export const createAuction = async (req, res) => {
     // ✅ Rollback إذا تم حجز عربون وفشل إنشاء المزاد لأي سبب
     if (lockedDeposit > 0 && sellerId) {
       try {
-        const rbRes = await User.updateOne(
+        const rolledBackUser = await User.findOneAndUpdate(
           { _id: sellerId, heldBalance: { $gte: lockedDeposit } },
-          { $inc: { heldBalance: -lockedDeposit, balance: lockedDeposit } }
+          { $inc: { heldBalance: -lockedDeposit, balance: lockedDeposit } },
+          { new: true }
         );
-        if (rbRes.modifiedCount > 0) {
+        if (rolledBackUser) {
           const receiptId = "ERR-" + Date.now();
-          await FinanceLog.create({
-            user: sellerId,
+          const afterBalance = Number(rolledBackUser.balance || 0);
+          const afterHeld = Number(rolledBackUser.heldBalance || 0);
+          await createLedgerEntry({
+            operationId: generateOperationId("seller_deposit_refund"),
+            userId: sellerId,
             type: "DEPOSIT_REFUND",
-            amountIQD: lockedDeposit,
+            amountIQD: Number(lockedDeposit || 0),
+            balanceBefore: afterBalance - Number(lockedDeposit || 0),
+            balanceAfter: afterBalance,
+            heldBefore: afterHeld + Number(lockedDeposit || 0),
+            heldAfter: afterHeld,
+            referenceModel: "Auction",
             receiptId,
-            meta: {
-              reason: "استرجاع عربون إنشاء مزاد إثر خطأ برمجي بالنظام",
-              source: "SYSTEM"
-            }
+            metadata: {
+              reason: "Seller deposit rollback after create auction failure",
+              source: "SYSTEM",
+            },
           });
         }
       } catch (rbErr) {
@@ -660,7 +708,7 @@ export const getAuctionById = async (req, res) => {
       return res.status(400).json({ message: "Invalid auction ID" });
     }
 
-    const auction = await Auction.findById(id)
+    const auction = await Auction.findById(id).select("+deliveryOtpCode +payoutOtpCode")
       .populate("seller", "name phone rating verification")
       .populate("winner", "name phone rating verification")
       .populate("owner", "name rating verification")
@@ -717,6 +765,9 @@ export const getAuctionById = async (req, res) => {
       String(auction.seller._id || auction.seller) === userId;
 
     const auctionObj = auction.toObject();
+    // Never expose OTP hashes in API responses.
+    auctionObj.deliveryOtpHash = null;
+    auctionObj.payoutOtpHash = null;
 
     if (auctionObj.deliveryMode === "courier") {
       auctionObj.deliveryOtpCode = isWinner ? auctionObj.deliveryOtpCode : null;
@@ -895,6 +946,27 @@ export const placeBid = async (req, res) => {
           if (attempt === 1) await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
           return res.status(403).json({ message: "رصيدك غير كافٍ لفتح عربون المزايدة في هذا المزاد" });
         }
+
+        const afterBalance = Number(updatedUser.balance || 0);
+        const afterHeld = Number(updatedUser.heldBalance || 0);
+        const depositIQD = Number(deposit || 0);
+
+        await createLedgerEntry({
+          session,
+          operationId: generateOperationId("bid_deposit_hold"),
+          userId: req.user._id,
+          type: "DEPOSIT_HOLD",
+          amountIQD: depositIQD,
+          balanceBefore: afterBalance + depositIQD,
+          balanceAfter: afterBalance,
+          heldBefore: afterHeld - depositIQD,
+          heldAfter: afterHeld,
+          referenceModel: "Auction",
+          referenceId: auction._id,
+          metadata: {
+            reason: "Bidder deposit hold on first bid",
+          },
+        });
       }
 
       // Dynamic Anti-Sniping Extension logic
@@ -1282,12 +1354,16 @@ export const featureAuction = async (req, res) => {
     const tier = validDurations[duration];
     let responsePayload = null;
 
+    const PLATFORM_USER_ID = process.env.PLATFORM_USER_ID;
+    if (!PLATFORM_USER_ID || !mongoose.Types.ObjectId.isValid(PLATFORM_USER_ID)) {
+      return res.status(500).json({ message: "PLATFORM_USER_ID is not configured correctly." });
+    }
+
     await session.withTransaction(async () => {
-      const [auction, basePlatformUser] = await Promise.all([
+      const [auction, basePlatformUser, ownerWallet] = await Promise.all([
         Auction.findById(id).session(session),
-        process.env.PLATFORM_USER_ID
-          ? User.findById(process.env.PLATFORM_USER_ID).session(session)
-          : null,
+        User.findById(PLATFORM_USER_ID).select("balance heldBalance").session(session),
+        User.findById(userId).select("balance heldBalance").session(session),
       ]);
 
       if (!auction) {
@@ -1308,6 +1384,18 @@ export const featureAuction = async (req, res) => {
         throw err;
       }
 
+      if (!basePlatformUser) {
+        const err = new Error("Configured platform user not found.");
+        err.status = 500;
+        throw err;
+      }
+
+      if (!ownerWallet) {
+        const err = new Error("Auction owner wallet not found.");
+        err.status = 404;
+        throw err;
+      }
+
       const activeFeaturedCount = await Auction.countDocuments({
         owner: userId,
         isFeatured: true,
@@ -1321,8 +1409,16 @@ export const featureAuction = async (req, res) => {
         throw err;
       }
 
+      const ownerBeforeBalance = Number(ownerWallet.balance || 0);
+      const ownerBeforeHeld = Number(ownerWallet.heldBalance || 0);
+      if (ownerBeforeBalance < Number(tier.price || 0)) {
+        const err = new Error("Insufficient balance for featuring.");
+        err.status = 400;
+        throw err;
+      }
+
       const debitResult = await User.updateOne(
-        { _id: userId, balance: { $gte: tier.price } },
+        { _id: userId, balance: ownerBeforeBalance, heldBalance: ownerBeforeHeld },
         { $inc: { balance: -tier.price } },
         { session }
       );
@@ -1333,12 +1429,18 @@ export const featureAuction = async (req, res) => {
         throw err;
       }
 
-      if (basePlatformUser) {
-        await User.updateOne(
-          { _id: basePlatformUser._id },
-          { $inc: { balance: tier.price } },
-          { session }
-        );
+      const platformBeforeBalance = Number(basePlatformUser.balance || 0);
+      const platformBeforeHeld = Number(basePlatformUser.heldBalance || 0);
+
+      const creditPlatform = await User.updateOne(
+        { _id: basePlatformUser._id, balance: platformBeforeBalance, heldBalance: platformBeforeHeld },
+        { $inc: { balance: tier.price } },
+        { session }
+      );
+      if (creditPlatform.modifiedCount === 0) {
+        const err = new Error("Platform wallet update conflict.");
+        err.status = 409;
+        throw err;
       }
 
       const now = new Date();
@@ -1373,23 +1475,47 @@ export const featureAuction = async (req, res) => {
         },
       ], { session });
 
-      await FinanceLog.create([
-        {
-          user: userId,
-          type: "FEATURE_AUCTION_PAYMENT",
-          amountIQD: tier.price,
-          refModel: "Auction",
-          refId: auction._id,
-          receiptId,
-          meta: {
-            duration,
-            featuredUntil: newExpiry,
-            platformUserId: basePlatformUser?._id || null,
-            note: 'Featured auction "' + auction.title + '" for ' + duration,
-            signature,
-          },
+      await createLedgerEntry({
+        session,
+        operationId: generateOperationId("feature_payment"),
+        userId,
+        type: "FEATURE_AUCTION_PAYMENT",
+        amountIQD: Number(tier.price || 0),
+        balanceBefore: ownerBeforeBalance,
+        balanceAfter: ownerBeforeBalance - Number(tier.price || 0),
+        heldBefore: ownerBeforeHeld,
+        heldAfter: ownerBeforeHeld,
+        referenceModel: "Auction",
+        referenceId: auction._id,
+        receiptId,
+        metadata: {
+          duration,
+          featuredUntil: newExpiry,
+          platformUserId: basePlatformUser?._id || null,
+          note: 'Featured auction "' + auction.title + '" for ' + duration,
+          signature,
         },
-      ], { session });
+      });
+
+      await createLedgerEntry({
+        session,
+        operationId: generateOperationId("feature_platform_transfer"),
+        userId: basePlatformUser._id,
+        type: "PLATFORM_TRANSFER",
+        amountIQD: Number(tier.price || 0),
+        balanceBefore: platformBeforeBalance,
+        balanceAfter: platformBeforeBalance + Number(tier.price || 0),
+        heldBefore: platformBeforeHeld,
+        heldAfter: platformBeforeHeld,
+        referenceModel: "Auction",
+        referenceId: auction._id,
+        metadata: {
+          sourceType: "FEATURE_AUCTION_PAYMENT",
+          fromUserId: userId,
+          duration,
+          receiptId,
+        },
+      });
 
       responsePayload = {
         message: "Auction featured successfully.",
@@ -1493,3 +1619,5 @@ export const getPendingCourierAuctions = async (req, res) => {
     return res.status(500).json({ message: "خطأ بالخادم" });
   }
 };
+
+

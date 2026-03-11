@@ -1,3 +1,4 @@
+﻿import mongoose from "mongoose";
 import User from "../models/User.js";
 import PaymentTransaction from "../models/PaymentTransaction.js";
 import { sendAppNotification } from "../utils/notification.js";
@@ -6,9 +7,7 @@ import { createPayment, getPaymentStatus } from "../utils/zaincashV2.js";
 import { v4 as uuidv4 } from "uuid";
 import { generateReceiptId } from "../utils/receipt.js";
 import { sendReceiptEmail } from "../utils/email.js";
-import FinanceLog from "../models/FinanceLog.js";
-
-
+import { createLedgerEntry, ensureIntegerIQD, generateOperationId } from "../utils/ledger.js";
 
 const requireUser = (req, res) => {
   if (!req.user?._id) {
@@ -21,18 +20,12 @@ const requireUser = (req, res) => {
 // Default to mock mode unless explicitly set to false
 const isMock = () => process.env.ZC_MOCK_MODE !== "false";
 
-// Safe fallback for the redirect URL
-// If ZC_REDIRECT_URL is missing, we try to use BACKEND_URL. 
-// If both are missing, we default to localhost for development.
+// Safe fallback for redirect URL.
 const ZC_REDIRECT_URL =
   process.env.ZC_REDIRECT_URL ||
   (process.env.BACKEND_URL
     ? `${process.env.BACKEND_URL}/api/payments/zaincash/redirect`
     : "http://localhost:5000/api/payments/zaincash/redirect");
-
-
-
-
 
 // =====================================================
 // INIT WALLET TOPUP
@@ -42,10 +35,9 @@ export const initZaincashTopup = async (req, res) => {
     if (!requireUser(req, res)) return;
 
     const amount = Number(req.body?.amountIQD || 0);
-
-    if (!Number.isFinite(amount) || amount < 1000) {
+    if (!Number.isFinite(amount) || !Number.isInteger(amount) || amount < 1000) {
       return res.status(400).json({
-        message: "المبلغ يجب أن يكون 1000 دينار أو أكثر",
+        message: "المبلغ يجب أن يكون رقمًا صحيحًا (IQD) وبحد أدنى 1000",
       });
     }
 
@@ -74,8 +66,7 @@ export const initZaincashTopup = async (req, res) => {
         }
       );
 
-      const paymentUrl =
-        `${ZC_REDIRECT_URL}?transactionId=${fakeTransactionId}&orderId=${orderId}`;
+      const paymentUrl = `${ZC_REDIRECT_URL}?transactionId=${fakeTransactionId}&orderId=${orderId}`;
 
       return res.json({
         paymentUrl,
@@ -122,11 +113,11 @@ export const initZaincashTopup = async (req, res) => {
   }
 };
 
-
 // =====================================================
 // REDIRECT / VERIFY
 // =====================================================
 export const zaincashRedirect = async (req, res) => {
+  const session = await mongoose.startSession();
   try {
     const { transactionId, orderId } = req.query;
 
@@ -140,10 +131,24 @@ export const zaincashRedirect = async (req, res) => {
     }
 
     const tx = await PaymentTransaction.findOne({ orderId }).populate("user");
-
     if (!tx) {
-      const failUrl = req.query.kind === 'wallet_topup' ? FRONTEND_WALLET_FAIL_URL : FRONTEND_FAIL_URL;
+      const failUrl = req.query.kind === "wallet_topup" ? FRONTEND_WALLET_FAIL_URL : FRONTEND_FAIL_URL;
       return res.redirect(`${failUrl}&reason=tx_not_found`);
+    }
+
+    if (tx.transactionId && String(tx.transactionId) !== String(transactionId)) {
+      const failUrl = tx.kind === "wallet_topup" ? FRONTEND_WALLET_FAIL_URL : FRONTEND_FAIL_URL;
+      return res.redirect(`${failUrl}&reason=tx_mismatch`);
+    }
+
+    // Idempotency guard: already processed successfully.
+    if (tx.status === "paid") {
+      if (tx.kind === "wallet_topup") {
+        return res.redirect(
+          `${FRONTEND_WALLET_SUCCESS_URL}&topup=1&orderId=${encodeURIComponent(orderId)}&duplicate=1`
+        );
+      }
+      return res.redirect(`${FRONTEND_SUCCESS_URL}&orderId=${encodeURIComponent(orderId)}&duplicate=1`);
     }
 
     let isPaid = true;
@@ -153,67 +158,103 @@ export const zaincashRedirect = async (req, res) => {
       const statusData = await getPaymentStatus(transactionId);
 
       await PaymentTransaction.updateOne(
-        { orderId },
+        { _id: tx._id },
         { $set: { rawStatusResponse: statusData } }
       );
 
       const status = String(statusData.status || "").toLowerCase();
-
-      isPaid =
-        status === "completed" ||
-        status === "success" ||
-        status === "paid";
+      isPaid = status === "completed" || status === "success" || status === "paid";
     }
 
     if (!isPaid) {
       await PaymentTransaction.updateOne(
-        { orderId },
+        { _id: tx._id, status: { $ne: "paid" } },
         { $set: { status: "failed" } }
       );
 
-      const failUrl = tx.kind === 'wallet_topup' ? FRONTEND_WALLET_FAIL_URL : FRONTEND_FAIL_URL;
+      const failUrl = tx.kind === "wallet_topup" ? FRONTEND_WALLET_FAIL_URL : FRONTEND_FAIL_URL;
       return res.redirect(`${failUrl}&reason=not_paid`);
     }
 
     // ================= WALLET =================
     if (tx.kind === "wallet_topup") {
-      await User.updateOne(
-        { _id: tx.user },
-        { $inc: { balance: tx.amountIQD } }
+      await session.startTransaction();
+
+      const lockedTx = await PaymentTransaction.findOneAndUpdate(
+        { _id: tx._id, status: { $ne: "paid" } },
+        {
+          $set: {
+            status: "paid",
+            receiptId: tx.receiptId || generateReceiptId(),
+            transactionId: String(transactionId || tx.transactionId || ""),
+          },
+        },
+        { new: true, session }
       );
 
-      const receiptId = generateReceiptId();
-      await PaymentTransaction.updateOne(
-        { orderId },
-        { $set: { status: "paid", receiptId } }
+      if (!lockedTx) {
+        await session.abortTransaction();
+        return res.redirect(
+          `${FRONTEND_WALLET_SUCCESS_URL}&topup=1&orderId=${encodeURIComponent(orderId)}&duplicate=1`
+        );
+      }
+
+      const amountIQD = ensureIntegerIQD(lockedTx.amountIQD, "amountIQD");
+      const userBefore = await User.findById(lockedTx.user).select("balance heldBalance").session(session);
+      if (!userBefore) {
+        throw new Error("Wallet owner not found");
+      }
+
+      const beforeBalance = Number(userBefore.balance || 0);
+      const beforeHeld = Number(userBefore.heldBalance || 0);
+
+      const walletUpdate = await User.updateOne(
+        { _id: lockedTx.user, balance: beforeBalance, heldBalance: beforeHeld },
+        { $inc: { balance: amountIQD } },
+        { session }
       );
 
-      await FinanceLog.create({
-        user: tx.user._id,
+      if (walletUpdate.modifiedCount === 0) {
+        throw new Error("Wallet update conflict while crediting topup");
+      }
+
+      await createLedgerEntry({
+        session,
+        operationId: String(transactionId || generateOperationId("zc_topup")),
+        userId: lockedTx.user,
         type: "WALLET_TOPUP_PAID",
-        amountIQD: tx.amountIQD,
-        refModel: "PaymentTransaction",
-        refId: tx._id,
-        receiptId,
-        meta: { orderId, provider: "zaincash", transactionId },
+        amountIQD,
+        balanceBefore: beforeBalance,
+        balanceAfter: beforeBalance + amountIQD,
+        heldBefore: beforeHeld,
+        heldAfter: beforeHeld,
+        referenceModel: "PaymentTransaction",
+        referenceId: lockedTx._id,
+        receiptId: lockedTx.receiptId,
+        metadata: {
+          orderId,
+          provider: "zaincash",
+          transactionId: String(transactionId || ""),
+          callbackMode: isMock() ? "mock" : "real",
+        },
       });
 
-      // ✅ Send Receipt Email
+      await session.commitTransaction();
+
       sendReceiptEmail({
-        to: tx.user.email,
-        userName: tx.user.name,
-        receiptId,
-        amount: tx.amountIQD,
+        to: tx.user?.email,
+        userName: tx.user?.name,
+        receiptId: lockedTx.receiptId,
+        amount: amountIQD,
         type: "TOPUP",
         date: new Date(),
-        details: `شحن محفظة عبر زين كاش (Order: ${orderId})`
-      });
+        details: `شحن محفظة عبر زين كاش (Order: ${orderId})`,
+      }).catch((e) => console.error("sendReceiptEmail error:", e));
 
-      // ✅ إشعار نجاح شحن المحفظة
       await sendAppNotification({
         userId: tx.user,
         title: "تم شحن المحفظة بنجاح 💰",
-        message: `تم استلام مبلغ ${Number(tx.amountIQD).toLocaleString()} د.ع عبر زين كاش وإضافته لمتجرك.`,
+        message: `تم استلام مبلغ ${amountIQD.toLocaleString()} د.ع عبر زين كاش وإضافته لمحفظتك.`,
         event: "WALLET_TOPUP_PAID",
         type: "SYSTEM",
       });
@@ -223,16 +264,28 @@ export const zaincashRedirect = async (req, res) => {
       );
     }
 
-    return res.redirect(
-      `${FRONTEND_SUCCESS_URL}&orderId=${encodeURIComponent(orderId)}`
+    await PaymentTransaction.updateOne(
+      { _id: tx._id, status: { $ne: "paid" } },
+      {
+        $set: {
+          status: "paid",
+          transactionId: String(transactionId || tx.transactionId || ""),
+        },
+      }
     );
+
+    return res.redirect(`${FRONTEND_SUCCESS_URL}&orderId=${encodeURIComponent(orderId)}`);
   } catch (err) {
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
     console.error("zaincashRedirect:", err);
     const fail = process.env.FRONTEND_FAIL_URL || "/";
     return res.redirect(`${fail}&reason=exception`);
+  } finally {
+    session.endSession();
   }
 };
-
 
 // =====================================================
 // STATUS CHECK
@@ -243,6 +296,7 @@ export const zaincashStatus = async (req, res) => {
 
     const tx = await PaymentTransaction.findOne({
       user: req.user._id,
+      orderId,
     });
 
     if (!tx) return res.status(404).json({ message: "Transaction not found" });

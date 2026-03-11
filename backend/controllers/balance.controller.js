@@ -7,6 +7,7 @@ import { getIo } from "../utils/socket.js";
 import { validateNumber, validateText } from "../utils/validation.js";
 import { generateReceiptId, signReceipt } from "../utils/receipt.js";
 import { sendReceiptEmail } from "../utils/email.js";
+import { createLedgerEntry, generateOperationId } from "../utils/ledger.js";
 
 // ================= USER =================
 
@@ -93,20 +94,26 @@ export const approveBalanceRequest = async (req, res) => {
 
     // 3. توثيق السجل المالي
     const receiptId = generateReceiptId();
-    await FinanceLog.create(
-      [
-        {
-          user: request.user,
-          type: "WALLET_TOPUP_PAID",
-          amountIQD: request.amount,
-          refModel: "BalanceRequest",
-          refId: request._id,
-          receiptId,
-          meta: { adminId: req.user._id, note: request.note || "شحن يدوي" },
-        },
-      ],
-      { session }
-    );
+    const afterBalance = Number(updatedUser.balance || 0);
+    const afterHeld = Number(updatedUser.heldBalance || 0);
+    const amount = Number(request.amount || 0);
+    const beforeBalance = afterBalance - amount;
+
+    await createLedgerEntry({
+      session,
+      operationId: generateOperationId("manual_topup"),
+      userId: request.user,
+      type: "WALLET_TOPUP_PAID",
+      amountIQD: amount,
+      balanceBefore: beforeBalance,
+      balanceAfter: afterBalance,
+      heldBefore: afterHeld,
+      heldAfter: afterHeld,
+      referenceModel: "BalanceRequest",
+      referenceId: request._id,
+      receiptId,
+      metadata: { adminId: String(req.user?._id || ""), note: request.note || "شحن يدوي" },
+    });
 
     await session.commitTransaction();
     session.endSession();
@@ -124,7 +131,7 @@ export const approveBalanceRequest = async (req, res) => {
 
     res.json({ message: "Balance approved and updated" });
   } catch (error) {
-    if (session.inAtomicity) await session.abortTransaction();
+    if (session.inTransaction()) await session.abortTransaction();
     session.endSession();
     res.status(500).json({ message: error.message });
   }
@@ -154,67 +161,97 @@ export const rejectBalanceRequest = async (req, res) => {
 
 // POST /api/wallet/refund-request
 export const createRefundRequest = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
-    const amountVal = validateNumber(req.body?.amountIQD, { min: 1000, max: 10000000, name: "مبلغ الاسترجاع" });
+    const amountVal = validateNumber(req.body?.amountIQD, { min: 1000, max: 10000000, name: "Refund amount" });
     if (!amountVal.isValid) return res.status(400).json({ message: amountVal.message });
     const amountIQD = amountVal.value;
 
-    const payoutVal = validateText(req.body?.payoutInfo, { min: 10, max: 500, name: "معلومات الدفع" });
+    const payoutVal = validateText(req.body?.payoutInfo, { min: 10, max: 500, name: "Payout info" });
     if (!payoutVal.isValid) return res.status(400).json({ message: payoutVal.message });
     const payoutInfo = payoutVal.text;
 
-    const noteVal = validateText(req.body?.note || "", { max: 500, name: "الملاحظة" });
+    const noteVal = validateText(req.body?.note || "", { max: 500, name: "Note" });
     if (req.body?.note && !noteVal.isValid) return res.status(400).json({ message: noteVal.message });
     const note = noteVal.text;
 
-    const u = await User.findById(req.user._id)
-      .select("balance heldBalance blocked")
-      .lean();
-    if (!u) return res.status(404).json({ message: "User not found" });
-    if (u.blocked) return res.status(403).json({ message: "Account is blocked" });
-
-    if ((u.balance || 0) < amountIQD) {
-      return res
-        .status(400)
-        .json({ message: "Insufficient available balance for refund" });
+    const u = await User.findById(req.user._id).select("blocked").session(session);
+    if (!u) {
+      await session.abortTransaction();
+      return res.status(404).json({ message: "User not found" });
+    }
+    if (u.blocked) {
+      await session.abortTransaction();
+      return res.status(403).json({ message: "Account is blocked" });
     }
 
-    // امنع تكرار طلبات معلقة كثيرة
     const pendingCount = await RefundRequest.countDocuments({
       user: req.user._id,
       status: "pending",
-    });
+    }).session(session);
     if (pendingCount >= 3) {
-      return res
-        .status(400)
-        .json({ message: "لديك طلبات استرجاع قيد المراجعة بالفعل" });
+      await session.abortTransaction();
+      return res.status(400).json({ message: "You already have pending refund requests" });
     }
 
-    const rr = await RefundRequest.create({
-      user: req.user._id,
-      amountIQD,
-      payoutInfo,
-      note,
-      status: "pending",
-    });
+    const deductedUser = await User.findOneAndUpdate(
+      { _id: req.user._id, balance: { $gte: amountIQD } },
+      { $inc: { balance: -amountIQD, heldBalance: amountIQD } },
+      { new: true, session }
+    );
 
-    // ✅ Audit: إنشاء طلب استرجاع
-    await FinanceLog.create({
-      user: req.user._id,
+    if (!deductedUser) {
+      await session.abortTransaction();
+      return res.status(400).json({ message: "Insufficient available balance for refund request" });
+    }
+
+    const created = await RefundRequest.create(
+      [
+        {
+          user: req.user._id,
+          amountIQD,
+          payoutInfo,
+          note,
+          status: "pending",
+        },
+      ],
+      { session }
+    );
+    const rr = created[0];
+
+    const afterBalance = Number(deductedUser.balance || 0);
+    const afterHeld = Number(deductedUser.heldBalance || 0);
+    const beforeBalance = afterBalance + Number(amountIQD || 0);
+    const beforeHeld = afterHeld - Number(amountIQD || 0);
+
+    await createLedgerEntry({
+      session,
+      operationId: generateOperationId("refund_request_create"),
+      userId: req.user._id,
       type: "REFUND_REQUEST_CREATED",
       amountIQD,
-      refModel: "RefundRequest",
-      refId: rr._id,
-      meta: { payoutInfo, note: note || "" },
+      balanceBefore: beforeBalance,
+      balanceAfter: afterBalance,
+      heldBefore: beforeHeld,
+      heldAfter: afterHeld,
+      referenceModel: "RefundRequest",
+      referenceId: rr._id,
+      metadata: { payoutInfo, note: note || "" },
     });
+
+    await session.commitTransaction();
 
     const io = getIo();
     if (io) io.to("admin_room").emit("admin_refresh");
 
     return res.status(201).json(rr);
   } catch (e) {
+    if (session.inTransaction()) await session.abortTransaction();
     console.error("createRefundRequest error:", e?.message || e);
     return res.status(500).json({ message: "Failed to create refund request" });
+  } finally {
+    session.endSession();
   }
 };
 
@@ -260,12 +297,13 @@ export const adminApproveRefundRequest = async (req, res) => {
     }
 
     // 2. التحقق من الرصيد المتاح نخصم بشكل ذري
+    // 2. التحقق من الرصيد المحجوز نخصم بشكل ذري
     const updatedUser = await User.findOneAndUpdate(
       {
         _id: rr.user,
-        balance: { $gte: rr.amountIQD },
+        heldBalance: { $gte: rr.amountIQD },
       },
-      { $inc: { balance: -rr.amountIQD } },
+      { $inc: { heldBalance: -rr.amountIQD } },
       { session, new: true }
     );
 
@@ -293,25 +331,30 @@ export const adminApproveRefundRequest = async (req, res) => {
     const signData = { type: "REFUND_REQUEST_APPROVED", user: String(rr.user), amountIQD: rr.amountIQD, receiptId };
     const signature = signReceipt(signData);
 
-    await FinanceLog.create(
-      [
-        {
-          user: rr.user,
-          type: "REFUND_REQUEST_APPROVED",
-          amountIQD: rr.amountIQD,
-          refModel: "RefundRequest",
-          refId: rr._id,
-          receiptId,
-          meta: {
-            adminId: req.user._id,
-            adminName: req.user?.name || "",
-            adminNote: adminNote || "",
-            signature,
-          },
-        },
-      ],
-      { session }
-    );
+    const afterBalance = Number(updatedUser.balance || 0);
+    const afterHeld = Number(updatedUser.heldBalance || 0);
+    const beforeHeld = afterHeld + Number(rr.amountIQD || 0);
+
+    await createLedgerEntry({
+      session,
+      operationId: generateOperationId("refund_request_approve"),
+      userId: rr.user,
+      type: "REFUND_REQUEST_APPROVED",
+      amountIQD: rr.amountIQD,
+      balanceBefore: afterBalance,
+      balanceAfter: afterBalance,
+      heldBefore: beforeHeld,
+      heldAfter: afterHeld,
+      referenceModel: "RefundRequest",
+      referenceId: rr._id,
+      receiptId,
+      metadata: {
+        adminId: String(req.user?._id || ""),
+        adminName: req.user?.name || "",
+        adminNote: adminNote || "",
+        signature,
+      },
+    });
 
     await session.commitTransaction();
     session.endSession();
@@ -334,7 +377,7 @@ export const adminApproveRefundRequest = async (req, res) => {
 
     return res.json({ message: "Approved and balance deducted", refundRequest: rr });
   } catch (e) {
-    if (session.inAtomicity) await session.abortTransaction();
+    if (session.inTransaction()) await session.abortTransaction();
     session.endSession();
     console.error("adminApproveRefundRequest error:", e);
     return res.status(500).json({ message: "Failed to approve refund request" });
@@ -343,41 +386,80 @@ export const adminApproveRefundRequest = async (req, res) => {
 
 // POST /api/admin/refund-requests/:id/reject
 export const adminRejectRefundRequest = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
     const id = req.params.id;
     const adminNote = String(req.body?.adminNote || "").trim();
     const reason = String(req.body?.reason || "").trim();
 
-    const rr = await RefundRequest.findOneAndUpdate(
-      { _id: id, status: "pending" },
-      { $set: { status: "rejected", adminNote, rejectedBy: req.user._id, rejectedAt: new Date() } },
-      { new: true }
-    );
+    const rr = await RefundRequest.findOne({ _id: id, status: "pending" }).session(session);
 
     if (!rr) {
+      await session.abortTransaction();
       return res.status(400).json({ message: "Refund request not found or already processed" });
     }
 
-    await FinanceLog.create({
-      user: rr.user,
+    const walletBefore = await User.findById(rr.user).select("balance heldBalance").session(session);
+    if (!walletBefore) {
+      await session.abortTransaction();
+      return res.status(404).json({ message: "User wallet not found" });
+    }
+    const beforeBalance = Number(walletBefore.balance || 0);
+    const beforeHeld = Number(walletBefore.heldBalance || 0);
+    if (beforeHeld < Number(rr.amountIQD || 0)) {
+      await session.abortTransaction();
+      return res.status(400).json({ message: "Insufficient held balance to reject and release this request" });
+    }
+
+    const walletUpdate = await User.updateOne(
+      { _id: rr.user, balance: beforeBalance, heldBalance: beforeHeld },
+      { $inc: { heldBalance: -rr.amountIQD, balance: rr.amountIQD } },
+      { session }
+    );
+
+    if (walletUpdate.modifiedCount === 0) {
+      await session.abortTransaction();
+      return res.status(400).json({ message: "Insufficient held balance to reject and release this request" });
+    }
+
+    rr.status = "rejected";
+    rr.adminNote = adminNote;
+    rr.rejectedBy = req.user._id;
+    rr.rejectedAt = new Date();
+    await rr.save({ session });
+
+    await createLedgerEntry({
+      session,
+      operationId: generateOperationId("refund_request_reject"),
+      userId: rr.user,
       type: "REFUND_REQUEST_REJECTED",
       amountIQD: rr.amountIQD,
-      refModel: "RefundRequest",
-      refId: rr._id,
-      meta: {
-        adminId: req.user._id,
+      balanceBefore: beforeBalance,
+      balanceAfter: beforeBalance + Number(rr.amountIQD || 0),
+      heldBefore: beforeHeld,
+      heldAfter: beforeHeld - Number(rr.amountIQD || 0),
+      referenceModel: "RefundRequest",
+      referenceId: rr._id,
+      metadata: {
+        adminId: String(req.user?._id || ""),
         adminName: req.user?.name || "",
         reason: reason || adminNote || "",
       },
     });
+
+    await session.commitTransaction();
 
     const io = getIo();
     if (io) io.to("admin_room").emit("admin_refresh");
 
     return res.json({ message: "Rejected", refundRequest: rr });
   } catch (e) {
+    if (session.inTransaction()) await session.abortTransaction();
     console.error("adminRejectRefundRequest error:", e);
     return res.status(500).json({ message: "Failed to reject refund request" });
+  } finally {
+    session.endSession();
   }
 };
 

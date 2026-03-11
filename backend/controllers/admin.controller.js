@@ -5,12 +5,14 @@ import BalanceRequest from "../models/BalanceRequest.js";
 import ExcelJS from "exceljs";
 import Bid from "../models/Bid.js";
 import AuditLog from "../models/AuditLog.js";
+import DeliveryOrder from "../models/DeliveryOrder.js";
 import CourierCompany from "../models/CourierCompany.js";
 import PlatformSetting from "../models/PlatformSetting.js";
 import bcrypt from "bcrypt";
 import { DEFAULT_DEPOSIT_POLICY, normalizeDepositPolicy } from "../utils/helpers.js";
 import { getIo } from "../utils/socket.js";
 import { generateReceiptId, signReceipt } from "../utils/receipt.js";
+import { createLedgerEntry, generateOperationId } from "../utils/ledger.js";
 import { sendReceiptEmail } from "../utils/email.js";
 import { sendAppNotification } from "../utils/notification.js";
 
@@ -1130,13 +1132,24 @@ export const resolveDispute = async (req, res) => {
     }
 
     if (decision === "accept_user") {
-      const depositToReturn = isSellersBlame
-        ? (auction.sellerDeposit || 0)
-        : (auction.depositAmount || 0);
+      const depositToReturn = Number(
+        isSellersBlame ? (auction.sellerDeposit || 0) : (auction.depositAmount || 0)
+      );
 
       if (blamedUserId && depositToReturn > 0) {
+        const blamedBefore = await User.findById(blamedUserId).select("balance heldBalance").session(session);
+        if (!blamedBefore) {
+          throw new Error("Blamed user wallet not found");
+        }
+
+        const beforeBalance = Number(blamedBefore.balance || 0);
+        const beforeHeld = Number(blamedBefore.heldBalance || 0);
+        if (beforeHeld < depositToReturn) {
+          throw new Error("Insufficient held balance to return dispute deposit");
+        }
+
         const userUpdateRes = await User.updateOne(
-          { _id: blamedUserId, heldBalance: { $gte: depositToReturn } },
+          { _id: blamedUserId, balance: beforeBalance, heldBalance: beforeHeld },
           { $inc: { heldBalance: -depositToReturn, balance: depositToReturn } },
           { session }
         );
@@ -1158,6 +1171,26 @@ export const resolveDispute = async (req, res) => {
             meta: { signature }
           }], { session });
 
+          await createLedgerEntry({
+            session,
+            operationId: generateOperationId("dispute_refund"),
+            userId: blamedUserId,
+            type: "DEPOSIT_REFUND",
+            amountIQD: depositToReturn,
+            balanceBefore: beforeBalance,
+            balanceAfter: beforeBalance + depositToReturn,
+            heldBefore: beforeHeld,
+            heldAfter: beforeHeld - depositToReturn,
+            referenceModel: "Auction",
+            referenceId: auction._id,
+            receiptId,
+            metadata: {
+              reason: "Refund after accepted delivery dispute",
+              source: isSellersBlame ? "SELLER" : "BUYER",
+              signature,
+            },
+          });
+
           const user = await User.findById(blamedUserId).select("name email").session(session);
           if (user && user.email) {
             sendReceiptEmail({
@@ -1170,6 +1203,8 @@ export const resolveDispute = async (req, res) => {
               details: `إعادة العربون بعد قبول الاعتراض على المزاد: ${auction.title}`
             });
           }
+        } else {
+          throw new Error("Wallet update conflict while refunding dispute deposit");
         }
       }
 

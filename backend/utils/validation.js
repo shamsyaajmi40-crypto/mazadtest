@@ -1,97 +1,102 @@
-import xss from 'xss';
+﻿import xss from "xss";
 
 /**
- * يحقّق من صحة رقم الهاتف العراقي
- * التنسيق المتوقع: 07XXXXXXXXX (11 رقماً يبدأ بـ 07)
+ * Validate Iraqi phone number.
+ * Expected format: 07XXXXXXXXX
  */
 export const validatePhone = (phone) => {
-    if (!phone) return { isValid: false, message: "رقم الهاتف مطلوب" };
+  if (!phone) return { isValid: false, message: "رقم الهاتف مطلوب" };
 
-    // تنظيف الرقم من المسافات وعلامة +964 إن وجدت
-    let cleanPhone = String(phone).trim().replace(/\s+/g, "");
-    if (cleanPhone.startsWith("+964")) {
-        cleanPhone = "0" + cleanPhone.slice(4);
-    } else if (cleanPhone.startsWith("964")) {
-        cleanPhone = "0" + cleanPhone.slice(3);
-    }
+  let cleanPhone = String(phone).trim().replace(/\s+/g, "");
+  if (cleanPhone.startsWith("+964")) {
+    cleanPhone = "0" + cleanPhone.slice(4);
+  } else if (cleanPhone.startsWith("964")) {
+    cleanPhone = "0" + cleanPhone.slice(3);
+  }
 
-    const phoneRegex = /^07[3-9]\d{8}$/;
-    if (!phoneRegex.test(cleanPhone)) {
-        return {
-            isValid: false,
-            message: "رقم الهاتف غير صحيح. يجب أن يبدأ بـ 07 ويتكون من 11 رقماً."
-        };
-    }
+  const phoneRegex = /^07[3-9]\d{8}$/;
+  if (!phoneRegex.test(cleanPhone)) {
+    return {
+      isValid: false,
+      message: "رقم الهاتف غير صحيح. يجب أن يبدأ بـ 07 ويتكون من 11 رقمًا.",
+    };
+  }
 
-    return { isValid: true, phone: cleanPhone };
+  return { isValid: true, phone: cleanPhone };
 };
 
 /**
- * يحقّق من طول النص ويقوم بتنظيفه
+ * Validate and sanitize text.
  */
 export const validateText = (text, { min = 0, max = 1000, name = "الحقل" } = {}) => {
-    // 🛡️ تنظيف النص من أكواد HTML/JavaScript (XSS)
-    const sanitizedText = xss(String(text || ""));
-    const cleanText = sanitizedText.trim();
+  const sanitizedText = xss(String(text || ""));
+  const cleanText = sanitizedText.trim();
 
-    if (min > 0 && cleanText.length < min) {
-        return {
-            isValid: false,
-            message: `${name} قصير جداً، الحد الأدنى ${min} حرف.`
-        };
-    }
+  if (min > 0 && cleanText.length < min) {
+    return {
+      isValid: false,
+      message: `${name} قصير جدًا، الحد الأدنى ${min} حرف.`,
+    };
+  }
 
-    if (cleanText.length > max) {
-        return {
-            isValid: false,
-            message: `${name} طويل جداً، الحد الأقصى ${max} حرف.`
-        };
-    }
+  if (cleanText.length > max) {
+    return {
+      isValid: false,
+      message: `${name} طويل جدًا، الحد الأقصى ${max} حرف.`,
+    };
+  }
 
-    return { isValid: true, text: cleanText };
+  return { isValid: true, text: cleanText };
 };
 
 /**
- * يحقّق من القيم الرقمية
+ * Validate numeric values (IQD by default).
  */
-export const validateNumber = (val, { min = 0, max = Number.MAX_SAFE_INTEGER, name = "القيمة" } = {}) => {
-    const num = Number(val);
+export const validateNumber = (
+  val,
+  { min = 0, max = Number.MAX_SAFE_INTEGER, name = "القيمة", integer = true } = {}
+) => {
+  const num = Number(val);
 
-    if (isNaN(num)) {
-        return { isValid: false, message: `${name} يجب أن يكون رقماً صحيحاً.` };
-    }
+  if (!Number.isFinite(num)) {
+    return { isValid: false, message: `${name} يجب أن يكون رقمًا صحيحًا.` };
+  }
 
-    if (num < min) {
-        return { isValid: false, message: `${name} يجب أن لا يقل عن ${min.toLocaleString()}.` };
-    }
+  if (integer && !Number.isInteger(num)) {
+    return { isValid: false, message: `${name} يجب أن يكون رقمًا صحيحًا بدون كسور.` };
+  }
 
-    if (num > max) {
-        return { isValid: false, message: `${name} يجب أن لا يزيد عن ${max.toLocaleString()}.` };
-    }
+  if (num < min) {
+    return { isValid: false, message: `${name} يجب أن لا يقل عن ${min.toLocaleString()}.` };
+  }
 
-    return { isValid: true, value: num };
+  if (num > max) {
+    return { isValid: false, message: `${name} يجب أن لا يزيد عن ${max.toLocaleString()}.` };
+  }
+
+  return { isValid: true, value: num };
 };
 
 /**
- * يحقّق من التاريخ (يجب أن يكون في المستقبل)
+ * Validate future date.
  */
 export const validateFutureDate = (dateVal, { name = "التاريخ", minMinutes = 5 } = {}) => {
-    if (!dateVal) return { isValid: true, date: null }; // اختياري
+  if (!dateVal) return { isValid: true, date: null };
 
-    const date = new Date(dateVal);
-    if (isNaN(date.getTime())) {
-        return { isValid: false, message: `${name} غير صحيح.` };
-    }
+  const date = new Date(dateVal);
+  if (Number.isNaN(date.getTime())) {
+    return { isValid: false, message: `${name} غير صحيح.` };
+  }
 
-    const now = new Date();
-    const minAllowed = new Date(now.getTime() + minMinutes * 60 * 1000);
+  const now = new Date();
+  const minAllowed = new Date(now.getTime() + minMinutes * 60 * 1000);
 
-    if (date < minAllowed) {
-        return {
-            isValid: false,
-            message: `${name} يجب أن يكون في المستقبل (على الأقل بعد ${minMinutes} دقائق من الآن).`
-        };
-    }
+  if (date < minAllowed) {
+    return {
+      isValid: false,
+      message: `${name} يجب أن يكون في المستقبل (على الأقل بعد ${minMinutes} دقائق من الآن).`,
+    };
+  }
 
-    return { isValid: true, date };
+  return { isValid: true, date };
 };

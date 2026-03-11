@@ -6,11 +6,20 @@ const PaymentTransactionSchema = new mongoose.Schema(
 
     kind: { type: String, enum: ["wallet_topup"], default: "wallet_topup" },
 
-    amountIQD: { type: Number, required: true },
+    amountIQD: {
+      type: Number,
+      required: true,
+      set: (v) => Number(v),
+      validate: {
+        validator: (v) => Number.isInteger(Number(v)),
+        message: "amountIQD must be an integer IQD value",
+      },
+    },
 
     orderId: { type: String, required: true, unique: true },
     provider: { type: String, enum: ["zaincash"], default: "zaincash" },
-    transactionId: { type: String, default: null },
+    // Callback operation identifier from payment provider (idempotency key).
+    transactionId: { type: String, default: null, unique: true, sparse: true, index: true },
 
     status: { type: String, enum: ["initiated", "paid", "failed"], default: "initiated" },
     receiptId: { type: String, unique: true, sparse: true, index: true },

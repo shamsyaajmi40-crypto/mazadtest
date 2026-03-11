@@ -349,11 +349,13 @@ export default function Wallet() {
                   <tr key={log._id} className="hover:bg-slate-50 transition-colors group">
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-3">
-                        <span className={`w-2 h-2 rounded-full ${log.type === 'WALLET_TOPUP_PAID' || log.type === 'REFUND_REQUEST_APPROVED' || log.type === 'DEPOSIT_REFUND'
+                        <span className={`w-2 h-2 rounded-full ${['WALLET_TOPUP_PAID', 'DEPOSIT_REFUND', 'REFUND_REQUEST_REJECTED'].includes(log.type)
                           ? 'bg-emerald-500'
                           : log.type === 'PLATFORM_COMMISSION'
                             ? 'bg-amber-500'
-                            : 'bg-rose-500'
+                            : log.type === 'REFUND_REQUEST_APPROVED' || log.type === 'REFUND_REQUEST_CREATED'
+                              ? 'bg-slate-400'
+                              : 'bg-rose-500'
                           }`}></span>
                         <span className="font-black text-slate-700 text-sm">
                           {log.type === 'WALLET_TOPUP_PAID' ? 'تعبئة رصيد' :
@@ -370,16 +372,16 @@ export default function Wallet() {
                       </div>
                     </td>
                     <td className="px-8 py-5">
-                      <span className={`font-black text-sm ${log.type === 'WALLET_TOPUP_PAID' || log.type === 'REFUND_REQUEST_APPROVED' || log.type === 'DEPOSIT_REFUND'
+                      <span className={`font-black text-sm ${['WALLET_TOPUP_PAID', 'DEPOSIT_REFUND', 'REFUND_REQUEST_REJECTED'].includes(log.type)
                         ? 'text-emerald-600'
                         : log.type === 'PLATFORM_COMMISSION'
                           ? 'text-amber-600'
-                          : log.type === 'REFUND_REQUEST_CREATED'
+                          : log.type === 'REFUND_REQUEST_APPROVED' || log.type === 'REFUND_REQUEST_CREATED'
                             ? 'text-slate-400'
                             : 'text-rose-600'
                         }`}>
-                        {log.type === 'WALLET_TOPUP_PAID' || log.type === 'REFUND_REQUEST_APPROVED' || log.type === 'DEPOSIT_REFUND' ? '+' :
-                          log.type === 'REFUND_REQUEST_CREATED' || log.type === 'PLATFORM_COMMISSION' ? '' : '-'} {formatCurrency(log.amount)}
+                        {['WALLET_TOPUP_PAID', 'DEPOSIT_REFUND', 'REFUND_REQUEST_REJECTED'].includes(log.type) ? '+' :
+                          (log.type === 'PLATFORM_COMMISSION' || log.type === 'REFUND_REQUEST_APPROVED') ? '' : '-'} {formatCurrency(log.amountIQD || log.amount)}
                       </span>
                     </td>
                     <td className="px-8 py-5 text-xs font-bold text-slate-500">

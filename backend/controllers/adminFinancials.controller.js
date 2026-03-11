@@ -4,6 +4,7 @@ import User from "../models/User.js";
 import PaymentTransaction from "../models/PaymentTransaction.js";
 import mongoose from "mongoose";
 import ExcelJS from "exceljs";
+import { createLedgerEntry, generateOperationId } from "../utils/ledger.js";
 
 /**
  * Get unified financial stats for the platform
@@ -567,24 +568,103 @@ export const exportFinancialsExcel = async (req, res) => {
 };
 
 /**
- * Delete a manual financial log entry (from FinanceLog)
+ * Immutable ledger policy:
+ * This endpoint no longer deletes financial logs.
+ * It posts a compensating reversal entry instead.
  */
 export const deleteFinancialLog = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
     try {
         const { id } = req.params;
-        const log = await FinanceLog.findById(id);
+        const log = await FinanceLog.findById(id).session(session);
 
         if (!log) {
-            return res.status(404).json({ message: "السجل غير موجود" });
+            await session.abortTransaction();
+            return res.status(404).json({ message: "'D3,D :J1 EH,H/" });
         }
 
-        // We only allow deleting manual entries for now (to avoid breaking automated audit trails)
-        await FinanceLog.findByIdAndDelete(id);
+        if (log.type === "LEDGER_REVERSAL") {
+            await session.abortTransaction();
+            return res.status(400).json({ message: "D' JECF 9C3 BJ/ 9C3J" });
+        }
 
-        res.json({ message: "تم حذف السجل بنجاح" });
+        const alreadyReversed = await FinanceLog.findOne({
+            type: "LEDGER_REVERSAL",
+            refModel: "FinanceLog",
+            refId: log._id,
+        }).session(session);
+
+        if (alreadyReversed) {
+            await session.abortTransaction();
+            return res.status(409).json({ message: "*E 9C3 G0' 'D3,D E3(BK'" });
+        }
+
+        const user = await User.findById(log.user).select("balance heldBalance").session(session);
+        if (!user) {
+            throw new Error("Ledger owner wallet not found");
+        }
+
+        const currentBalance = Number(user.balance || 0);
+        const currentHeld = Number(user.heldBalance || 0);
+        const balanceDelta = Number(log.balanceAfter || 0) - Number(log.balanceBefore || 0);
+        const heldDelta = Number(log.heldAfter || 0) - Number(log.heldBefore || 0);
+        const reverseBalanceDelta = -balanceDelta;
+        const reverseHeldDelta = -heldDelta;
+
+        const nextBalance = currentBalance + reverseBalanceDelta;
+        const nextHeld = currentHeld + reverseHeldDelta;
+        if (nextBalance < 0 || nextHeld < 0) {
+            await session.abortTransaction();
+            return res.status(400).json({ message: "D' JECF *FAJ0 'DBJ/ 'D9C3J D#FG 3J$/J %DI 15J/ 3'D(" });
+        }
+
+        const walletUpdated = await User.updateOne(
+            { _id: user._id, balance: currentBalance, heldBalance: currentHeld },
+            { $set: { balance: nextBalance, heldBalance: nextHeld } },
+            { session }
+        );
+
+        if (walletUpdated.modifiedCount === 0) {
+            throw new Error("Wallet update conflict while reversing ledger entry");
+        }
+
+        const reversalAmount = -Number(log.amountIQD || 0);
+        const reversalOperationId = generateOperationId("ledger_reversal");
+
+        await createLedgerEntry({
+            session,
+            operationId: reversalOperationId,
+            userId: user._id,
+            type: "LEDGER_REVERSAL",
+            amountIQD: reversalAmount,
+            balanceBefore: currentBalance,
+            balanceAfter: nextBalance,
+            heldBefore: currentHeld,
+            heldAfter: nextHeld,
+            referenceModel: "FinanceLog",
+            referenceId: log._id,
+            metadata: {
+                reversedOperationId: log.operationId || null,
+                reversedLogId: String(log._id),
+                originalType: log.type,
+                reason: "Admin reversal instead of delete",
+                adminId: String(req.user?._id || ""),
+            },
+        });
+
+        await session.commitTransaction();
+        return res.json({
+            message: "*E %F4'! BJ/ 9C3J (F,'- ('D3,D 'D#5DJ DE JO-0A)",
+            reversedLogId: String(log._id),
+            reversalOperationId,
+        });
     } catch (e) {
+        if (session.inTransaction()) await session.abortTransaction();
         console.error("deleteFinancialLog error:", e);
-        res.status(500).json({ message: "فشل حذف السجل" });
+        return res.status(500).json({ message: "A4D %F4'! 'DBJ/ 'D9C3J" });
+    } finally {
+        session.endSession();
     }
 };
 
@@ -663,3 +743,4 @@ export const getFeaturedPayments = async (req, res) => {
         res.status(500).json({ message: "فشل في جلب سجلات التمييز" });
     }
 };
+

@@ -134,10 +134,12 @@ const auctionSchema = new mongoose.Schema(
       enum: ["pending", "processing", "done"],
       default: "pending"
     },
-    deliveryOtpHash: { type: String, default: null }, // OTP للمشتري (hashed)
-    payoutOtpHash: { type: String, default: null },   // OTP للبائع (hashed)
-    deliveryOtpCode: { type: String, default: null },
-    payoutOtpCode: { type: String, default: null },
+    deliveryOtpHash: { type: String, default: null, select: false }, // OTP للمشتري (hashed)
+    payoutOtpHash: { type: String, default: null, select: false },   // OTP للبائع (hashed)
+    deliveryOtpCode: { type: String, default: null, select: false },
+    payoutOtpCode: { type: String, default: null, select: false },
+    deliveryOtpAttempts: { type: Number, default: 0, min: 0, max: 100 },
+    payoutOtpAttempts: { type: Number, default: 0, min: 0, max: 100 },
     completedAt: {
       type: Date,
     },
@@ -166,3 +168,4 @@ auctionSchema.index({ isFeatured: -1, featuredPriority: -1, createdAt: -1 }); //
 auctionSchema.index({ createdAt: -1 });
 
 export default mongoose.model("Auction", auctionSchema);
+

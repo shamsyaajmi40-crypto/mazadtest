@@ -4,12 +4,12 @@ import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import Rating from "../models/Rating.js";
 import AuditLog from "../models/AuditLog.js";
-import FinanceLog from "../models/FinanceLog.js";
 import DeliveryOrder from "../models/DeliveryOrder.js";
 import { getIo } from "../utils/socket.js";
 import { sendAppNotification } from "../utils/notification.js";
 import { generateReceiptId, signReceipt } from "../utils/receipt.js";
 import { sendReceiptEmail } from "../utils/email.js";
+import { createLedgerEntry, generateOperationId } from "../utils/ledger.js";
 /**
  * حركة مالية آمنة:
  * - REFUND: يرجع heldBalance إلى balance (ذرّي)
@@ -44,12 +44,13 @@ async function transferHeldToBalance({ userId, amount, reason, auctionId, source
   const amt = toNumber(amount);
   if (!userId || amt <= 0) return;
 
-  const res = await User.updateOne(
+  const updatedUser = await User.findOneAndUpdate(
     { _id: userId, heldBalance: { $gte: amt } },
-    { $inc: { heldBalance: -amt, balance: amt } }
+    { $inc: { heldBalance: -amt, balance: amt } },
+    { new: true }
   );
 
-  if (res.modifiedCount > 0) {
+  if (updatedUser) {
     const receiptId = generateReceiptId();
     const signData = { action: "REFUND", auction: String(auctionId), user: String(userId), amount: amt, receiptId };
     const signature = signReceipt(signData);
@@ -66,18 +67,25 @@ async function transferHeldToBalance({ userId, amount, reason, auctionId, source
       meta: { signature }
     });
 
-    await FinanceLog.create({
-      user: userId,
+    const afterBalance = Number(updatedUser.balance || 0);
+    const afterHeld = Number(updatedUser.heldBalance || 0);
+    await createLedgerEntry({
+      operationId: generateOperationId("penalty_refund"),
+      userId,
       type: "DEPOSIT_REFUND",
       amountIQD: amt,
-      refModel: "Auction",
-      refId: auctionId,
+      balanceBefore: afterBalance - amt,
+      balanceAfter: afterBalance,
+      heldBefore: afterHeld + amt,
+      heldAfter: afterHeld,
+      referenceModel: "Auction",
+      referenceId: auctionId,
       receiptId,
-      meta: {
+      metadata: {
         reason: reason || "refunded",
         source: source || "OTHER",
-        signature
-      }
+        signature,
+      },
     });
 
     const user = await User.findById(userId).select("name email");
@@ -99,6 +107,9 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
   const amt = toNumber(amount);
   const PLATFORM_USER_ID = process.env.PLATFORM_USER_ID || null;
   if (!userId || amt <= 0) return { ok: false, amount: 0, rate: 0 };
+  if (!PLATFORM_USER_ID || !mongoose.Types.ObjectId.isValid(PLATFORM_USER_ID)) {
+    throw new Error("Missing PLATFORM_USER_ID configuration for confiscation settlement");
+  }
 
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -106,6 +117,16 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
   let confiscatedAmount = 0;
   let confiscationRate = 0;
   let receiptId = null;
+
+  let userBalanceBefore = 0;
+  let userBalanceAfter = 0;
+  let userHeldBefore = 0;
+  let userHeldAfter = 0;
+
+  let platformBalanceBefore = 0;
+  let platformBalanceAfter = 0;
+  let platformHeldBefore = 0;
+  let platformHeldAfter = 0;
 
   try {
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -120,7 +141,6 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
     confiscatedAmount = Math.max(1, Math.ceil(amt * confiscationRate));
     const remainingAmount = amt - confiscatedAmount;
 
-    // 1. محاولة خصم المبلغ بالكامل وإرجاع الباقي
     const userUpdate = await User.findOneAndUpdate(
       { _id: userId, heldBalance: { $gte: amt } },
       { $inc: { heldBalance: -amt, balance: remainingAmount } },
@@ -128,7 +148,6 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
     );
 
     if (!userUpdate) {
-      // في حال فشل التحديث الأول (heldBalance أقل من اجمالي العربون)
       const altUpdate = await User.findOneAndUpdate(
         { _id: userId, heldBalance: { $gte: confiscatedAmount } },
         { $inc: { heldBalance: -confiscatedAmount } },
@@ -136,7 +155,6 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
       );
 
       if (!altUpdate) {
-        // فشلت المصادرة بالكامل
         await AuditLog.create([{
           action: "CONFISCATE_FAILED",
           auction: auctionId,
@@ -149,18 +167,36 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
         await session.commitTransaction();
         return { ok: false, amount: 0, rate: confiscationRate };
       }
+
+      userBalanceAfter = Number(altUpdate.balance || 0);
+      userHeldAfter = Number(altUpdate.heldBalance || 0);
+      userBalanceBefore = userBalanceAfter;
+      userHeldBefore = userHeldAfter + confiscatedAmount;
+    } else {
+      userBalanceAfter = Number(userUpdate.balance || 0);
+      userHeldAfter = Number(userUpdate.heldBalance || 0);
+      userBalanceBefore = userBalanceAfter - remainingAmount;
+      userHeldBefore = userHeldAfter + amt;
     }
 
-    // 2. زيادة رصيد المنصة (مصدر الحقيقة)
-    if (PLATFORM_USER_ID) {
-      await User.findByIdAndUpdate(
-        PLATFORM_USER_ID,
-        { $inc: { balance: confiscatedAmount } },
-        { session }
-      );
+    const platformWallet = await User.findById(PLATFORM_USER_ID).select("balance heldBalance").session(session);
+    if (!platformWallet) {
+      throw new Error("Configured PLATFORM_USER_ID user not found");
     }
+    platformBalanceBefore = Number(platformWallet.balance || 0);
+    platformHeldBefore = Number(platformWallet.heldBalance || 0);
 
-    // 3. توثيق العملية في السجل (AuditLog)
+    const platformUpdate = await User.updateOne(
+      { _id: PLATFORM_USER_ID, balance: platformBalanceBefore, heldBalance: platformHeldBefore },
+      { $inc: { balance: confiscatedAmount } },
+      { session }
+    );
+    if (platformUpdate.modifiedCount === 0) {
+      throw new Error("Platform wallet update conflict during confiscation");
+    }
+    platformBalanceAfter = platformBalanceBefore + confiscatedAmount;
+    platformHeldAfter = platformHeldBefore;
+
     receiptId = generateReceiptId();
     const signData = { action: "CONFISCATE_OK", auction: String(auctionId), user: String(userId), amount: confiscatedAmount, receiptId };
     const signature = signReceipt(signData);
@@ -179,39 +215,65 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
         requestedAmount: amt,
         confiscationRate,
         previousConfiscations30d: previousConfiscations,
-        signature
+        signature,
       },
     }], { session });
 
-    await FinanceLog.create([{
-      user: userId,
+    await createLedgerEntry({
+      session,
+      operationId: generateOperationId("deposit_confiscate"),
+      userId,
       type: "DEPOSIT_CONFISCATE",
       amountIQD: confiscatedAmount,
-      refModel: "Auction",
-      refId: auctionId,
+      balanceBefore: userBalanceBefore,
+      balanceAfter: userBalanceAfter,
+      heldBefore: userHeldBefore,
+      heldAfter: userHeldAfter,
+      referenceModel: "Auction",
+      referenceId: auctionId,
       receiptId,
-      meta: {
+      metadata: {
         platformUserId: PLATFORM_USER_ID || null,
         requestedAmount: amt,
         confiscationRate,
         previousConfiscations30d: previousConfiscations,
         reason: reason || "confiscated",
         source: source || "OTHER",
-        signature
-      }
-    }], { session });
+        signature,
+      },
+    });
+
+    await createLedgerEntry({
+      session,
+      operationId: generateOperationId("confiscation_platform_transfer"),
+      userId: PLATFORM_USER_ID,
+      type: "PLATFORM_TRANSFER",
+      amountIQD: confiscatedAmount,
+      balanceBefore: platformBalanceBefore,
+      balanceAfter: platformBalanceAfter,
+      heldBefore: platformHeldBefore,
+      heldAfter: platformHeldAfter,
+      referenceModel: "Auction",
+      referenceId: auctionId,
+      receiptId,
+      metadata: {
+        sourceType: "DEPOSIT_CONFISCATE",
+        fromUserId: String(userId),
+        reason: reason || "confiscated",
+        source: source || "OTHER",
+      },
+    });
 
     await session.commitTransaction();
     return { ok: true, amount: confiscatedAmount, rate: confiscationRate, receiptId };
   } catch (error) {
-    await session.abortTransaction();
+    if (session.inTransaction()) await session.abortTransaction();
     console.error("Confiscate transaction error:", error);
     return { ok: false, amount: 0, rate: 0 };
   } finally {
     session.endSession();
   }
 }
-
 
 async function notifyUser({ userId, title, message, auctionId, event }) {
   await sendAppNotification({

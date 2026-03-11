@@ -214,6 +214,12 @@ const startServer = async () => {
     console.log("MONGO_URI =", process.env.MONGO_URI);
     // ⬅️ انتظر الاتصال أولًا
     await connectDB();
+    
+    // Auto-fix outdated MongoDB indexes (e.g. dropping receiptId unique constraint)
+    const FinanceLog = (await import("./models/FinanceLog.js")).default;
+    await FinanceLog.syncIndexes();
+    console.log("✅ Auto-synced FinanceLog indexes");
+
     // // ⬅️ Cron jobs
     closeAuctions();
     startAuctionCleanupCron();

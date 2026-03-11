@@ -447,7 +447,7 @@ export const exportFinancialsExcel = async (req, res) => {
                     status: "ناجحة",
                     user: p.user?.name || "—",
                     phone: p.user?.phone || "—",
-                    amount: p.amount,
+                    amount: p.amountIQD || p.amount || 0,
                     orderId: p.receiptId || (p.auction ? `AUC-${p.auction._id.toString().slice(-6).toUpperCase()}` : "—"),
                     source: p.source === "SELLER" ? "بائع" : (p.source === "BUYER" ? "مشتري" : "عمولة منصة"),
                     details: p.reason + (p.auction ? ` (مزاد: ${p.auction.title})` : "")
@@ -470,7 +470,7 @@ export const exportFinancialsExcel = async (req, res) => {
                         status: l.type === "REFUND_REQUEST_APPROVED" ? "ناجحة" : "فاشلة",
                         user: l.user?.name || "—",
                         phone: l.user?.phone || "—",
-                        amount: l.amountIQD,
+                        amount: l.amountIQD || l.amount || 0,
                         orderId: l.receiptId || (l.refId ? `WDR-${l.refId.toString().slice(-6).toUpperCase()}` : "—"),
                         source: "منصة (يدوي)",
                         details: (l.type === "REFUND_REQUEST_APPROVED" ? "موافقة" : "رفض") + ": " + (l.meta?.adminNote || l.meta?.reason || "—")
@@ -495,7 +495,7 @@ export const exportFinancialsExcel = async (req, res) => {
                     status: "ناجحة",
                     user: s.user?.name || "—",
                     phone: s.user?.phone || "—",
-                    amount: s.amountIQD,
+                    amount: s.amountIQD || s.amount || 0,
                     orderId: s.receiptId || s.orderId || "—",
                     source: "منصة",
                     details: s.kind === "subscription" ? "اشتراك باقة" : "إيداع محفظة"
@@ -518,7 +518,7 @@ export const exportFinancialsExcel = async (req, res) => {
                         status: "ناجحة",
                         user: l.user?.name || "—",
                         phone: l.user?.phone || "—",
-                        amount: l.amountIQD,
+                        amount: l.amountIQD || l.amount || 0,
                         orderId: l.receiptId || (l.refId ? `BAL-${l.refId.toString().slice(-6).toUpperCase()}` : "—"),
                         source: "منصة (يدوي)",
                         details: l.meta?.note || "شحن يدوي"

@@ -9,7 +9,7 @@ import {
   Upload, Loader2, PlusCircle, X, Info,
   Type, LayoutGrid, Tag, TrendingUp, Clock,
   CalendarClock, MapPin, AlignRight, Image as ImageIcon,
-  CheckCircle2, ShieldCheck, Wallet
+  CheckCircle2, ShieldCheck, Wallet, Camera
 } from "lucide-react";
 import TermsModal from "../components/TermsModal";
 import { compressImage } from "../utils/imageCompression";
@@ -462,20 +462,42 @@ const CreateAuction = () => {
                 <ImageIcon className="w-4 h-4 text-primary" /> صور السلعة
               </label>
 
-              <div className="relative border-2 border-dashed border-primary/30 bg-primary/5 rounded-3xl p-8 hover:bg-primary/10 transition-colors text-center group">
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                />
-                <div className="flex flex-col items-center justify-center pointer-events-none">
-                  <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-md mb-4 group-hover:scale-110 transition-transform">
-                    <Upload className="w-8 h-8 text-primary" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Image Gallery Upload */}
+                <div className="relative border-2 border-dashed border-primary/30 bg-primary/5 rounded-3xl p-6 hover:bg-primary/10 transition-colors text-center group cursor-pointer overflow-hidden">
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                  <div className="flex flex-col items-center justify-center pointer-events-none">
+                    <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-md mb-3 group-hover:scale-110 transition-transform">
+                      <ImageIcon className="w-6 h-6 text-primary" />
+                    </div>
+                    <h3 className="text-base font-black text-slate-800 mb-1">رفع من الاستوديو</h3>
+                    <p className="text-xs text-slate-500">اختر صوراً من جهازك</p>
                   </div>
-                  <h3 className="text-lg font-black text-slate-800 mb-1">اضغط أو اسحب الصور هنا</h3>
-                  <p className="text-sm text-slate-500">مسموح بصيغ JPG, PNG (حد أقصى 5 ميجابايت للصورة)</p>
+                </div>
+
+                {/* Direct Camera Capture */}
+                <div className="relative border-2 border-dashed border-indigo-500/30 bg-indigo-50/50 rounded-3xl p-6 hover:bg-indigo-50 transition-colors text-center group cursor-pointer overflow-hidden">
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleFileChange}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                  <div className="flex flex-col items-center justify-center pointer-events-none">
+                    <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-md mb-3 group-hover:scale-110 transition-transform">
+                      <Camera className="w-6 h-6 text-indigo-600" />
+                    </div>
+                    <h3 className="text-base font-black text-slate-800 mb-1">التقاط بالكاميرا</h3>
+                    <p className="text-xs text-slate-500">صوّر السلعة مباشرة</p>
+                  </div>
                 </div>
               </div>
 

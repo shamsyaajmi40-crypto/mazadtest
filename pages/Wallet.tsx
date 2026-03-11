@@ -349,7 +349,7 @@ export default function Wallet() {
                   <tr key={log._id} className="hover:bg-slate-50 transition-colors group">
                     <td className="px-8 py-5">
                       <div className="flex items-center gap-3">
-                        <span className={`w-2 h-2 rounded-full ${['WALLET_TOPUP_PAID', 'DEPOSIT_REFUND', 'REFUND_REQUEST_REJECTED'].includes(log.type)
+                        <span className={`w-2 h-2 rounded-full ${['WALLET_TOPUP_PAID', 'DEPOSIT_REFUND', 'REFUND_REQUEST_REJECTED', 'COD_SELLER_PAYOUT', 'COD_DELIVERY_FEE'].includes(log.type)
                           ? 'bg-emerald-500'
                           : log.type === 'PLATFORM_COMMISSION'
                             ? 'bg-amber-500'
@@ -367,12 +367,15 @@ export default function Wallet() {
                                       log.type === 'FEATURE_AUCTION_PAYMENT' ? 'تمييز مزاد' :
                                         log.type === 'DEPOSIT_REFUND' ? 'إرجاع عربون' :
                                           log.type === 'DEPOSIT_CONFISCATE' ? 'مصادرة عربون' :
-                                            log.type === 'PLATFORM_COMMISSION' ? 'عمولة منصة (مخصومة من الواصل)' : log.type}
+                                            log.type === 'DEPOSIT_HOLD' ? 'حجز عربون للمزاد' :
+                                              log.type === 'COD_SELLER_PAYOUT' ? 'مستحق البائع (الدفع عند الاستلام)' :
+                                                log.type === 'COD_DELIVERY_FEE' ? 'أجور توصيل المزاد' :
+                                                  log.type === 'PLATFORM_COMMISSION' ? 'عمولة منصة (مخصومة من الواصل)' : log.type}
                         </span>
                       </div>
                     </td>
                     <td className="px-8 py-5">
-                      <span className={`font-black text-sm ${['WALLET_TOPUP_PAID', 'DEPOSIT_REFUND', 'REFUND_REQUEST_REJECTED'].includes(log.type)
+                      <span className={`font-black text-sm ${['WALLET_TOPUP_PAID', 'DEPOSIT_REFUND', 'REFUND_REQUEST_REJECTED', 'COD_SELLER_PAYOUT', 'COD_DELIVERY_FEE'].includes(log.type)
                         ? 'text-emerald-600'
                         : log.type === 'PLATFORM_COMMISSION'
                           ? 'text-amber-600'
@@ -380,7 +383,7 @@ export default function Wallet() {
                             ? 'text-slate-400'
                             : 'text-rose-600'
                         }`}>
-                        {['WALLET_TOPUP_PAID', 'DEPOSIT_REFUND', 'REFUND_REQUEST_REJECTED'].includes(log.type) ? '+' :
+                        {['WALLET_TOPUP_PAID', 'DEPOSIT_REFUND', 'REFUND_REQUEST_REJECTED', 'COD_SELLER_PAYOUT', 'COD_DELIVERY_FEE'].includes(log.type) ? '+' :
                           (log.type === 'PLATFORM_COMMISSION' || log.type === 'REFUND_REQUEST_APPROVED') ? '' : '-'} {formatCurrency(log.amountIQD || log.amount)}
                       </span>
                     </td>

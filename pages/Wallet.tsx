@@ -351,7 +351,9 @@ export default function Wallet() {
                       <div className="flex items-center gap-3">
                         <span className={`w-2 h-2 rounded-full ${log.type === 'WALLET_TOPUP_PAID' || log.type === 'REFUND_REQUEST_APPROVED' || log.type === 'DEPOSIT_REFUND'
                           ? 'bg-emerald-500'
-                          : 'bg-rose-500'
+                          : log.type === 'PLATFORM_COMMISSION'
+                            ? 'bg-amber-500'
+                            : 'bg-rose-500'
                           }`}></span>
                         <span className="font-black text-slate-700 text-sm">
                           {log.type === 'WALLET_TOPUP_PAID' ? 'تعبئة رصيد' :
@@ -362,19 +364,22 @@ export default function Wallet() {
                                     log.type === 'SUBSCRIPTION_UPGRADED' ? 'ترقية باقة' :
                                       log.type === 'FEATURE_AUCTION_PAYMENT' ? 'تمييز مزاد' :
                                         log.type === 'DEPOSIT_REFUND' ? 'إرجاع عربون' :
-                                          log.type === 'DEPOSIT_CONFISCATE' ? 'مصادرة عربون' : log.type}
+                                          log.type === 'DEPOSIT_CONFISCATE' ? 'مصادرة عربون' :
+                                            log.type === 'PLATFORM_COMMISSION' ? 'عمولة منصة (مخصومة من الواصل)' : log.type}
                         </span>
                       </div>
                     </td>
                     <td className="px-8 py-5">
                       <span className={`font-black text-sm ${log.type === 'WALLET_TOPUP_PAID' || log.type === 'REFUND_REQUEST_APPROVED' || log.type === 'DEPOSIT_REFUND'
                         ? 'text-emerald-600'
-                        : log.type === 'REFUND_REQUEST_CREATED'
-                          ? 'text-slate-400'
-                          : 'text-rose-600'
+                        : log.type === 'PLATFORM_COMMISSION'
+                          ? 'text-amber-600'
+                          : log.type === 'REFUND_REQUEST_CREATED'
+                            ? 'text-slate-400'
+                            : 'text-rose-600'
                         }`}>
                         {log.type === 'WALLET_TOPUP_PAID' || log.type === 'REFUND_REQUEST_APPROVED' || log.type === 'DEPOSIT_REFUND' ? '+' :
-                          log.type === 'REFUND_REQUEST_CREATED' ? '' : '-'} {formatCurrency(log.amount)}
+                          log.type === 'REFUND_REQUEST_CREATED' || log.type === 'PLATFORM_COMMISSION' ? '' : '-'} {formatCurrency(log.amount)}
                       </span>
                     </td>
                     <td className="px-8 py-5 text-xs font-bold text-slate-500">

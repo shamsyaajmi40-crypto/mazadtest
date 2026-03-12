@@ -104,7 +104,7 @@ async function transferHeldToBalance({ userId, amount, reason, auctionId, source
 }
 
 async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
-  const amt = toNumber(amount);
+  const amt = Math.floor(toNumber(amount));
   const PLATFORM_USER_ID = process.env.PLATFORM_USER_ID || null;
   if (!userId || amt <= 0) return { ok: false, amount: 0, rate: 0 };
   if (!PLATFORM_USER_ID || !mongoose.Types.ObjectId.isValid(PLATFORM_USER_ID)) {
@@ -148,9 +148,10 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
     );
 
     if (!userUpdate) {
+      // Fallback: If heldBalance is slightly different than expected (e.g. 4999 instead of 5000)
+      // We still want to take the penalty and try to refund the rest.
       const altUpdate = await User.findOneAndUpdate(
         { _id: userId, heldBalance: { $gte: confiscatedAmount } },
-        { $inc: { heldBalance: -confiscatedAmount } },
         { session, new: true }
       );
 
@@ -168,10 +169,26 @@ async function confiscateHeld({ userId, amount, reason, auctionId, source }) {
         return { ok: false, amount: 0, rate: confiscationRate };
       }
 
-      userBalanceAfter = Number(altUpdate.balance || 0);
-      userHeldAfter = Number(altUpdate.heldBalance || 0);
-      userBalanceBefore = userBalanceAfter;
-      userHeldBefore = userHeldAfter + confiscatedAmount;
+      // Now we know exactly how much they have held.
+      const actualHeld = Number(altUpdate.heldBalance);
+      const toTakeFromHeld = Math.min(actualHeld, amt); // Take up to the expected amount
+      const reallyConfiscated = Math.min(toTakeFromHeld, confiscatedAmount);
+      const reallyRefunded = toTakeFromHeld - reallyConfiscated;
+
+      // Update the user again to actually move the funds (we already have the session)
+      const finalUser = await User.findByIdAndUpdate(
+        userId,
+        { $inc: { heldBalance: -toTakeFromHeld, balance: reallyRefunded } },
+        { session, new: true }
+      );
+
+      if (!finalUser) throw new Error("Failed to update user in confiscation fallback");
+
+      userBalanceAfter = Number(finalUser.balance || 0);
+      userHeldAfter = Number(finalUser.heldBalance || 0);
+      userBalanceBefore = userBalanceAfter - reallyRefunded;
+      userHeldBefore = userHeldAfter + toTakeFromHeld;
+      confiscatedAmount = reallyConfiscated; // Update the variable for subsequent logging
     } else {
       userBalanceAfter = Number(userUpdate.balance || 0);
       userHeldAfter = Number(userUpdate.heldBalance || 0);

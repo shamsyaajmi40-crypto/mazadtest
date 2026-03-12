@@ -314,18 +314,18 @@ async function notifyUser({ userId, title, message, auctionId, event }) {
 const checkAndBanUserIfNeeded = async (userId) => {
   if (!userId) return;
 
-  // لاحظ: أنت تحسب المخالفات على action: "CONFISCATE"
-  // لكن الآن المصادرة الحقيقية تُسجل بـ CONFISCATE_OK + قديمة بـ CONFISCATE
-  // نخلي العد يشمل الاثنين حتى ما يضيع التصعيد.
   const violationsCount = await AuditLog.countDocuments({
     user: userId,
     by: "SYSTEM",
     action: "CONFISCATE_OK",
   });
 
+  const updateData = { penaltyCount: violationsCount };
   if (violationsCount >= 3) {
-    await User.findByIdAndUpdate(userId, { blocked: true });
+    updateData.blocked = true;
   }
+
+  await User.findByIdAndUpdate(userId, updateData);
 };
 
 /* ================================

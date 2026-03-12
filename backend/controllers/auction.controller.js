@@ -244,6 +244,7 @@ export const createAuction = async (req, res) => {
         userId: String(sellerId),
         amount: sellerDeposit,
         reason: "Seller deposit locked on auction creation (pending)",
+        receiptId: generateReceiptId(),
         by: "SYSTEM",
       });
     } catch (logErr) {
@@ -1130,6 +1131,7 @@ export const releaseDepositsForLosers = async (auctionId) => {
           user: userId,
           amount: deposit,
           reason: "إعادة عربون المزايدة بعد خسارة المزاد",
+          receiptId: generateReceiptId(),
           by: "SYSTEM",
           source: "BUYER"
         });

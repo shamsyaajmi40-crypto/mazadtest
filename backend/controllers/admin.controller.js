@@ -1300,6 +1300,7 @@ export const undoRejectAuction = async (req, res) => {
         amount: deposit,
         reason: "التراجع عن رفض المزاد وإعادة حجز العربون",
         by: "ADMIN",
+        receiptId: generateReceiptId(),
         source: "SELLER"
       });
     }

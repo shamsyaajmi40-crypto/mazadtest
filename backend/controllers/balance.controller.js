@@ -225,6 +225,7 @@ export const createRefundRequest = async (req, res) => {
     const beforeBalance = afterBalance + Number(amountIQD || 0);
     const beforeHeld = afterHeld - Number(amountIQD || 0);
 
+    const receiptId = generateReceiptId();
     await createLedgerEntry({
       session,
       operationId: generateOperationId("refund_request_create"),
@@ -237,6 +238,7 @@ export const createRefundRequest = async (req, res) => {
       heldAfter: afterHeld,
       referenceModel: "RefundRequest",
       referenceId: rr._id,
+      receiptId,
       metadata: { payoutInfo, note: note || "" },
     });
 
@@ -429,6 +431,7 @@ export const adminRejectRefundRequest = async (req, res) => {
     rr.rejectedAt = new Date();
     await rr.save({ session });
 
+    const receiptId = generateReceiptId();
     await createLedgerEntry({
       session,
       operationId: generateOperationId("refund_request_reject"),
@@ -441,6 +444,7 @@ export const adminRejectRefundRequest = async (req, res) => {
       heldAfter: beforeHeld - Number(rr.amountIQD || 0),
       referenceModel: "RefundRequest",
       referenceId: rr._id,
+      receiptId,
       metadata: {
         adminId: String(req.user?._id || ""),
         adminName: req.user?.name || "",

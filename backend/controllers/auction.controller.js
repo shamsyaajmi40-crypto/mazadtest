@@ -216,6 +216,8 @@ export const createAuction = async (req, res) => {
       status: "pending",
     });
 
+    const depositReceiptId = generateReceiptId();
+
     if (sellerDepositSnapshot) {
       await createLedgerEntry({
         operationId: generateOperationId("seller_deposit_hold"),
@@ -228,6 +230,7 @@ export const createAuction = async (req, res) => {
         heldAfter: sellerDepositSnapshot.heldAfter,
         referenceModel: "Auction",
         referenceId: auction._id,
+        receiptId: depositReceiptId,
         metadata: {
           reason: "Seller deposit locked on auction creation",
         },
@@ -244,7 +247,7 @@ export const createAuction = async (req, res) => {
         userId: String(sellerId),
         amount: sellerDeposit,
         reason: "Seller deposit locked on auction creation (pending)",
-        receiptId: generateReceiptId(),
+        receiptId: depositReceiptId,
         by: "SYSTEM",
       });
     } catch (logErr) {
@@ -964,6 +967,7 @@ export const placeBid = async (req, res) => {
           heldAfter: afterHeld,
           referenceModel: "Auction",
           referenceId: auction._id,
+          receiptId: generateReceiptId(),
           metadata: {
             reason: "Bidder deposit hold on first bid",
           },

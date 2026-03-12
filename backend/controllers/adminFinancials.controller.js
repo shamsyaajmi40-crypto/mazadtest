@@ -644,6 +644,7 @@ export const deleteFinancialLog = async (req, res) => {
             heldAfter: nextHeld,
             referenceModel: "FinanceLog",
             referenceId: log._id,
+            receiptId: generateReceiptId(),
             metadata: {
                 reversedOperationId: log.operationId || null,
                 reversedLogId: String(log._id),

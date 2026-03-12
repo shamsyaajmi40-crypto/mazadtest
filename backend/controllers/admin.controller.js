@@ -44,6 +44,7 @@ export const getAdminCounters = async (req, res) => {
     res.status(500).json({ message: "Failed to load counters" });
   }
 };
+
 // رفض مزاد
 export const rejectAuction = async (req, res) => {
   try {
@@ -67,7 +68,6 @@ export const rejectAuction = async (req, res) => {
         { $inc: { heldBalance: -deposit, balance: deposit } }
       );
 
-      // ✅ سجل AuditLog باستخدام action موجود عندك: REFUND
       const receiptId = generateReceiptId();
       try {
         const signData = { action: "REFUND", auction: String(auction._id), user: String(auction.owner), amount: deposit, receiptId };
@@ -88,24 +88,42 @@ export const rejectAuction = async (req, res) => {
           meta: { signature }
         });
 
-        // ✅ إرسال بريد إلكتروني بالوصل المالي في حال النجاح
         if (updated.modifiedCount > 0) {
-          const user = await User.findById(auction.owner).select("name email");
-          if (user && user.email) {
-            sendReceiptEmail({
-              to: user.email,
-              userName: user.name,
-              receiptId,
-              amount: deposit,
+          const userWallet = await User.findById(auction.owner).select("balance heldBalance name email").lean();
+          if (userWallet) {
+            await createLedgerEntry({
+              operationId: generateOperationId("auction_reject_refund"),
+              userId: auction.owner,
               type: "DEPOSIT_REFUND",
-              date: new Date(),
-              details: `إرجاع عربون المزاد المرفوض: ${auction.title}`
+              amountIQD: deposit,
+              balanceBefore: Number(userWallet.balance || 0) - deposit,
+              balanceAfter: Number(userWallet.balance || 0),
+              heldBefore: Number(userWallet.heldBalance || 0) + deposit,
+              heldAfter: Number(userWallet.heldBalance || 0),
+              referenceModel: "Auction",
+              referenceId: auction._id,
+              receiptId,
+              metadata: {
+                reason: "Auction rejected - refund seller deposit",
+                adminId: String(req.user?._id || ""),
+              },
             });
+
+            if (userWallet.email) {
+              sendReceiptEmail({
+                to: userWallet.email,
+                userName: userWallet.name,
+                receiptId,
+                amount: deposit,
+                type: "DEPOSIT_REFUND",
+                date: new Date(),
+                details: `إرجاع عربون المزاد المرفوض: ${auction.title}`
+              }).catch(e => console.error("Email err:", e));
+            }
           }
         }
       } catch (logErr) {
-        // لا نكسر العملية بسبب AuditLog
-        console.error("AuditLog create failed in rejectAuction:", logErr);
+        console.error("Audit/Ledger Log create failed in rejectAuction:", logErr);
       }
     }
 
@@ -120,7 +138,6 @@ export const rejectAuction = async (req, res) => {
 
     const sellerId = auction.owner || auction.seller;
     if (sellerId) {
-      // تجهيز رسالة واضحة بالأسباب
       let reasonMsg = "";
       if (rejectionReasons.length > 0) {
         reasonMsg = `\nالأسباب: ${rejectionReasons.join(" - ")}`;
@@ -137,9 +154,7 @@ export const rejectAuction = async (req, res) => {
         type: "SYSTEM"
       });
       const io = getIo();
-      if (io) {
-        io.to("admin_room").emit("admin_refresh");
-      }
+      if (io) io.to("admin_room").emit("admin_refresh");
     } else {
       const io = getIo();
       if (io) io.to("admin_room").emit("admin_refresh");
@@ -772,7 +787,7 @@ export const getPlatformBalanceSources = async (req, res) => {
                 amount: 1,
                 reason: 1,
                 createdAt: 1,
-
+                receiptId: 1, // Include receiptId
                 // ✅ يدعم الشكلين: auctionId/userId أو auction/user
                 auctionId: {
                   $ifNull: [
@@ -796,15 +811,15 @@ export const getPlatformBalanceSources = async (req, res) => {
     ]);
 
     const items = recentAgg?.items || [];
-    const total = recentAgg?.totalCount?.[0]?.total || 0;
-    const pages = Math.ceil(total / limitNum) || 1;
+    const totalItems = recentAgg?.totalCount?.[0]?.total || 0;
+    const totalPages = Math.ceil(totalItems / limitNum) || 1;
 
     return res.json({
       platformBalance,
       todayConfiscations,
       monthConfiscations,
       grouped,
-      recent: { items, page: pageNum, pages, total, limit: limitNum },
+      recent: { items, page: pageNum, pages: totalPages, total: totalItems, limit: limitNum },
     });
   } catch (err) {
     console.error("getPlatformBalanceSources error:", err);
@@ -1253,7 +1268,7 @@ export const resolveDispute = async (req, res) => {
     }
 
   } catch (error) {
-    await session.abortTransaction();
+    if (session.inTransaction()) await session.abortTransaction();
     console.error("resolveDispute error:", error);
     res.status(500).json({ message: "Failed to resolve dispute" });
   } finally {

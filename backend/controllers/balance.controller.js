@@ -469,7 +469,6 @@ export const adminRejectRefundRequest = async (req, res) => {
 
 
 // GET /api/admin/refund-logs?limit=200
-// GET /api/admin/refund-logs?limit=200
 export const adminRefundLogs = async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 200), 500);
@@ -491,6 +490,7 @@ export const adminRefundLogs = async (req, res) => {
       createdAt: l.createdAt,
       user: l.user,
       refId: l.refId,
+      receiptId: l.receiptId,
     }));
 
     res.set("Cache-Control", "no-store");
@@ -526,4 +526,3 @@ export const getMyFinancialLogs = async (req, res) => {
     return res.status(500).json({ message: "Failed to load your financial history" });
   }
 };
-

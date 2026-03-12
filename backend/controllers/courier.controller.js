@@ -946,6 +946,7 @@ export const markCodPaidToSeller = async (req, res) => {
         heldAfter: platformBeforeHeld,
         referenceModel: "Auction",
         referenceId: auction._id,
+        receiptId: commissionReceiptId,
         metadata: {
           sourceType: "PLATFORM_COMMISSION",
           fromUserId: auction.seller,

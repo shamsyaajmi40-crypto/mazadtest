@@ -1515,6 +1515,7 @@ export const featureAuction = async (req, res) => {
         heldAfter: platformBeforeHeld,
         referenceModel: "Auction",
         referenceId: auction._id,
+        receiptId,
         metadata: {
           sourceType: "FEATURE_AUCTION_PAYMENT",
           fromUserId: userId,

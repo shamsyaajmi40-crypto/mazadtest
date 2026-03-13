@@ -2,6 +2,7 @@ import { useContext, useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import {
   AlertTriangle,
+  AlertCircle,
   ChevronDown,
   ChevronUp,
   CheckCircle2,
@@ -10,10 +11,15 @@ import {
   RotateCcw,
   Truck,
   Siren,
+  User,
+  Search,
+  Wallet,
+  ReceiptText,
 } from "lucide-react";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { calculateCommission } from "../utils/commission";
+import "./CourierStaffDashboard.css";
 
 type DeliveryOrder = {
   _id: string;
@@ -114,13 +120,7 @@ export default function CourierAgentDashboard() {
   const [showDoneArchive, setShowDoneArchive] = useState(false);
   const [expandedByOrder, setExpandedByOrder] = useState<Record<string, boolean>>({});
   const [showFailForm, setShowFailForm] = useState<Record<string, boolean>>({});
-
-  const grouped = useMemo(() => {
-    const active = orders.filter((o) => !isFinal(o.status) && o.status !== "DELIVERY_FAILED");
-    const failed = orders.filter((o) => o.status === "DELIVERY_FAILED");
-    const done = orders.filter((o) => isFinal(o.status));
-    return { active, failed, done };
-  }, [orders]);
+  const [search, setSearch] = useState("");
 
   const loadOrders = async () => {
     setLoading(true);
@@ -143,6 +143,16 @@ export default function CourierAgentDashboard() {
     const t = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  const filteredOrders = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const list = q ? orders.filter(o => o._id.toLowerCase().includes(q) || (o.trackingCode || "").toLowerCase().includes(q)) : orders;
+    return {
+      active: list.filter(o => !isFinal(o.status) && o.status !== "DELIVERY_FAILED"),
+      failed: list.filter(o => o.status === "DELIVERY_FAILED"),
+      done: list.filter(o => isFinal(o.status))
+    };
+  }, [orders, search]);
 
   const runAction = async (orderId: string, fn: () => Promise<void>) => {
     setBusyOrderId(orderId);
@@ -187,7 +197,7 @@ export default function CourierAgentDashboard() {
       });
     });
 
-  if (authLoading) return <div className="p-10 text-center">جاري التحميل...</div>;
+  if (authLoading) return <div className="p-10 text-center text-white bg-slate-950 min-h-screen">جاري التحميل...</div>;
   if (!user) return <Navigate to="/" replace />;
   if (user.role !== "courier_agent") return <Navigate to="/" replace />;
 
@@ -199,185 +209,133 @@ export default function CourierAgentDashboard() {
     const canPickUp = ["READY_FOR_PICKUP", "OUT_FOR_DELIVERY"].includes(o.status);
     const canDeliver = ["PICKED_UP", "OUT_FOR_DELIVERY"].includes(o.status);
     const canFail = !isFinal(o.status);
-    const deadlineMs = o.auction?.confirmationDeadline
-      ? new Date(o.auction.confirmationDeadline).getTime()
-      : 0;
+    const deadlineMs = o.auction?.confirmationDeadline ? new Date(o.auction.confirmationDeadline).getTime() : 0;
     const reviewOpen = o.status === "DELIVERY_FAILED" && deadlineMs > nowMs;
     const canRevert = reviewOpen;
 
-    const cardTone = isDone
-      ? "border-emerald-200/60 bg-white"
-      : isFailed
-        ? "border-rose-200/60 bg-white"
-        : "border-slate-200/60 bg-white";
-
-    const badgeTone = isDone
-      ? "bg-emerald-50 text-emerald-700 ring-emerald-200 shadow-emerald-100/50"
-      : isFailed
-        ? "bg-rose-50 text-rose-700 ring-rose-200 shadow-rose-100/50"
-        : "bg-blue-50 text-blue-700 ring-blue-200 shadow-blue-100/50";
-
-    const indicatorColor = isDone ? "bg-emerald-500" : isFailed ? "bg-rose-500" : "bg-blue-500";
+    const statusClasses = isDone ? "status-completed" : isFailed ? "status-failed" : "status-active";
+    const indicatorGlow = isDone ? "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.5)]" : isFailed ? "bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.5)]" : "bg-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.5)]";
 
     return (
-      <div key={o._id} className={`group relative rounded-2xl border p-4 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden ${cardTone}`}>
-        <div className={`absolute top-0 right-0 w-1.5 h-full ${indicatorColor}`} />
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pr-2">
-          <div>
-            <div className="font-extrabold text-sm text-slate-900 tracking-tight">طلب #{o._id.slice(-6).toUpperCase()}</div>
+      <div key={o._id} className="glass-card overflow-hidden relative group p-5 flex flex-col gap-4 animate-slide-up">
+        <div className={`absolute top-0 right-0 w-2 h-full ${indicatorGlow}`} />
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <span className="font-black text-white text-lg tracking-tight">#{o._id.slice(-6).toUpperCase()}</span>
+              <span className={`status-badge ${statusClasses}`}>{statusLabel[o.status] || o.status}</span>
+            </div>
+            <div className="text-[11px] text-slate-500 font-bold mt-1.5 flex items-center gap-2">
+              <Truck className="w-3 h-3" /> {o.trackingCode || "N/A"}
+            </div>
           </div>
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ring-inset shadow-sm ${badgeTone}`}>
-              {statusLabel[o.status] || o.status}
-            </span>
-            <button
-              onClick={() => setExpandedByOrder((p) => ({ ...p, [o._id]: !expanded }))}
-              className="rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors inline-flex items-center gap-1.5 shadow-sm"
-            >
-              {expanded ? (
-                <>إخفاء <ChevronUp className="w-3.5 h-3.5" /></>
-              ) : (
-                <>تفاصيل <ChevronDown className="w-3.5 h-3.5" /></>
-              )}
-            </button>
-          </div>
+          <button onClick={() => setExpandedByOrder(p => ({ ...p, [o._id]: !expanded }))} className="glass-card p-2 text-slate-400 hover:text-white transition-colors">
+            {expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          </button>
         </div>
 
+        {!expanded && (
+          <div className="flex items-center justify-between mt-1 pt-3 border-t border-white/5">
+            <div className="text-[11px] font-black text-indigo-400">{totalDueWithDelivery(o).toLocaleString()} <span className="opacity-50">IQD</span></div>
+            <div className="text-[10px] text-slate-500 font-bold">بانتظار الإجراء...</div>
+          </div>
+        )}
+
         {expanded && (
-          <div className="mt-4 pt-4 border-t border-slate-100 pr-2 animate-in fade-in zoom-in-95 duration-200">
-            <div className="text-[11px] text-slate-500 mb-4 bg-slate-50 p-2 rounded-lg inline-flex items-center gap-2 border border-slate-100">
-              <span className="font-bold text-slate-700">التتبع:</span> <span className="font-mono">{o.trackingCode || "غير متوفر"}</span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-1 h-full bg-emerald-400" />
-                <div className="text-xs text-emerald-600 font-bold uppercase tracking-wider mb-1">استحصال من المشتري (COD)</div>
-                <div className="text-2xl font-black text-emerald-900">{totalDueWithDelivery(o).toLocaleString()} د.ع</div>
-                <div className="text-[10px] text-emerald-700/70 mt-1">سعر المزاد + أجرة التوصيل</div>
+          <div className="mt-2 space-y-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+                <div className="text-[9px] font-black text-slate-500 uppercase mb-2">المشتري (تسليم)</div>
+                <div className="text-xs font-bold text-slate-200 mb-1">{o.auction?.winner?.name || "-"}</div>
+                <div className="text-[10px] text-slate-400 font-mono mb-2">{o.auction?.winner?.phone || "-"}</div>
+                <div className="text-[10px] text-slate-500 leading-relaxed">{fullAddress(o.auction?.winner || null)}</div>
               </div>
-
-              <div className="rounded-xl border border-violet-200 bg-violet-50/50 p-4 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-1 h-full bg-violet-400" />
-                <div className="text-xs text-violet-600 font-bold uppercase tracking-wider mb-1">صافي مستحق البائع</div>
-                <div className="text-2xl font-black text-violet-900">{sellerPayout(o).toLocaleString()} د.ع</div>
-                <div className="text-[10px] text-violet-700/70 mt-1">مخصوم منه العمولة ({getCommission(o).toLocaleString()} د.ع)</div>
+              <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+                <div className="text-[9px] font-black text-slate-500 uppercase mb-2">البائع (استلام)</div>
+                <div className="text-xs font-bold text-slate-200 mb-1">{o.auction?.seller?.name || "-"}</div>
+                <div className="text-[10px] text-slate-400 font-mono mb-2">{o.auction?.seller?.phone || "-"}</div>
+                <div className="text-[10px] text-slate-500 leading-relaxed">{fullAddress(o.auction?.seller || null)}</div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
-              <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm relative hover:border-amber-200 transition-colors">
-                <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)] animate-pulse" />
-                <div className="font-black text-slate-800 mb-3 text-xs pr-4">موقع الاستلام (البائع)</div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs">👤</span> <span className="font-bold text-slate-800 text-sm">{o.auction?.seller?.name || "-"}</span></div>
-                  <div className="flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs">📱</span> <span className="font-mono font-bold text-slate-800 text-sm tracking-wide">{o.auction?.seller?.phone || "-"}</span></div>
-                  <div className="flex items-start gap-2"><span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs shrink-0 mt-0.5">📍</span> <span className="text-slate-600 text-sm leading-tight">{fullAddress(o.auction?.seller || null)}</span></div>
-                </div>
+            <div className="bg-slate-900/40 rounded-2xl p-4 border border-white/5 grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <div className="text-[9px] font-black text-slate-500 uppercase mb-1">الاستحصال (COD)</div>
+                <div className="text-sm font-black text-emerald-400">{totalDueWithDelivery(o).toLocaleString()}</div>
               </div>
-
-              <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm relative hover:border-blue-200 transition-colors">
-                <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)] animate-pulse" />
-                <div className="font-black text-slate-800 mb-3 text-xs pr-4">موقع التسليم (المشتري)</div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs">👤</span> <span className="font-bold text-slate-800 text-sm">{o.auction?.winner?.name || "-"}</span></div>
-                  <div className="flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs">📱</span> <span className="font-mono font-bold text-slate-800 text-sm tracking-wide">{o.auction?.winner?.phone || "-"}</span></div>
-                  <div className="flex items-start gap-2"><span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs shrink-0 mt-0.5">📍</span> <span className="text-slate-600 text-sm leading-tight">{fullAddress(o.auction?.winner || null)}</span></div>
-                </div>
+              <div className="text-center">
+                <div className="text-[9px] font-black text-slate-500 uppercase mb-1">صافي المشتري</div>
+                <div className="text-sm font-black text-violet-400">{sellerPayout(o).toLocaleString()}</div>
               </div>
             </div>
 
             {o.status === "DELIVERY_FAILED" && (
-              <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 p-4 shadow-sm">
-                <div className="text-sm font-bold text-rose-800 mb-2 flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 shrink-0" />
-                  سبب الفشل: {failureReasonLabel[o.failureReason || ""] || o.failureReason || "-"}
+              <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4">
+                <div className="flex items-center gap-2 text-rose-400 font-black text-xs mb-1">
+                  <AlertTriangle className="w-4 h-4" /> سبب الفشل: {failureReasonLabel[o.failureReason || ""] || o.failureReason || "-"}
                 </div>
-                <div className={`text-xs font-black mt-1 ${reviewOpen ? "text-rose-600" : "text-rose-900"}`}>
-                  {reviewOpen
-                    ? `المهلة المتبقية للتراجع عن الفشل: ${formatRemaining(deadlineMs - nowMs)}`
-                    : "انتهت مهلة المراجعة، تم إغلاق الطلب."}
+                <div className="text-[10px] text-rose-300/70">
+                  {reviewOpen ? `تحذير: مهلة التراجع تنتهي خلال ${formatRemaining(deadlineMs - nowMs)}` : "مغلق نهائياً - تمت مراجعة الفشل."}
                 </div>
               </div>
             )}
 
-            <div className="space-y-3 bg-slate-50 border border-slate-100 rounded-xl p-3 mb-4">
+            <div className="space-y-4 pt-2">
               <button
                 onClick={() => onPickedUp(o._id)}
                 disabled={!canPickUp || isBusy}
-                className="w-full rounded-xl bg-slate-900 py-4 text-sm font-bold text-white shadow-md hover:bg-slate-800 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
+                className="w-full premium-btn-primary flex items-center justify-center gap-2 py-4 disabled:opacity-30"
               >
-                <Truck className="w-5 h-5 text-emerald-400" /> تأكيد استلام البضاعة من البائع
+                <Truck className="w-5 h-5 text-emerald-400" /> تم استلام الطلب من البائع
               </button>
 
-              <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm flex flex-col gap-2">
+              <div className="glass-card p-3 flex flex-col gap-3">
                 <input
                   value={otpByOrder[o._id] || ""}
-                  onChange={(e) => setOtpByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
-                  className="w-full rounded-xl border-slate-200 bg-slate-50 px-4 py-3 text-center text-lg tracking-widest font-black shadow-inner focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors outline-none"
+                  onChange={(e) => setOtpByOrder(p => ({ ...p, [o._id]: e.target.value }))}
+                  className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-center text-xl font-black text-white tracking-widest outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="رمز OTP المشتري"
                   inputMode="numeric"
                 />
                 <button
                   onClick={() => onDelivered(o._id)}
                   disabled={!canDeliver || isBusy}
-                  className="w-full rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-md hover:bg-emerald-700 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
+                  className="w-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/20 rounded-xl py-3.5 text-emerald-400 font-black text-sm transition-all active:scale-95 disabled:opacity-20 flex items-center justify-center gap-2"
                 >
-                  <CheckCircle2 className="w-5 h-5" /> تسليم
+                  <CheckCircle2 className="w-5 h-5" /> تأكيد التسليم للمشتري
                 </button>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-transparent">
-              <div className="flex flex-col gap-2">
+              <div className="grid grid-cols-2 gap-2 pt-2">
                 <button
-                  onClick={() => setShowFailForm((p) => ({ ...p, [o._id]: !p[o._id] }))}
+                  onClick={() => setShowFailForm(p => ({ ...p, [o._id]: !p[o._id] }))}
                   disabled={!canFail || isBusy}
-                  className={`w-full h-full rounded-xl border-2 py-3.5 text-xs font-bold transition-all flex items-center justify-center gap-2 ${showFailForm[o._id]
-                    ? "border-rose-500 bg-rose-50 text-rose-800"
-                    : "border-rose-200 bg-white text-rose-700 hover:bg-rose-50"
-                    } disabled:opacity-50`}
+                  className={`border rounded-xl py-3 font-bold text-[10px] transition-all active:scale-95 flex items-center justify-center gap-2 ${showFailForm[o._id] ? "bg-rose-500 border-rose-500 text-white" : "bg-rose-500/10 border-rose-500/20 text-rose-500"}`}
                 >
-                  <AlertTriangle className="w-4 h-4 shrink-0" /> الإبلاغ عن مشكلة / فشل التوصيل
+                  <AlertCircle className="w-4 h-4" /> بلاغ فشل
                 </button>
-
-                {showFailForm[o._id] && (
-                  <div className="bg-rose-50/50 border border-rose-200 shadow-inner rounded-xl p-4 w-full animate-in fade-in slide-in-from-top-2">
-                    <div className="text-[11px] text-slate-500 uppercase font-black mb-3">تفاصيل المشكلة</div>
-                    <select
-                      value={reasonByOrder[o._id] || ""}
-                      onChange={(e) => setReasonByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
-                      className="w-full rounded-xl border-slate-200 text-xs font-bold mb-3 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 bg-white p-3 outline-none shadow-sm"
-                    >
-                      <option value="">ما هو سبب عدم التوصيل؟...</option>
-                      {reasons.map((r) => (
-                        <option key={r.value} value={r.value}>{r.label}</option>
-                      ))}
-                    </select>
-                    <input
-                      value={noteByOrder[o._id] || ""}
-                      onChange={(e) => setNoteByOrder((p) => ({ ...p, [o._id]: e.target.value }))}
-                      className="w-full rounded-xl border-slate-200 text-xs mb-3 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 bg-white p-3 outline-none shadow-sm"
-                      placeholder="ملاحظات توضيحية للإدارة..."
-                    />
-                    <button
-                      onClick={() => onFailed(o._id)}
-                      disabled={!canFail || isBusy || !reasonByOrder[o._id]}
-                      className="w-full rounded-xl bg-rose-600 py-3 text-xs font-bold text-white shadow-md hover:bg-rose-700 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
-                    >
-                      تأكيد المشكلة (يغلق الطلب)
-                    </button>
-                  </div>
-                )}
+                <button
+                  onClick={() => onRevertFailed(o._id)}
+                  disabled={!canRevert || isBusy}
+                  className="bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-xl py-3 text-amber-400 font-bold text-[10px] transition-all disabled:opacity-20 active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" /> تراجع عن الفشل
+                </button>
               </div>
 
-              <button
-                onClick={() => onRevertFailed(o._id)}
-                disabled={!canRevert || isBusy}
-                className="w-full rounded-xl border border-slate-300 bg-white py-3.5 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-400 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
-              >
-                <RotateCcw className="w-4 h-4 text-amber-500" /> تراجع عن قيد الفشل
-              </button>
+              {showFailForm[o._id] && (
+                <div className="bg-rose-500/5 border border-rose-500/20 rounded-2xl p-5 animate-in slide-in-from-top-2">
+                  <div className="text-[10px] font-black text-rose-400 uppercase mb-3 text-right">تفاصيل بلاغ الفشل</div>
+                  <div className="space-y-3">
+                    <select value={reasonByOrder[o._id] || ""} onChange={e => setReasonByOrder(p => ({ ...p, [o._id]: e.target.value }))} className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-white outline-none">
+                      <option value="">اختر سبب المشكلة...</option>
+                      {reasons.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                    </select>
+                    <input value={noteByOrder[o._id] || ""} onChange={e => setNoteByOrder(p => ({ ...p, [o._id]: e.target.value }))} className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-medium text-white outline-none" placeholder="ملاحظات إضافية..." />
+                    <button onClick={() => onFailed(o._id)} disabled={!canFail || isBusy || !reasonByOrder[o._id]} className="w-full bg-rose-600 rounded-xl py-3 text-white font-black text-xs shadow-lg shadow-rose-600/20">تأكيد الإغلاق كفشل</button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -386,151 +344,95 @@ export default function CourierAgentDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 relative pb-24 font-sans">
-      <div className="absolute top-0 inset-x-0 h-48 bg-gradient-to-br from-slate-900 to-slate-800 -z-0 rounded-b-[40px]" />
+    <div className="courier-dashboard-container font-sans relative pb-20">
+      <div className="fixed inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-from),_transparent_50%)] from-indigo-500/10 to-transparent pointer-events-none" />
+      <div className="fixed inset-0 bg-[radial-gradient(circle_at_bottom_left,_var(--tw-gradient-from),_transparent_50%)] from-emerald-500/5 to-transparent pointer-events-none" />
 
-      <div className="max-w-4xl mx-auto p-4 space-y-5 relative z-10">
-        <div className="rounded-3xl border border-white/20 bg-white/10 backdrop-blur-lg p-5 shadow-xl text-white">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="text-2xl font-black tracking-tight">لوحة المندوب</div>
-              <div className="text-sm text-slate-200 mt-1 font-medium">إدارة ومتابعة طلبات الاستلام والتوصيل في الميدان.</div>
-            </div>
-            <div className="flex gap-2.5">
-              <button
-                onClick={loadOrders}
-                className="flex-1 sm:flex-none rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 px-4 py-2.5 font-bold inline-flex items-center justify-center gap-2 transition-all active:scale-95"
-              >
-                <RefreshCcw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                تحديث
-              </button>
-              <button
-                onClick={logout}
-                className="flex-1 sm:flex-none rounded-xl bg-rose-500/90 hover:bg-rose-500 px-4 py-2.5 font-bold inline-flex items-center justify-center gap-2 transition-all active:scale-95"
-              >
-                <LogOut className="w-4 h-4" />
-                خروج
-              </button>
-            </div>
+      <div className="max-w-4xl mx-auto p-4 md:p-6 lg:p-8 space-y-6 relative z-10 animate-slide-up">
+        {/* Mobile-Optimized Header */}
+        <header className="glass-panel p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 overflow-hidden relative">
+          <div className="relative">
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white">لوحة المندوب الميداني</h1>
+            <p className="text-slate-400 mt-1 text-sm font-medium">إدارة عمليات الاستلام والتسليم اللوجستية.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={loadOrders} className="glass-card px-4 py-2 font-bold flex items-center gap-2 hover:bg-white/10 transition-all border-white/5 text-xs">
+              <RefreshCcw className={`w-3.5 h-3.5 text-indigo-400 ${loading ? "animate-spin" : ""}`} /> تحديث
+            </button>
+            <button onClick={logout} className="rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 px-4 py-2 font-bold text-rose-400 text-xs flex items-center gap-2 transition-all">
+              <LogOut className="w-3.5 h-3.5" /> خروج
+            </button>
+          </div>
+        </header>
+
+        {/* Global Stats Grid */}
+        <div className="grid grid-cols-3 gap-3 md:gap-4">
+          <div className="glass-panel p-4 text-center stat-glow-indigo">
+            <div className="text-[10px] font-black text-indigo-400 uppercase tracking-wider mb-1">نشطة</div>
+            <div className="text-2xl font-black text-white">{filteredOrders.active.length}</div>
+          </div>
+          <div className="glass-panel p-4 text-center stat-glow-rose">
+            <div className="text-[10px] font-black text-rose-400 uppercase tracking-wider mb-1">فاشلة</div>
+            <div className="text-2xl font-black text-rose-500">{filteredOrders.failed.length}</div>
+          </div>
+          <div className="glass-panel p-4 text-center stat-glow-emerald">
+            <div className="text-[10px] font-black text-emerald-400 uppercase tracking-wider mb-1">منتهية</div>
+            <div className="text-2xl font-black text-emerald-500">{filteredOrders.done.length}</div>
           </div>
         </div>
 
         {error && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700 shadow-sm flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
-            <AlertTriangle className="w-5 h-5 shrink-0" />
-            {error}
+          <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 backdrop-blur-md p-4 text-xs font-bold text-rose-400 shadow-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+            <AlertTriangle className="w-4 h-4 shrink-0" /> {error}
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-2xl border border-slate-200/60 bg-white p-3 sm:p-4 text-center shadow-sm">
-            <div className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 sm:mb-2 line-clamp-1">طلبات فعالة</div>
-            <div className="text-2xl sm:text-3xl font-black text-slate-900">{grouped.active.length}</div>
+        {/* Action Controls */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="glass-panel p-2 flex items-center relative group">
+            <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400" />
+            <input value={search} onChange={e => setSearch(e.target.value)} className="w-full bg-transparent border-0 py-3 pr-10 pl-4 text-white font-bold text-xs placeholder:text-slate-600 outline-none" placeholder="ابحث برقم الطلب..." />
           </div>
-          <div className="rounded-2xl border border-slate-200/60 bg-white p-3 sm:p-4 text-center shadow-sm">
-            <div className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 sm:mb-2 line-clamp-1">طلبات فاشلة</div>
-            <div className="text-2xl sm:text-3xl font-black text-rose-600">{grouped.failed.length}</div>
-          </div>
-          <div className="rounded-2xl border border-slate-200/60 bg-white p-3 sm:p-4 text-center shadow-sm">
-            <div className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 sm:mb-2 line-clamp-1">طلبات منتهية</div>
-            <div className="text-2xl sm:text-3xl font-black text-emerald-600">{grouped.done.length}</div>
+          <div className="flex gap-2">
+            <button onClick={() => setShowFailedArchive(!showFailedArchive)} className={`flex-1 glass-panel px-4 py-3 font-black text-[11px] transition-all flex items-center justify-center gap-2 ${showFailedArchive ? 'bg-indigo-500/20 border-indigo-500/40 text-white' : 'text-slate-500'}`}>
+              <AlertTriangle className="w-4 h-4" /> الأرشيف الفاشل ({filteredOrders.failed.length})
+            </button>
+            <button onClick={() => setShowDoneArchive(!showDoneArchive)} className={`flex-1 glass-panel px-4 py-3 font-black text-[11px] transition-all flex items-center justify-center gap-2 ${showDoneArchive ? 'bg-emerald-500/20 border-emerald-500/40 text-white' : 'text-slate-500'}`}>
+              <CheckCircle2 className="w-4 h-4" /> المكتمل اليوم ({filteredOrders.done.length})
+            </button>
           </div>
         </div>
 
-        <div className="space-y-6 pt-2">
-          <section className="rounded-3xl border border-slate-200/60 bg-white p-2.5 shadow-sm flex items-center justify-between px-5">
-            <div className="text-sm font-black text-slate-700 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
-              أرشيف الطلبات الفاشلة
-            </div>
-            <button
-              onClick={() => setShowFailedArchive((v) => !v)}
-              className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors ${showFailedArchive
-                ? "bg-slate-900 text-white"
-                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                }`}
-            >
-              {showFailedArchive ? "إخفاء" : `عرض (${grouped.failed.length})`}
-            </button>
-          </section>
+        {/* Order Sections */}
+        <section className="space-y-4">
+          <div className="flex items-center gap-3 py-2">
+            <div className="relative flex h-3 w-3"><span className="animate-ping absolute h-full w-full rounded-full bg-indigo-400 opacity-75"></span><span className="relative rounded-full h-3 w-3 bg-indigo-500"></span></div>
+            <h2 className="text-lg font-black text-white tracking-tight">الطلبات الجارية للأهمية</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredOrders.active.length === 0 ? (
+              <div className="col-span-full glass-panel border-dashed border-2 border-white/5 p-12 text-center text-slate-500 font-bold">كل شيء هادئ هنا... لا توجد طلبات جارية.</div>
+            ) : filteredOrders.active.map(renderCard)}
+          </div>
+        </section>
 
-          <section className="space-y-4 pt-4 relative">
-            <div className="absolute -inset-2 rounded-3xl bg-blue-50/50 border border-blue-100/50 -z-10" />
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border-2 border-blue-500 shadow-sm relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-1.5 h-full bg-blue-500" />
-              <div className="inline-flex items-center gap-3">
-                <div className="relative flex h-3.5 w-3.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-blue-500"></span>
-                </div>
-                <h2 className="text-xl font-black text-blue-900 tracking-tight">الطلبات الجارية (الأهم - قيد التنفيذ)</h2>
-              </div>
-              <span className="rounded-xl bg-blue-500 px-4 py-1.5 text-sm font-bold text-white shadow-sm flex items-center gap-2 w-max ring-4 ring-blue-50">
-                <Truck className="w-4 h-4" />
-                {grouped.active.length} طلبات
-              </span>
-            </div>
+        {showFailedArchive && (
+          <section className="space-y-4 pt-6 animate-in fade-in slide-in-from-bottom-4">
+            <h2 className="text-lg font-black text-rose-400 flex items-center gap-2 border-t border-white/5 pt-6">أرشيف الطلبات الفاشلة</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {grouped.active.length === 0 ? (
-                <div className="col-span-full rounded-3xl border-2 border-dashed border-slate-200 bg-white/50 p-10 text-center text-slate-400 font-medium">
-                  أنت الآن جاهز! لا توجد طلبات قيد التنفيذ.
-                </div>
-              ) : (
-                grouped.active.map(renderCard)
-              )}
+              {filteredOrders.failed.length === 0 ? <div className="col-span-full text-center text-slate-600 py-10 font-bold">لا توجد طلبات فاشلة اليوم.</div> : filteredOrders.failed.map(renderCard)}
             </div>
           </section>
+        )}
 
-          {showFailedArchive && (
-            <section className="space-y-4 pt-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <div className="inline-flex items-center gap-2 border-t border-slate-200 w-full pt-6">
-                <div className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
-                <h2 className="text-lg font-black text-slate-800">الطلبات الفاشلة (انتظار مراجعة الإدارة)</h2>
-                <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-bold text-rose-700">{grouped.failed.length}</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {grouped.failed.length === 0 ? (
-                  <div className="col-span-full rounded-3xl border-2 border-dashed border-slate-200 bg-white/50 p-10 text-center text-slate-400 font-medium">
-                    لا توجد طلبات فاشلة.
-                  </div>
-                ) : (
-                  grouped.failed.map(renderCard)
-                )}
-              </div>
-            </section>
-          )}
-
-          <section className="rounded-3xl border border-slate-200/60 bg-white p-2.5 shadow-sm flex items-center justify-between px-5 mt-6">
-            <div className="text-sm font-black text-slate-700 flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-              الطلبات المكتملة حديثاً
+        {showDoneArchive && (
+          <section className="space-y-4 pt-6 animate-in fade-in slide-in-from-bottom-4">
+            <h2 className="text-lg font-black text-emerald-400 flex items-center gap-2 border-t border-white/5 pt-6">الطلبات المكتملة</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-80">
+              {filteredOrders.done.length === 0 ? <div className="col-span-full text-center text-slate-600 py-10 font-bold">لم تكتمل أي طلبات حتى الآن.</div> : filteredOrders.done.map(renderCard)}
             </div>
-            <button
-              onClick={() => setShowDoneArchive((v) => !v)}
-              className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors ${showDoneArchive
-                ? "bg-slate-900 text-white"
-                : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                }`}
-            >
-              {showDoneArchive ? "إخفاء" : `عرض (${grouped.done.length})`}
-            </button>
           </section>
-
-          {showDoneArchive && (
-            <section className="space-y-4 pt-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-90 hover:opacity-100 transition-opacity">
-                {grouped.done.length === 0 ? (
-                  <div className="col-span-full rounded-3xl border-2 border-dashed border-slate-200 bg-white/50 p-10 text-center text-slate-400 font-medium">
-                    لم تكمل أي طلبات حتى الآن.
-                  </div>
-                ) : (
-                  grouped.done.map(renderCard)
-                )}
-              </div>
-            </section>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

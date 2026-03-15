@@ -1,135 +1,27 @@
-
-:root {
-  --courier-bg: #020617; /* Slate 950 */
-  --courier-glass: rgba(15, 23, 42, 0.6);
-  --courier-accent: #6366f1; /* Indigo 500 */
-  --courier-success: #10b981; /* Emerald 500 */
-  --courier-danger: #f43f5e; /* Rose 500 */
-  --courier-warning: #f59e0b; /* Amber 500 */
-  --courier-border: rgba(255, 255, 255, 0.08);
-  --courier-text: #f8fafc;
-  --courier-text-muted: #94a3b8;
-}
+/* 
+  CourierStaffDashboard.css
+  Simplified "Enterprise" Flat Theme 
+  Replaces the previous heavy Glassmorphism theme to reduce cognitive overload
+*/
 
 .courier-dashboard-container {
-  background-color: var(--courier-bg);
+  /* Inherit background from Tailwind classes (bg-slate-50) */
   min-height: 100vh;
-  color: var(--courier-text);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  padding-bottom: 5rem;
 }
 
-.glass-panel {
-  background: var(--courier-glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--courier-border);
-  border-radius: 1.5rem;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+/* Remove scrollbar for the tab navigation container */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 }
 
-.glass-card {
-  background: rgba(30, 41, 59, 0.4);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--courier-border);
-  border-radius: 1.25rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.glass-card:hover {
-  background: rgba(30, 41, 59, 0.6);
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.5);
-}
-
-.command-header {
-  border-bottom: 1px solid var(--courier-border);
-  padding: 1.5rem 2rem;
-  margin-bottom: 2rem;
-  background: linear-gradient(to bottom, rgba(15, 23, 42, 0.8), transparent);
-}
-
-.sidebar-nav {
-  width: 280px;
-  height: calc(100vh - 4rem);
-  position: sticky;
-  top: 2rem;
-}
-
-.stat-glow-indigo {
-  box-shadow: 0 0 20px -5px rgba(99, 102, 241, 0.3);
-}
-
-.stat-glow-emerald {
-  box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.3);
-}
-
-.stat-glow-rose {
-  box-shadow: 0 0 20px -5px rgba(244, 63, 94, 0.3);
-}
-
-.premium-btn-primary {
-  background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%);
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 1rem;
-  font-weight: 700;
-  transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
-}
-
-.premium-btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.5);
-  filter: brightness(1.1);
-}
-
-.premium-btn-primary:active {
-  transform: translateY(0);
-}
-
-.status-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.025em;
-}
-
-.status-active { background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.3); }
-.status-completed { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
-.status-failed { background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.3); }
-
-.agent-ring {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  padding: 2px;
-  background: conic-gradient(var(--courier-accent) var(--progress), transparent 0);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.agent-ring-inner {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: var(--courier-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Animations */
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-slide-up {
-  animation: slideUp 0.4s ease-out forwards;
-}
+/* 
+  NOTE: The heavy classes like .glass-panel and .glass-card 
+  have been removed from the component entirely in favor of 
+  standard Tailwind CSS classes (bg-white, border-slate-200, shadow-sm, etc.)
+  to ensure a clean, high-contrast, fast-rendering UI. 
+*/

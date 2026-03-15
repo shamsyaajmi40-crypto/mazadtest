@@ -474,7 +474,13 @@ const AuctionDetails = () => {
       console.error("Failed to refresh user before bid:", e);
     }
 
-    if ((user?.balance || 0) < (auction.depositAmount || 0)) {
+    // ⛔ تحقق من الرصيد فقط إذا كان المستخدم يزايد للمرة الأولى في هذا المزاد
+    // إذا سبق له المزايدة فعربونه محجوز مسبقاً ولا حاجة لرصيد إضافي
+    const hasAlreadyBid = bids.some(
+      (b) => b.bidder && String((b.bidder as any)?._id || b.bidder) === String(user?._id)
+    );
+
+    if (!hasAlreadyBid && (user?.balance || 0) < (auction.depositAmount || 0)) {
       setError(`رصيدك غير كافٍ. يتطلب المزاد عربوناً بقيمة ${(auction.depositAmount || 0).toLocaleString()} د.ع.`);
       return;
     }

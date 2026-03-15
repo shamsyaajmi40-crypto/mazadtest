@@ -437,9 +437,13 @@ export const getAuctions = async (req, res) => {
       isDeleted: false,
     };
 
-    if (governorate && governorate !== "الكل") {
+    // Helper function to escape regex characters to prevent ReDoS
+    const escapeRegex = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    if (governorate && governorate !== "الكل" && typeof governorate === "string") {
+      const safeGov = escapeRegex(governorate.substring(0, 50));
       matchQuery.governorate = {
-        $regex: `^${governorate}$`,
+        $regex: `^${safeGov}$`,
         $options: "i",
       };
     }
@@ -454,9 +458,10 @@ export const getAuctions = async (req, res) => {
       if (maxPrice) matchQuery.currentPrice.$lte = Number(maxPrice);
     }
 
-    if (searchTerm) {
+    if (searchTerm && typeof searchTerm === "string") {
+      const safeSearchTerm = escapeRegex(searchTerm.substring(0, 100)); // Limit length to 100 chars
       matchQuery.title = {
-        $regex: searchTerm,
+        $regex: safeSearchTerm,
         $options: "i",
       };
     }

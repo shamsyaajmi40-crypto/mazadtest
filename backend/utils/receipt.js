@@ -19,7 +19,13 @@ export const generateReceiptId = () => {
  * Creates a digital signature for the receipt details (Integrity Check)
  */
 export const signReceipt = (data) => {
-    const secret = process.env.RECEIPT_SECRET || "mazad_integrity_secret_2024";
+    const secret = process.env.RECEIPT_SECRET;
+    
+    if (!secret) {
+        console.error("CRITICAL SECURITY ERROR: RECEIPT_SECRET is not defined in environment variables.");
+        throw new Error("Internal Server Configuration Error: Cannot sign receipt securely.");
+    }
+
     const hmac = crypto.createHmac('sha256', secret);
     hmac.update(JSON.stringify(data));
     return hmac.digest('hex');

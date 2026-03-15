@@ -11,6 +11,7 @@ import connectDB from "./config/db.js";
 import helmet from "helmet";
 import mongoSanitize from "mongo-sanitize";
 import cookieParser from "cookie-parser";
+import rateLimit from "express-rate-limit";
 import { initIo } from "./utils/socket.js";
 import { activateScheduledAuctions } from "./cron/activateScheduledAuctions.js";
 import jwt from "jsonwebtoken";
@@ -141,6 +142,20 @@ io.on("connection", (socket) => {
 /* ======================
    Middlewares
 ====================== */
+
+// 🛡️ Global Rate Limiter
+const limiter = rateLimit({
+  windowMs: 1 * 60 * 1000, 
+  max: 150, 
+  message: {
+    status: "error",
+    message: "Too many requests from this IP, please try again after a minute",
+  },
+  standardHeaders: true, 
+  legacyHeaders: false,  
+});
+app.use(limiter);
+
 app.use(helmet()); // حماية رؤوس HTTP
 app.use(cors({
   origin: [

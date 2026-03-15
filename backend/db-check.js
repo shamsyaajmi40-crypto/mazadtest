@@ -1,7 +1,13 @@
 import mongoose from "mongoose";
 
-const MONGO_URI = "mongodb+srv://mazaDB:EngenerOmar89@cluster0.cdaeyzl.mongodb.net/?appName=Cluster0";
+import "./config/env.js"; // Ensures environment variables are loaded if run standalone
 
+const MONGO_URI = process.env.MONGO_URI;
+
+if (!MONGO_URI) {
+    console.error("❌ ERROR: MONGO_URI is missing from environment variables.");
+    process.exit(1);
+}
 async function check() {
     await mongoose.connect(MONGO_URI);
     console.log("Connected");

@@ -62,7 +62,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
     e.preventDefault();
 
     if (!agreedToTerms) {
-      setError("يجب الموافقة على سياسة الخصوصية للمتابعة");
+      setError("يجب الموافقة على سياسة الخصوصية وجدول العمولات للمتابعة");
       return;
     }
 
@@ -225,6 +225,10 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose }) => {
                 أوافق على{" "}
                 <Link to="/privacy" className="text-primary font-bold">
                   سياسة الخصوصية
+                </Link>{" "}
+                و{" "}
+                <Link to="/privacy#fees" className="text-primary font-bold">
+                  جدول الرسوم والعمولات
                 </Link>
               </label>
 

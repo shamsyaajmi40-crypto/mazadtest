@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ShieldCheck, Scale, Info, Lock, EyeOff, FileText } from 'lucide-react';
+import { ShieldCheck, Scale, Info, Lock, EyeOff, FileText, DollarSign } from 'lucide-react';
 
 const PrivacyPolicy = () => {
   return (
@@ -100,6 +100,57 @@ const PrivacyPolicy = () => {
                 إن إتمامك لعملية التسجيل في منصة "مزاد" يُعد موافقة صريحة ونهائية على كافة البنود المذكورة أعلاه.
               </p>
             </div>
+          </div>
+        </section>
+
+        {/* رسوم الخدمة والعمولات */}
+        <section id="fees" className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+          <div className="flex items-center gap-3 mb-6 border-b border-slate-50 pb-4">
+            <DollarSign className="w-8 h-8 text-emerald-600" />
+            <h2 className="text-2xl font-bold text-slate-900">ثالثاً: رسوم الخدمة والعمولات</h2>
+          </div>
+
+          <div className="space-y-6 text-slate-600 leading-relaxed">
+            <p>
+              تُطبّق منصة <strong>"مزاد"</strong> نظام عمولة هجيناً (Hybrid) يعتمد على جزأين: عمولة ثابتة من سعر البداية وعمولة متدرجة من فرق المزايدة. تُستقطع العمولة تلقائياً من مبلغ الدفع عند إتمام الصفقة.
+            </p>
+
+            <div className="bg-slate-50 p-6 rounded-2xl">
+              <h3 className="font-bold text-slate-900 mb-4">كيفية حساب العمولة</h3>
+              <ul className="list-disc list-inside space-y-2 text-sm">
+                <li><strong>العمولة الأساسية:</strong> 0.5% من سعر البداية دائماً.</li>
+                <li><strong>عمولة الزيادة:</strong> تُحسب من الفرق بين السعر النهائي وسعر البداية وفق الجدول أدناه.</li>
+              </ul>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-slate-100">
+                    <th className="text-right p-3 font-bold text-slate-700 border border-slate-200">السعر النهائي للمزاد</th>
+                    <th className="text-right p-3 font-bold text-slate-700 border border-slate-200">نسبة عمولة الزيادة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td className="p-3 border border-slate-200">أقل من 50,000 د.ع</td><td className="p-3 border border-slate-200 font-bold text-rose-600">5%</td></tr>
+                  <tr className="bg-slate-50"><td className="p-3 border border-slate-200">50,000 – 199,999 د.ع</td><td className="p-3 border border-slate-200 font-bold text-orange-600">3.5%</td></tr>
+                  <tr><td className="p-3 border border-slate-200">200,000 – 499,999 د.ع</td><td className="p-3 border border-slate-200 font-bold text-amber-600">2.5%</td></tr>
+                  <tr className="bg-slate-50"><td className="p-3 border border-slate-200">500,000 – 999,999 د.ع</td><td className="p-3 border border-slate-200 font-bold text-blue-600">1.8%</td></tr>
+                  <tr><td className="p-3 border border-slate-200">مليون د.ع فأكثر</td><td className="p-3 border border-slate-200 font-bold text-emerald-600">1.5%</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl">
+              <p className="text-sm text-emerald-800 font-medium">
+                <strong>📌 الحد الأدنى للعمولة:</strong> 1,000 دينار عراقي&nbsp;&nbsp;|&nbsp;&nbsp;
+                <strong>الحد الأقصى للعمولة:</strong> 50,000 دينار عراقي
+              </p>
+            </div>
+
+            <p className="text-sm text-slate-500">
+              بإتمام عملية التسجيل أو المزايدة في المنصة، يُقر المستخدم بعلمه الكامل وموافقته على هذه الرسوم كما هي موضحة أعلاه.
+            </p>
           </div>
         </section>
       </div>

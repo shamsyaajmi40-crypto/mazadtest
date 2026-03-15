@@ -293,7 +293,7 @@ export default function CourierStaffDashboard() {
     const canRevert = reviewOpen;
 
     // Determine Context
-    const isAssignmentPhase = ["READY_FOR_PICKUP", "OUT_FOR_DELIVERY"].includes(o.status);
+    const isAssignmentPhase = ["READY_FOR_PICKUP", "PICKED_UP", "OUT_FOR_DELIVERY"].includes(o.status);
     const isSettlementPhase = o.status === "DELIVERED";
 
     return (

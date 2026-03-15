@@ -37,7 +37,7 @@ import {
 
 type FinancialLog = {
   _id: string;
-  type: "SUBSCRIPTION" | "TOPUP" | "PENALTY" | "REFUND" | "DEPOSIT_REFUND" | "WALLET_WITHDRAWAL" | "COMMISSION";
+  type: "SUBSCRIPTION" | "TOPUP" | "PENALTY" | "REFUND" | "DEPOSIT_REFUND" | "WALLET_WITHDRAWAL" | "COMMISSION" | "HOLD";
   status?: "SUCCESS" | "FAILED";
   amount: number;
   user?: { name: string; phone: string; _id: string };
@@ -74,7 +74,7 @@ export default function AdminPlatformBalance() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [logs, setLogs] = useState<FinancialLog[]>([]);
-  const [typeFilter, setTypeFilter] = useState<"all" | "subscription" | "topup" | "penalty" | "refund" | "commission">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "subscription" | "topup" | "penalty" | "refund" | "commission" | "hold">("all");
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [totalLogs, setTotalLogs] = useState(0);
@@ -436,6 +436,10 @@ export default function AdminPlatformBalance() {
               onClick={() => { setTypeFilter("commission"); setPage(1); }}
               className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${typeFilter === 'commission' ? 'bg-violet-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
             >عمولات</button>
+            <button
+              onClick={() => { setTypeFilter("hold"); setPage(1); }}
+              className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${typeFilter === 'hold' ? 'bg-slate-700 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+            >الحجوزات</button>
           </div>
         </div>
 
@@ -471,18 +475,27 @@ export default function AdminPlatformBalance() {
                     <tr key={log._id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-1">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black ${log.type === 'SUBSCRIPTION' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                            log.type === 'PENALTY' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
-                              log.type === 'DEPOSIT_REFUND' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                                log.type === 'COMMISSION' ? 'bg-violet-50 text-violet-600 border border-violet-100' :
-                                  log.type === 'WALLET_WITHDRAWAL' ? (log.status === 'FAILED' ? 'bg-slate-100 text-slate-500 border border-slate-200' : 'bg-orange-50 text-orange-600 border border-orange-100') :
-                                    'bg-blue-50 text-blue-600 border border-blue-100'
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black ${log.type === 'SUBSCRIPTION' ? 'bg-emerald-50' :
+                            log.type === 'PENALTY' ? 'bg-rose-50' :
+                              log.type === 'DEPOSIT_REFUND' ? 'bg-amber-50' :
+                                log.type === 'COMMISSION' ? 'bg-violet-50' :
+                                  log.type === 'HOLD' ? 'bg-slate-50' :
+                                    log.type === 'WALLET_WITHDRAWAL' ? (log.status === 'FAILED' ? 'bg-slate-100' : 'bg-orange-50') :
+                                      'bg-blue-50'
+                            } ${log.type === 'SUBSCRIPTION' ? 'text-emerald-600 border-emerald-100' :
+                              log.type === 'PENALTY' ? 'text-rose-600 border-rose-100' :
+                                log.type === 'DEPOSIT_REFUND' ? 'text-amber-600 border-amber-100' :
+                                  log.type === 'COMMISSION' ? 'text-violet-600 border-violet-100' :
+                                    log.type === 'HOLD' ? 'text-slate-600 border-slate-200' :
+                                      log.type === 'WALLET_WITHDRAWAL' ? (log.status === 'FAILED' ? 'text-slate-500 border-slate-200' : 'text-orange-600 border-orange-100') :
+                                        'text-blue-600 border-blue-100'
                             }`}>
                             {log.type === 'SUBSCRIPTION' ? 'اشتراك' :
                               log.type === 'PENALTY' ? 'مصادرة' :
                                 log.type === 'DEPOSIT_REFUND' ? 'إرجاع عربون' :
                                   log.type === 'COMMISSION' ? 'عمولة مزاد' :
-                                    log.type === 'WALLET_WITHDRAWAL' ? (log.status === 'FAILED' ? 'فشل سحب' : 'سحب رصيد') : 'شحن رصيد'}
+                                    log.type === 'HOLD' ? 'حجز عربون' :
+                                      log.type === 'WALLET_WITHDRAWAL' ? (log.status === 'FAILED' ? 'فشل سحب' : 'سحب رصيد') : 'شحن رصيد'}
                           </span>
                           {log.source && log.source !== "OTHER" && (
                             <span className="text-[9px] font-black text-slate-400 px-2 py-0.5 bg-slate-100 w-fit rounded border border-slate-200">
@@ -516,7 +529,8 @@ export default function AdminPlatformBalance() {
                               log.status === 'FAILED' ? 'text-slate-400 line-through opacity-70' :
                                 log.type === 'DEPOSIT_REFUND' ? 'text-amber-600' :
                                   log.type === 'WALLET_WITHDRAWAL' ? 'text-orange-600' :
-                                    'text-emerald-600'
+                                    log.type === 'HOLD' ? 'text-slate-600' :
+                                      'text-emerald-600'
                               }`}>
                               {formatMoney(log.amount)} د.ع
                             </span>
@@ -735,7 +749,8 @@ export default function AdminPlatformBalance() {
                         selectedLog.type === 'PENALTY' ? 'مصادرة رصيد' :
                           selectedLog.type === 'DEPOSIT_REFUND' ? 'إرجاع عربون' :
                             selectedLog.type === 'COMMISSION' ? 'عمولة مزاد' :
-                              selectedLog.type === 'WALLET_WITHDRAWAL' ? 'سحب رصيد' : 'شحن رصيد'}
+                              selectedLog.type === 'HOLD' ? 'حجز عربون (تجميد)' :
+                                selectedLog.type === 'WALLET_WITHDRAWAL' ? 'سحب رصيد' : 'شحن رصيد'}
                     </p>
                   </div>
                   <div>

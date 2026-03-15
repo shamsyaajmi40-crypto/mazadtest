@@ -250,6 +250,7 @@ export const getFinancialLogs = async (req, res) => {
             const finTypes = [];
             if (type === "all" || type === "refund") finTypes.push("REFUND_REQUEST_APPROVED", "REFUND_REQUEST_REJECTED");
             if (type === "all" || type === "topup") finTypes.push("WALLET_TOPUP_PAID");
+            if (type === "all" || type === "hold") finTypes.push("DEPOSIT_HOLD", "DEPOSIT_REFUND", "DEPOSIT_CONFISCATE");
 
             pipeline.push({
                 $unionWith: {
@@ -265,14 +266,33 @@ export const getFinancialLogs = async (req, res) => {
                         {
                             $project: {
                                 _id: 1,
-                                type: { $cond: [{ $eq: ["$type", "WALLET_TOPUP_PAID"] }, "TOPUP", "WALLET_WITHDRAWAL"] },
+                                type: {
+                                    $switch: {
+                                        branches: [
+                                            { case: { $eq: ["$type", "WALLET_TOPUP_PAID"] }, then: "TOPUP" },
+                                            { case: { $eq: ["$type", "DEPOSIT_HOLD"] }, then: "HOLD" },
+                                            { case: { $eq: ["$type", "DEPOSIT_REFUND"] }, then: "DEPOSIT_REFUND" },
+                                            { case: { $eq: ["$type", "DEPOSIT_CONFISCATE"] }, then: "PENALTY" },
+                                        ],
+                                        default: "WALLET_WITHDRAWAL"
+                                    }
+                                },
                                 status: { $cond: [{ $eq: ["$type", "REFUND_REQUEST_REJECTED"] }, "FAILED", "SUCCESS"] },
                                 amount: "$amountIQD",
                                 user: 1,
                                 createdAt: 1,
-                                orderId: { $ifNull: ["$receiptId", { $cond: ["$refId", { $concat: [{ $cond: [{ $eq: ["$type", "WALLET_TOPUP_PAID"] }, "BAL-", "WDR-"] }, { $substr: [{ $toString: "$refId" }, 18, 6] }] }, "—"] }] },
+                                orderId: { $ifNull: ["$receiptId", { $cond: ["$refId", { $concat: [{ $cond: [{ $eq: ["$type", "WALLET_TOPUP_PAID"] }, "BAL-", { $cond: [{ $eq: ["$type", "DEPOSIT_HOLD"] }, "HLD-", "WDR-"] }] }, { $substr: [{ $toString: "$refId" }, 18, 6] }] }, "—"] }] },
                                 reason: { $ifNull: ["$meta.adminNote", { $ifNull: ["$meta.reason", { $ifNull: ["$meta.note", "—"] }] }] },
-                                source: { $literal: "منصة (يدوي)" }
+                                source: {
+                                    $switch: {
+                                        branches: [
+                                            { case: { $eq: ["$type", "DEPOSIT_HOLD"] }, then: "حجز عربون" },
+                                            { case: { $eq: ["$type", "DEPOSIT_REFUND"] }, then: "إرجاع عربون" },
+                                            { case: { $eq: ["$type", "DEPOSIT_CONFISCATE"] }, then: "مصادرة عربون" },
+                                        ],
+                                        default: "منصة (يدوي)"
+                                    }
+                                }
                             }
                         }
                     ]
@@ -431,9 +451,10 @@ export const exportFinancialsExcel = async (req, res) => {
         // 1. Penalties & Refunds & Commissions (AuditLog)
         if (type === "all" || type === "penalty" || type === "refund" || type === "commission") {
             const actions = [];
-            if (type === "all" || type === "penalty") actions.push("CONFISCATE_OK");
-            if (type === "all" || type === "refund") actions.push("REFUND");
+            if (type === "all" || type === "penalty") actions.push("CONFISCATE_OK", "DEPOSIT_CONFISCATE");
+            if (type === "all" || type === "refund") actions.push("REFUND", "DEPOSIT_REFUND");
             if (type === "all" || type === "commission") actions.push("PLATFORM_COMMISSION");
+            if (type === "all" || type === "hold") actions.push("DEPOSIT_HOLD");
 
             const match = { action: { $in: actions }, ...dateFilter };
             if (userMatchIds) match.user = { $in: userMatchIds };

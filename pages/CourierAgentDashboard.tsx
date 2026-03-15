@@ -305,7 +305,7 @@ export default function CourierAgentDashboard() {
                       <label className="block text-sm font-bold text-emerald-800 mb-3 text-center">أدخل رمز الـ OTP لإتمام إجراء التسليم (للمشتري)</label>
                       <div className="flex flex-col sm:flex-row gap-3">
                         <input value={otpByOrder[o._id] || ""} onChange={e => setOtpByOrder(p => ({ ...p, [o._id]: e.target.value }))} className="flex-1 bg-white border border-emerald-300 rounded-lg px-4 py-3 text-center text-xl font-black tracking-widest outline-none focus:ring-2 focus:ring-emerald-500" placeholder="OTP العميل" inputMode="numeric" />
-                        <button onClick={() => onDelivered(o._id)} disabled={isBusy} className="bg-emerald-600 text-white px-8 py-3 rounded-lg text-sm font-bold hover:bg-emerald-700 shadow-md transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2">
+                        <button onClick={() => onDelivered(o._id)} disabled={isBusy} className="bg-emerald-600 text-white px-8 py-3 rounded-lg text-sm font-bold hover:bg-emerald-700 shadow-md transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 whitespace-nowrap shrink-0">
                           <CheckCircle2 className="w-5 h-5" /> تسليم
                         </button>
                       </div>
@@ -439,7 +439,7 @@ export default function CourierAgentDashboard() {
                  صندوق المهام اليدوية فارغ! أنت بطل هذا اليوم.
                </div>
              ) : (
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div className="grid grid-cols-1 gap-6">
                  {filteredOrders.active.map(renderContextualOrderCard)}
                </div>
              )}
@@ -457,7 +457,7 @@ export default function CourierAgentDashboard() {
                  لا يوجد تاريخ مكتمل حديثاً.
                </div>
              ) : (
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 opacity-80 hover:opacity-100 transition-opacity">
+               <div className="grid grid-cols-1 gap-4 opacity-80 hover:opacity-100 transition-opacity">
                  {filteredOrders.archive.map(renderContextualOrderCard)}
                </div>
              )}

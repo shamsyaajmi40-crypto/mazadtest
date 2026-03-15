@@ -225,7 +225,7 @@ export default function CourierAgentDashboard() {
               <span className="font-black text-white text-lg tracking-tight">#{o._id.slice(-6).toUpperCase()}</span>
               <span className={`status-badge ${statusClasses}`}>{statusLabel[o.status] || o.status}</span>
             </div>
-            <div className="text-[11px] text-slate-500 font-bold mt-1.5 flex items-center gap-2">
+            <div className="text-xs text-slate-500 font-bold mt-1.5 flex items-center gap-2">
               <Truck className="w-3 h-3" /> {o.trackingCode || "N/A"}
             </div>
           </div>
@@ -245,26 +245,26 @@ export default function CourierAgentDashboard() {
           <div className="mt-2 space-y-6 animate-in fade-in zoom-in-95 duration-200">
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-                <div className="text-[9px] font-black text-slate-500 uppercase mb-2">المشتري (تسليم)</div>
-                <div className="text-xs font-bold text-slate-200 mb-1">{o.auction?.winner?.name || "-"}</div>
-                <div className="text-[10px] text-slate-400 font-mono mb-2">{o.auction?.winner?.phone || "-"}</div>
-                <div className="text-[10px] text-slate-500 leading-relaxed">{fullAddress(o.auction?.winner || null)}</div>
+                <div className="text-xs font-black text-slate-500 uppercase mb-2">المشتري (تسليم)</div>
+                <div className="text-sm font-bold text-slate-200 mb-1">{o.auction?.winner?.name || "-"}</div>
+                <div className="text-xs text-slate-400 font-mono mb-2">{o.auction?.winner?.phone || "-"}</div>
+                <div className="text-xs text-slate-500 leading-relaxed">{fullAddress(o.auction?.winner || null)}</div>
               </div>
               <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-                <div className="text-[9px] font-black text-slate-500 uppercase mb-2">البائع (استلام)</div>
-                <div className="text-xs font-bold text-slate-200 mb-1">{o.auction?.seller?.name || "-"}</div>
-                <div className="text-[10px] text-slate-400 font-mono mb-2">{o.auction?.seller?.phone || "-"}</div>
-                <div className="text-[10px] text-slate-500 leading-relaxed">{fullAddress(o.auction?.seller || null)}</div>
+                <div className="text-xs font-black text-slate-500 uppercase mb-2">البائع (استلام)</div>
+                <div className="text-sm font-bold text-slate-200 mb-1">{o.auction?.seller?.name || "-"}</div>
+                <div className="text-xs text-slate-400 font-mono mb-2">{o.auction?.seller?.phone || "-"}</div>
+                <div className="text-xs text-slate-500 leading-relaxed">{fullAddress(o.auction?.seller || null)}</div>
               </div>
             </div>
 
             <div className="bg-slate-900/40 rounded-2xl p-4 border border-white/5 grid grid-cols-2 gap-4">
               <div className="text-center">
-                <div className="text-[9px] font-black text-slate-500 uppercase mb-1">الاستحصال (COD)</div>
+                <div className="text-xs font-black text-slate-500 uppercase mb-1">الاستحصال (COD)</div>
                 <div className="text-sm font-black text-emerald-400">{totalDueWithDelivery(o).toLocaleString()}</div>
               </div>
               <div className="text-center">
-                <div className="text-[9px] font-black text-slate-500 uppercase mb-1">صافي المشتري</div>
+                <div className="text-xs font-black text-slate-500 uppercase mb-1">صافي المشتري</div>
                 <div className="text-sm font-black text-violet-400">{sellerPayout(o).toLocaleString()}</div>
               </div>
             </div>
@@ -284,7 +284,7 @@ export default function CourierAgentDashboard() {
               <button
                 onClick={() => onPickedUp(o._id)}
                 disabled={!canPickUp || isBusy}
-                className="w-full premium-btn-primary flex items-center justify-center gap-2 py-4 disabled:opacity-30"
+                className="w-full premium-btn-primary flex items-center justify-center gap-2 py-4 min-h-[48px] disabled:opacity-30"
               >
                 <Truck className="w-5 h-5 text-emerald-400" /> تم استلام الطلب من البائع
               </button>
@@ -293,14 +293,14 @@ export default function CourierAgentDashboard() {
                 <input
                   value={otpByOrder[o._id] || ""}
                   onChange={(e) => setOtpByOrder(p => ({ ...p, [o._id]: e.target.value }))}
-                  className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-center text-xl font-black text-white tracking-widest outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 min-h-[48px] text-center text-xl font-black text-white tracking-widest outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="رمز OTP المشتري"
                   inputMode="numeric"
                 />
                 <button
                   onClick={() => onDelivered(o._id)}
                   disabled={!canDeliver || isBusy}
-                  className="w-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/20 rounded-xl py-3.5 text-emerald-400 font-black text-sm transition-all active:scale-95 disabled:opacity-20 flex items-center justify-center gap-2"
+                  className="w-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/20 rounded-xl py-3.5 min-h-[48px] text-emerald-400 font-black text-sm transition-all active:scale-95 disabled:opacity-20 flex items-center justify-center gap-2"
                 >
                   <CheckCircle2 className="w-5 h-5" /> تأكيد التسليم للمشتري
                 </button>
@@ -310,14 +310,14 @@ export default function CourierAgentDashboard() {
                 <button
                   onClick={() => setShowFailForm(p => ({ ...p, [o._id]: !p[o._id] }))}
                   disabled={!canFail || isBusy}
-                  className={`border rounded-xl py-3 font-bold text-[10px] transition-all active:scale-95 flex items-center justify-center gap-2 ${showFailForm[o._id] ? "bg-rose-500 border-rose-500 text-white" : "bg-rose-500/10 border-rose-500/20 text-rose-500"}`}
+                  className={`border rounded-xl py-3.5 min-h-[44px] font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-2 ${showFailForm[o._id] ? "bg-rose-500 border-rose-500 text-white" : "bg-rose-500/10 border-rose-500/20 text-rose-500"}`}
                 >
                   <AlertCircle className="w-4 h-4" /> بلاغ فشل
                 </button>
                 <button
                   onClick={() => onRevertFailed(o._id)}
                   disabled={!canRevert || isBusy}
-                  className="bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-xl py-3 text-amber-400 font-bold text-[10px] transition-all disabled:opacity-20 active:scale-95 flex items-center justify-center gap-2"
+                  className="bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-xl py-3.5 min-h-[44px] text-amber-400 font-bold text-xs transition-all disabled:opacity-20 active:scale-95 flex items-center justify-center gap-2"
                 >
                   <RotateCcw className="w-4 h-4" /> تراجع عن الفشل
                 </button>
@@ -325,14 +325,14 @@ export default function CourierAgentDashboard() {
 
               {showFailForm[o._id] && (
                 <div className="bg-rose-500/5 border border-rose-500/20 rounded-2xl p-5 animate-in slide-in-from-top-2">
-                  <div className="text-[10px] font-black text-rose-400 uppercase mb-3 text-right">تفاصيل بلاغ الفشل</div>
+                  <div className="text-xs font-black text-rose-400 uppercase mb-3 text-right">تفاصيل بلاغ الفشل</div>
                   <div className="space-y-3">
-                    <select value={reasonByOrder[o._id] || ""} onChange={e => setReasonByOrder(p => ({ ...p, [o._id]: e.target.value }))} className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-white outline-none">
+                    <select value={reasonByOrder[o._id] || ""} onChange={e => setReasonByOrder(p => ({ ...p, [o._id]: e.target.value }))} className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white outline-none min-h-[44px]">
                       <option value="">اختر سبب المشكلة...</option>
                       {reasons.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                     </select>
-                    <input value={noteByOrder[o._id] || ""} onChange={e => setNoteByOrder(p => ({ ...p, [o._id]: e.target.value }))} className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-medium text-white outline-none" placeholder="ملاحظات إضافية..." />
-                    <button onClick={() => onFailed(o._id)} disabled={!canFail || isBusy || !reasonByOrder[o._id]} className="w-full bg-rose-600 rounded-xl py-3 text-white font-black text-xs shadow-lg shadow-rose-600/20">تأكيد الإغلاق كفشل</button>
+                    <input value={noteByOrder[o._id] || ""} onChange={e => setNoteByOrder(p => ({ ...p, [o._id]: e.target.value }))} className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-sm font-medium text-white outline-none min-h-[44px]" placeholder="ملاحظات إضافية..." />
+                    <button onClick={() => onFailed(o._id)} disabled={!canFail || isBusy || !reasonByOrder[o._id]} className="w-full bg-rose-600 rounded-xl py-3.5 min-h-[48px] text-white font-black text-sm shadow-lg shadow-rose-600/20">تأكيد الإغلاق كفشل</button>
                   </div>
                 </div>
               )}
@@ -368,15 +368,15 @@ export default function CourierAgentDashboard() {
         {/* Global Stats Grid */}
         <div className="grid grid-cols-3 gap-3 md:gap-4">
           <div className="glass-panel p-4 text-center stat-glow-indigo">
-            <div className="text-[10px] font-black text-indigo-400 uppercase tracking-wider mb-1">نشطة</div>
+            <div className="text-xs font-black text-indigo-400 uppercase tracking-wider mb-1">نشطة</div>
             <div className="text-2xl font-black text-white">{filteredOrders.active.length}</div>
           </div>
           <div className="glass-panel p-4 text-center stat-glow-rose">
-            <div className="text-[10px] font-black text-rose-400 uppercase tracking-wider mb-1">فاشلة</div>
+            <div className="text-xs font-black text-rose-400 uppercase tracking-wider mb-1">فاشلة</div>
             <div className="text-2xl font-black text-rose-500">{filteredOrders.failed.length}</div>
           </div>
           <div className="glass-panel p-4 text-center stat-glow-emerald">
-            <div className="text-[10px] font-black text-emerald-400 uppercase tracking-wider mb-1">منتهية</div>
+            <div className="text-xs font-black text-emerald-400 uppercase tracking-wider mb-1">منتهية</div>
             <div className="text-2xl font-black text-emerald-500">{filteredOrders.done.length}</div>
           </div>
         </div>
@@ -391,13 +391,13 @@ export default function CourierAgentDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="glass-panel p-2 flex items-center relative group">
             <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)} className="w-full bg-transparent border-0 py-3 pr-10 pl-4 text-white font-bold text-xs placeholder:text-slate-600 outline-none" placeholder="ابحث برقم الطلب..." />
+            <input value={search} onChange={e => setSearch(e.target.value)} className="w-full bg-transparent border-0 py-3 pr-10 pl-4 min-h-[44px] text-white font-bold text-sm placeholder:text-slate-600 outline-none" placeholder="ابحث برقم الطلب..." />
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setShowFailedArchive(!showFailedArchive)} className={`flex-1 glass-panel px-4 py-3 font-black text-[11px] transition-all flex items-center justify-center gap-2 ${showFailedArchive ? 'bg-indigo-500/20 border-indigo-500/40 text-white' : 'text-slate-500'}`}>
+            <button onClick={() => setShowFailedArchive(!showFailedArchive)} className={`flex-1 glass-panel px-4 py-3 min-h-[44px] font-black text-xs transition-all flex items-center justify-center gap-2 ${showFailedArchive ? 'bg-indigo-500/20 border-indigo-500/40 text-white' : 'text-slate-500'}`}>
               <AlertTriangle className="w-4 h-4" /> الأرشيف الفاشل ({filteredOrders.failed.length})
             </button>
-            <button onClick={() => setShowDoneArchive(!showDoneArchive)} className={`flex-1 glass-panel px-4 py-3 font-black text-[11px] transition-all flex items-center justify-center gap-2 ${showDoneArchive ? 'bg-emerald-500/20 border-emerald-500/40 text-white' : 'text-slate-500'}`}>
+            <button onClick={() => setShowDoneArchive(!showDoneArchive)} className={`flex-1 glass-panel px-4 py-3 min-h-[44px] font-black text-xs transition-all flex items-center justify-center gap-2 ${showDoneArchive ? 'bg-emerald-500/20 border-emerald-500/40 text-white' : 'text-slate-500'}`}>
               <CheckCircle2 className="w-4 h-4" /> المكتمل اليوم ({filteredOrders.done.length})
             </button>
           </div>

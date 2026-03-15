@@ -306,7 +306,7 @@ export default function CourierStaffDashboard() {
               <span className="font-black text-white text-lg tracking-tight">#{o._id.slice(-6).toUpperCase()}</span>
               <span className={`status-badge ${statusClasses}`}>{statusLabel[o.status] || o.status}</span>
             </div>
-            <div className="text-[11px] text-slate-500 font-bold mt-1.5 flex items-center gap-2">
+            <div className="text-xs text-slate-500 font-bold mt-1.5 flex items-center gap-2">
               <User className="w-3 h-3" /> المندوب: <span className="text-slate-300">{agentName(o.agentUser)}</span>
             </div>
           </div>
@@ -326,31 +326,31 @@ export default function CourierStaffDashboard() {
           <div className="mt-2 space-y-6 animate-in fade-in zoom-in-95 duration-200">
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-                <div className="text-[9px] font-black text-slate-500 uppercase mb-2">بيانات التسليم (المشتري)</div>
-                <div className="text-xs font-bold text-slate-200 mb-1">{o.auction?.winner?.name || "-"}</div>
-                <div className="text-[10px] text-slate-400 font-mono mb-2">{o.auction?.winner?.phone || "-"}</div>
-                <div className="text-[10px] text-slate-500 leading-relaxed">{fullAddress(o.auction?.winner || null)}</div>
+                <div className="text-xs font-black text-slate-500 uppercase mb-2">بيانات التسليم (المشتري)</div>
+                <div className="text-sm font-bold text-slate-200 mb-1">{o.auction?.winner?.name || "-"}</div>
+                <div className="text-xs text-slate-400 font-mono mb-2">{o.auction?.winner?.phone || "-"}</div>
+                <div className="text-xs text-slate-500 leading-relaxed">{fullAddress(o.auction?.winner || null)}</div>
               </div>
               <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-                <div className="text-[9px] font-black text-slate-500 uppercase mb-2">بيانات الاستلام (البائع)</div>
-                <div className="text-xs font-bold text-slate-200 mb-1">{o.auction?.seller?.name || "-"}</div>
-                <div className="text-[10px] text-slate-400 font-mono mb-2">{o.auction?.seller?.phone || "-"}</div>
-                <div className="text-[10px] text-slate-500 leading-relaxed">{fullAddress(o.auction?.seller || null)}</div>
+                <div className="text-xs font-black text-slate-500 uppercase mb-2">بيانات الاستلام (البائع)</div>
+                <div className="text-sm font-bold text-slate-200 mb-1">{o.auction?.seller?.name || "-"}</div>
+                <div className="text-xs text-slate-400 font-mono mb-2">{o.auction?.seller?.phone || "-"}</div>
+                <div className="text-xs text-slate-500 leading-relaxed">{fullAddress(o.auction?.seller || null)}</div>
               </div>
             </div>
 
             <div className="bg-slate-900/40 rounded-2xl p-4 border border-white/5 grid grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-[9px] font-black text-slate-500 uppercase mb-1">الرقم المرجعي</div>
-                <div className="text-xs font-mono font-bold text-indigo-400">{o.trackingCode || "N/A"}</div>
+                <div className="text-xs font-black text-slate-500 uppercase mb-1">الرقم المرجعي</div>
+                <div className="text-sm font-mono font-bold text-indigo-400">{o.trackingCode || "N/A"}</div>
               </div>
               <div className="text-center">
-                <div className="text-[9px] font-black text-slate-500 uppercase mb-1">سعر الرسو</div>
-                <div className="text-xs font-bold text-white">{Number(o.auction?.currentPrice || 0).toLocaleString()}</div>
+                <div className="text-xs font-black text-slate-500 uppercase mb-1">سعر الرسو</div>
+                <div className="text-sm font-bold text-white">{Number(o.auction?.currentPrice || 0).toLocaleString()}</div>
               </div>
               <div className="text-center">
-                <div className="text-[9px] font-black text-slate-500 uppercase mb-1">صافي الشركة</div>
-                <div className="text-xs font-bold text-emerald-400">{Number(o.deliveryFee || 0).toLocaleString()}</div>
+                <div className="text-xs font-black text-slate-500 uppercase mb-1">صافي الشركة</div>
+                <div className="text-sm font-bold text-emerald-400">{Number(o.deliveryFee || 0).toLocaleString()}</div>
               </div>
             </div>
 
@@ -368,37 +368,37 @@ export default function CourierStaffDashboard() {
             <div className="space-y-4 pt-2">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-3">
-                  <div className="text-[10px] font-black text-slate-500 uppercase">العمليات اللوجستية</div>
-                  <select value={assignAgentByOrder[o._id] || ""} onChange={e => setAssignAgentByOrder(p => ({ ...p, [o._id]: e.target.value }))} className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500">
+                  <div className="text-xs font-black text-slate-500 uppercase">العمليات اللوجستية</div>
+                  <select value={assignAgentByOrder[o._id] || ""} onChange={e => setAssignAgentByOrder(p => ({ ...p, [o._id]: e.target.value }))} className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500 min-h-[44px]">
                     <option value="">تعيين مندوب...</option>
                     {agents.filter(a => a.isCourierActive !== false).map(a => <option key={a._id} value={a._id}>{a.name} ({a.phone})</option>)}
                   </select>
-                  <button onClick={() => onAssignAgent(o._id)} disabled={!canAssign || isBusy || !assignAgentByOrder[o._id]} className="w-full premium-btn-primary text-xs py-3 disabled:opacity-30">تحديث المندوب المكلف</button>
+                  <button onClick={() => onAssignAgent(o._id)} disabled={!canAssign || isBusy || !assignAgentByOrder[o._id]} className="w-full premium-btn-primary text-sm py-3.5 min-h-[48px] disabled:opacity-30">تحديث المندوب المكلف</button>
                 </div>
                 <div className="space-y-3">
-                  <div className="text-[10px] font-black text-slate-500 uppercase">التسوية المالية (COD)</div>
+                  <div className="text-xs font-black text-slate-500 uppercase">التسوية المالية (COD)</div>
                   <div className="flex gap-2">
-                    <input value={otpByOrder[o._id] || ""} onChange={e => setOtpByOrder(p => ({ ...p, [o._id]: e.target.value }))} className="w-1/2 bg-slate-900 border border-white/10 rounded-xl px-3 py-2.5 text-xs font-mono placeholder:text-slate-600 outline-none" placeholder="OTP البائع" />
-                    <input value={receiptByOrder[o._id] || ""} onChange={e => setReceiptByOrder(p => ({ ...p, [o._id]: e.target.value }))} className="w-1/2 bg-slate-900 border border-white/10 rounded-xl px-3 py-2.5 text-xs font-mono placeholder:text-slate-600 outline-none" placeholder="رقم الوصل" />
+                    <input value={otpByOrder[o._id] || ""} onChange={e => setOtpByOrder(p => ({ ...p, [o._id]: e.target.value }))} className="w-1/2 bg-slate-900 border border-white/10 rounded-xl px-3 py-3 text-sm font-mono placeholder:text-slate-600 outline-none min-h-[44px]" placeholder="OTP البائع" />
+                    <input value={receiptByOrder[o._id] || ""} onChange={e => setReceiptByOrder(p => ({ ...p, [o._id]: e.target.value }))} className="w-1/2 bg-slate-900 border border-white/10 rounded-xl px-3 py-3 text-sm font-mono placeholder:text-slate-600 outline-none min-h-[44px]" placeholder="رقم الوصل" />
                   </div>
-                  <button onClick={() => onCodPaid(o._id)} disabled={!canCodPaid || isBusy} className="w-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/20 rounded-xl py-3 text-emerald-400 font-black text-xs transition-all active:scale-95 disabled:opacity-20">تأكيد استلام الكاش والتسوية</button>
+                  <button onClick={() => onCodPaid(o._id)} disabled={!canCodPaid || isBusy} className="w-full bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/20 rounded-xl py-3.5 min-h-[48px] text-emerald-400 font-black text-sm transition-all active:scale-95 disabled:opacity-20">تأكيد استلام الكاش والتسوية</button>
                 </div>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-2">
-                <button onClick={() => onPickedUp(o._id)} disabled={!canPickUp || isBusy} className="bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-xl py-3 text-indigo-400 font-bold text-[10px] transition-all disabled:opacity-20 active:scale-95 flex items-center justify-center gap-2"><Truck className="w-4 h-4" /> تم استلام الطلب</button>
-                <button onClick={() => onRevertFailed(o._id)} disabled={!canRevert || isBusy} className="bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-xl py-3 text-amber-400 font-bold text-[10px] transition-all disabled:opacity-20 active:scale-95 flex items-center justify-center gap-2"><RotateCcw className="w-4 h-4" /> تصحيح حالة الفشل</button>
-                <button onClick={() => setShowFailForm(p => ({ ...p, [o._id]: !p[o._id] }))} className={`border rounded-xl py-3 font-bold text-[10px] transition-all active:scale-95 flex items-center justify-center gap-2 ${showFailForm[o._id] ? "bg-rose-500 border-rose-500 text-white" : "bg-rose-500/10 border-rose-500/20 text-rose-500"}`}><AlertCircle className="w-4 h-4" /> بلاغ فشل توصيل</button>
+                <button onClick={() => onPickedUp(o._id)} disabled={!canPickUp || isBusy} className="bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-xl py-3.5 min-h-[44px] text-indigo-400 font-bold text-xs transition-all disabled:opacity-20 active:scale-95 flex items-center justify-center gap-2"><Truck className="w-4 h-4" /> تم استلام الطلب</button>
+                <button onClick={() => onRevertFailed(o._id)} disabled={!canRevert || isBusy} className="bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded-xl py-3.5 min-h-[44px] text-amber-400 font-bold text-xs transition-all disabled:opacity-20 active:scale-95 flex items-center justify-center gap-2"><RotateCcw className="w-4 h-4" /> تصحيح حالة الفشل</button>
+                <button onClick={() => setShowFailForm(p => ({ ...p, [o._id]: !p[o._id] }))} className={`border rounded-xl py-3.5 min-h-[44px] font-bold text-xs transition-all active:scale-95 flex items-center justify-center gap-2 ${showFailForm[o._id] ? "bg-rose-500 border-rose-500 text-white" : "bg-rose-500/10 border-rose-500/20 text-rose-500"}`}><AlertCircle className="w-4 h-4" /> بلاغ فشل توصيل</button>
               </div>
               {showFailForm[o._id] && (
                 <div className="bg-rose-500/5 border border-rose-500/20 rounded-2xl p-5 animate-in slide-in-from-top-2">
-                  <div className="text-[10px] font-black text-rose-400 uppercase mb-3">تفاصيل البلاغ اللوجستي</div>
+                  <div className="text-xs font-black text-rose-400 uppercase mb-3">تفاصيل البلاغ اللوجستي</div>
                   <div className="space-y-3">
-                    <select value={reasonByOrder[o._id] || ""} onChange={e => setReasonByOrder(p => ({ ...p, [o._id]: e.target.value }))} className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-white outline-none">
+                    <select value={reasonByOrder[o._id] || ""} onChange={e => setReasonByOrder(p => ({ ...p, [o._id]: e.target.value }))} className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-white outline-none min-h-[44px]">
                       <option value="">اختر سبب التعثر...</option>
                       {failureReasons.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                     </select>
-                    <input value={noteByOrder[o._id] || ""} onChange={e => setNoteByOrder(p => ({ ...p, [o._id]: e.target.value }))} className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-medium text-white outline-none" placeholder="أضف ملاحظات توضيحية للفريق الفني..." />
-                    <button onClick={() => onFailed(o._id)} disabled={!canFail || isBusy || !reasonByOrder[o._id]} className="w-full bg-rose-600 rounded-xl py-3 text-white font-black text-xs shadow-lg shadow-rose-600/20">إرسال البلاغ فوراً</button>
+                    <input value={noteByOrder[o._id] || ""} onChange={e => setNoteByOrder(p => ({ ...p, [o._id]: e.target.value }))} className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-sm font-medium text-white outline-none min-h-[44px]" placeholder="أضف ملاحظات توضيحية للفريق الفني..." />
+                    <button onClick={() => onFailed(o._id)} disabled={!canFail || isBusy || !reasonByOrder[o._id]} className="w-full bg-rose-600 rounded-xl py-3.5 min-h-[48px] text-white font-black text-sm shadow-lg shadow-rose-600/20">إرسال البلاغ فوراً</button>
                   </div>
                 </div>
               )}
@@ -483,36 +483,36 @@ export default function CourierStaffDashboard() {
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                     <div className="glass-card p-5 border-l-4 border-l-slate-400">
-                      <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">إجمالي الكاش المتداول</div>
+                      <div className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">إجمالي الكاش المتداول</div>
                       <div className="text-2xl font-black text-white">{(filteredOrders.done.reduce((acc, o) => acc + Number(o.auction?.currentPrice || 0) + Number(o.deliveryFee || 0), 0)).toLocaleString()} <span className="text-xs text-slate-500 mr-1 italic">IQD</span></div>
                     </div>
                     <div className="glass-card p-5 border-l-4 border-l-emerald-500 stat-glow-emerald">
-                      <div className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-2">أرباح الشركة الصافية</div>
+                      <div className="text-xs font-black text-emerald-500 uppercase tracking-widest mb-2">أرباح الشركة الصافية</div>
                       <div className="text-2xl font-black text-emerald-400">{(filteredOrders.done.reduce((acc, o) => acc + Number(o.deliveryFee || 0), 0)).toLocaleString()} <span className="text-xs text-emerald-600/70 mr-1 italic">IQD</span></div>
                     </div>
                     <div className="glass-card p-5 border-l-4 border-l-indigo-500 stat-glow-indigo">
-                      <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">مستحقات البائعين</div>
+                      <div className="text-xs font-black text-indigo-400 uppercase tracking-widest mb-2">مستحقات البائعين</div>
                       <div className="text-2xl font-black text-indigo-300">{(filteredOrders.done.reduce((acc, o) => acc + sellerPayout(o), 0)).toLocaleString()} <span className="text-xs text-indigo-400/50 mr-1 italic">IQD</span></div>
                     </div>
                     <div className="glass-card p-5 border-l-4 border-l-rose-500 stat-glow-rose">
-                      <div className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-2">ديون المنصة</div>
+                      <div className="text-xs font-black text-rose-500 uppercase tracking-widest mb-2">ديون المنصة</div>
                       <div className="text-2xl font-black text-rose-400">{(filteredOrders.done.reduce((acc, o) => acc + getCommission(o), 0)).toLocaleString()} <span className="text-xs text-rose-500/50 mr-1 italic">IQD</span></div>
                     </div>
                     <div className="glass-card p-5 border-l-4 border-l-slate-200 bg-white/5">
-                      <div className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2">قيمة المبيعات</div>
+                      <div className="text-xs font-black text-slate-300 uppercase tracking-widest mb-2">قيمة المبيعات</div>
                       <div className="text-2xl font-black text-white">{(filteredOrders.done.reduce((acc, o) => acc + Number(o.auction?.currentPrice || 0), 0)).toLocaleString()} <span className="text-xs text-slate-500 mr-1 italic">IQD</span></div>
                     </div>
                   </div>
                 </div>
                 <div className="glass-panel overflow-hidden border-white/5">
-                  <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                    <div className="p-6 border-b border-white/5 flex items-center justify-between">
                     <h4 className="font-black text-white flex items-center gap-3"><ReceiptText className="text-indigo-400" /> سجل التسويات التفصيلي</h4>
-                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">اليوم: {new Date().toLocaleDateString("ar-EG")}</div>
+                    <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">اليوم: {new Date().toLocaleDateString("ar-EG")}</div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-right">
                       <thead>
-                        <tr className="bg-white/2 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                        <tr className="bg-white/2 text-slate-400 text-xs font-black uppercase tracking-widest">
                           <th className="px-6 py-4">الوصل</th>
                           <th className="px-6 py-4">الطلب</th>
                           <th className="px-6 py-4">المندوب</th>
@@ -600,40 +600,40 @@ export default function CourierStaffDashboard() {
                   <AlertTriangle className={`w-5 h-5 ${showFailedArchive ? 'text-rose-400' : 'text-slate-500'}`} />
                   <div className="text-sm font-black text-slate-200">الطلبات الفاشلة</div>
                 </div>
-                <button onClick={() => setShowFailedArchive(v => !v)} className={`rounded-xl px-5 py-2 text-[10px] font-black transition-all ${showFailedArchive ? "bg-rose-500 text-white" : "bg-slate-800 text-slate-400"}`}>
+                <button onClick={() => setShowFailedArchive(v => !v)} className={`rounded-xl px-5 py-2.5 min-h-[44px] text-xs font-black transition-all ${showFailedArchive ? "bg-rose-500 text-white" : "bg-slate-800 text-slate-400"}`}>
                   {showFailedArchive ? "إخفاء" : `عرض (${filteredOrders.failed.length})`}
                 </button>
               </div>
             </div>
 
             <section className="space-y-4 pt-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border-2 border-blue-500 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-1.5 h-full bg-blue-500" />
-                <h2 className="text-xl font-black text-blue-900 tracking-tight flex items-center gap-3">
-                  <span className="relative flex h-3 w-3"><span className="animate-ping absolute h-full w-full rounded-full bg-blue-400 opacity-75"></span><span className="relative rounded-full h-3 w-3 bg-blue-500"></span></span>
+              <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 glass-panel p-4 rounded-2xl border-indigo-500/30 border overflow-hidden">
+                <div className="absolute top-0 right-0 w-1.5 h-full bg-indigo-500 rounded-l" />
+                <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-3">
+                  <span className="relative flex h-3 w-3"><span className="animate-ping absolute h-full w-full rounded-full bg-indigo-400 opacity-75"></span><span className="relative rounded-full h-3 w-3 bg-indigo-500"></span></span>
                   الطلبات الجارية
                 </h2>
-                <span className="rounded-xl bg-blue-500 px-4 py-1.5 text-sm font-bold text-white flex items-center gap-2"><Truck className="w-4 h-4" /> {filteredOrders.active.length} طلبات</span>
+                <span className="rounded-xl bg-indigo-500/20 border border-indigo-500/40 px-4 py-2 min-h-[44px] inline-flex items-center justify-center text-sm font-bold text-indigo-300 gap-2"><Truck className="w-4 h-4" /> {filteredOrders.active.length} طلبات</span>
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
-                {filteredOrders.active.length === 0 ? <div className="col-span-full border-2 border-dashed border-slate-200 rounded-3xl p-10 text-center text-slate-400 font-medium">لا توجد طلبات جارية حالياً.</div> : filteredOrders.active.map(renderOrderCard)}
+                {filteredOrders.active.length === 0 ? <div className="col-span-full glass-panel border-2 border-dashed border-white/10 rounded-3xl p-10 text-center text-slate-400 font-medium text-sm">لا توجد طلبات جارية حالياً.</div> : filteredOrders.active.map(renderOrderCard)}
               </div>
             </section>
 
             {showFailedArchive && (
               <section className="space-y-4 pt-4 animate-in fade-in slide-in-from-bottom-4">
-                <h2 className="text-lg font-black text-slate-800 flex items-center gap-2 border-t-2 border-dashed border-slate-200 pt-6">
+                <h2 className="text-lg font-black text-rose-400 flex items-center gap-2 border-t border-white/10 pt-6">
                   <div className="w-2 h-2 rounded-full bg-rose-500" /> الطلبات الفاشلة (للمراجعة)
                 </h2>
                 <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4">
-                  {filteredOrders.failed.length === 0 ? <div className="col-span-full border-2 border-dashed border-slate-200 rounded-3xl p-10 text-center text-slate-400 font-medium">لا توجد طلبات فاشلة.</div> : filteredOrders.failed.map(renderOrderCard)}
+                  {filteredOrders.failed.length === 0 ? <div className="col-span-full glass-panel border-2 border-dashed border-white/10 rounded-3xl p-10 text-center text-slate-500 font-medium text-sm">لا توجد طلبات فاشلة.</div> : filteredOrders.failed.map(renderOrderCard)}
                 </div>
               </section>
             )}
 
-            <section className="rounded-3xl border border-slate-200/60 bg-white p-2.5 shadow-sm flex items-center justify-between px-5">
-              <div className="text-sm font-black text-slate-700 flex items-center gap-2"><CheckCircle2 className="text-emerald-500" /> أرشيف الطلبات المكتملة</div>
-              <button onClick={() => setShowDoneArchive(v => !v)} className={`rounded-xl px-4 py-2 text-xs font-bold ${showDoneArchive ? "bg-slate-900 text-white" : "bg-emerald-50 text-emerald-800"}`}>
+            <section className="glass-panel rounded-2xl p-4 flex items-center justify-between border-white/5">
+              <div className="text-sm font-black text-slate-200 flex items-center gap-2"><CheckCircle2 className="text-emerald-500 w-4 h-4" /> أرشيف الطلبات المكتملة</div>
+              <button onClick={() => setShowDoneArchive(v => !v)} className={`rounded-xl px-4 py-2.5 min-h-[44px] text-xs font-bold transition-all ${showDoneArchive ? "bg-slate-700 text-slate-200 border border-white/10" : "bg-emerald-500/20 border border-emerald-500/40 text-emerald-300"}`}>
                 {showDoneArchive ? "إخفاء" : `عرض (${filteredOrders.done.length})`}
               </button>
             </section>
@@ -641,7 +641,7 @@ export default function CourierStaffDashboard() {
             {showDoneArchive && (
               <section className="space-y-4 pt-4 animate-in fade-in slide-in-from-bottom-4">
                 <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 opacity-90">
-                  {filteredOrders.done.length === 0 ? <div className="col-span-full border-2 border-dashed border-slate-200 rounded-3xl p-10 text-center text-slate-400 font-medium">لا توجد طلبات مكتملة اليوم.</div> : filteredOrders.done.map(renderOrderCard)}
+                  {filteredOrders.done.length === 0 ? <div className="col-span-full glass-panel border-2 border-dashed border-white/10 rounded-3xl p-10 text-center text-slate-500 font-medium text-sm">لا توجد طلبات مكتملة اليوم.</div> : filteredOrders.done.map(renderOrderCard)}
                 </div>
               </section>
             )}
@@ -649,25 +649,25 @@ export default function CourierStaffDashboard() {
         )}
 
         {showAgentModal && (
-          <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
+          <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="w-full max-w-md glass-panel rounded-3xl border border-white/10 p-6 shadow-2xl">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-black text-slate-900">إضافة مندوب جديد</h3>
-                <button onClick={() => setShowAgentModal(false)} className="rounded-xl border p-2 text-slate-600 hover:bg-slate-50 transition-colors"><X className="w-4 h-4" /></button>
+                <h3 className="text-lg font-black text-white">إضافة مندوب جديد</h3>
+                <button onClick={() => setShowAgentModal(false)} className="rounded-xl glass-card p-2.5 text-slate-400 hover:text-white hover:bg-white/10 transition-colors focus:ring-2 focus:ring-indigo-500"><X className="w-4 h-4" /></button>
               </div>
               <div className="space-y-3">
-                <input value={newAgentName} onChange={e => setNewAgentName(e.target.value)} className="w-full rounded-xl border px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500" placeholder="اسم المندوب" />
-                <input value={newAgentPhone} onChange={e => setNewAgentPhone(e.target.value)} className="w-full rounded-xl border px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500" placeholder="رقم الهاتف" />
-                <input value={newAgentEmail} onChange={e => setNewAgentEmail(e.target.value)} className="w-full rounded-xl border px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500" placeholder="البريد الإلكتروني" type="email" />
-                <input value={newAgentPassword} onChange={e => setNewAgentPassword(e.target.value)} className="w-full rounded-xl border px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500" placeholder="كلمة المرور" type="password" />
+                <input value={newAgentName} onChange={e => setNewAgentName(e.target.value)} className="w-full rounded-xl bg-slate-900/80 border border-white/10 px-4 py-3 text-sm font-bold text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500/50" placeholder="اسم المندوب" />
+                <input value={newAgentPhone} onChange={e => setNewAgentPhone(e.target.value)} className="w-full rounded-xl bg-slate-900/80 border border-white/10 px-4 py-3 text-sm font-bold text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500/50" placeholder="رقم الهاتف" />
+                <input value={newAgentEmail} onChange={e => setNewAgentEmail(e.target.value)} className="w-full rounded-xl bg-slate-900/80 border border-white/10 px-4 py-3 text-sm font-bold text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500/50" placeholder="البريد الإلكتروني" type="email" />
+                <input value={newAgentPassword} onChange={e => setNewAgentPassword(e.target.value)} className="w-full rounded-xl bg-slate-900/80 border border-white/10 px-4 py-3 text-sm font-bold text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500/50" placeholder="كلمة المرور" type="password" />
                 <div className="grid grid-cols-2 gap-3">
-                  <select value={newAgentGovernorate} onChange={e => setNewAgentGovernorate(e.target.value)} className="w-full rounded-xl border px-3 py-2.5 text-sm font-bold bg-white outline-none focus:ring-2 focus:ring-indigo-500">
+                  <select value={newAgentGovernorate} onChange={e => setNewAgentGovernorate(e.target.value)} className="w-full rounded-xl bg-slate-900/80 border border-white/10 px-4 py-3 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-indigo-500">
                     <option value="">المحافظة...</option>
                     {GOVERNORATES.map(gov => <option key={gov} value={gov}>{gov}</option>)}
                   </select>
-                  <input value={newAgentAddress} onChange={e => setNewAgentAddress(e.target.value)} className="w-full rounded-xl border px-3 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500" placeholder="العنوان" />
+                  <input value={newAgentAddress} onChange={e => setNewAgentAddress(e.target.value)} className="w-full rounded-xl bg-slate-900/80 border border-white/10 px-4 py-3 text-sm font-bold text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500/50" placeholder="العنوان" />
                 </div>
-                <button onClick={onCreateAgent} disabled={!newAgentName || !newAgentPhone || !newAgentEmail || !newAgentPassword} className="w-full rounded-xl bg-slate-900 py-3.5 text-sm font-black text-white shadow-lg active:scale-95 transition-all disabled:opacity-50 mt-4">إنشاء المندوب</button>
+                <button onClick={onCreateAgent} disabled={!newAgentName || !newAgentPhone || !newAgentEmail || !newAgentPassword} className="w-full rounded-xl premium-btn-primary py-3.5 min-h-[48px] text-sm font-black text-white shadow-lg active:scale-[0.98] transition-all disabled:opacity-50 mt-4">إنشاء المندوب</button>
               </div>
             </div>
           </div>

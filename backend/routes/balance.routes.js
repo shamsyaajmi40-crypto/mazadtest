@@ -19,7 +19,7 @@ router.post("/request", protect, createBalanceRequest);
 router.get(
   "/requests",
   protect,
-  requireRole("superadmin", "admin"),
+  requireRole("superAdmin", "admin"),
   getAllBalanceRequests
 );
 

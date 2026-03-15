@@ -2,7 +2,6 @@ import React, { useState, useContext, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { createAuction, getCreateAuctionDepositPreview, featureAuction } from "../services/auction";
-import { calculateSellerDeposit } from "../utils/depositCalculator";
 import type { AuctionCategory } from "../types";
 import { AUCTION_CATEGORIES } from "../types";
 import {
@@ -117,14 +116,14 @@ const CreateAuction = () => {
       return;
     }
 
-    const { startPrice } = formData;
-    if (startPrice && user) {
-      const requiredDeposit = calculateSellerDeposit(Number(startPrice) || 0, user.penaltyCount || 0);
-
-      if ((user.balance || 0) < requiredDeposit) {
-        alert(`عذراً، رصيدك غير كافٍ لإنشاء مزاد بهذا السعر الافتتاحي.يتطلب نشر هذا المزاد حجز عربون جدية بقيمة ${requiredDeposit.toLocaleString()} د.ع.`);
+    if (sellerDeposit !== null && user) {
+      if ((user.balance || 0) < sellerDeposit) {
+        alert(`عذراً، رصيدك غير كافٍ لإنشاء مزاد. يتطلب نشر هذا المزاد حجز عربون جدية بقيمة ${sellerDeposit.toLocaleString()} د.ع.`);
         return;
       }
+    } else if (sellerDeposit === null && !loading) {
+      alert("يرجى الانتظار حتى يتم حساب عربون المزاد، أو التأكد من السعر الافتتاحي.");
+      return;
     }
 
     setShowCreateTermsModal(true);

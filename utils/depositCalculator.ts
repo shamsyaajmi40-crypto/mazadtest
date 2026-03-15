@@ -14,6 +14,7 @@ export const DEFAULT_DEPOSIT_POLICY = {
         },
         maxTotalRate: 0.06,
         minAmount: 5000,
+        maxAmount: 250000,
         smallPriceThreshold: 100000,
     },
 };
@@ -66,6 +67,10 @@ export const normalizeDepositPolicy = (raw: any = {}) => {
             },
             maxTotalRate: normalizeRate(sellerRaw.maxTotalRate, DEFAULT_DEPOSIT_POLICY.seller.maxTotalRate),
             minAmount: normalizeMoney(sellerRaw.minAmount, DEFAULT_DEPOSIT_POLICY.seller.minAmount),
+            maxAmount: Math.max(
+                normalizeMoney(sellerRaw.minAmount, DEFAULT_DEPOSIT_POLICY.seller.minAmount),
+                normalizeMoney(sellerRaw.maxAmount, DEFAULT_DEPOSIT_POLICY.seller.maxAmount)
+            ),
             smallPriceThreshold: normalizeMoney(
                 sellerRaw.smallPriceThreshold,
                 DEFAULT_DEPOSIT_POLICY.seller.smallPriceThreshold
@@ -104,5 +109,7 @@ export const calculateSellerDeposit = (
 
     if (rate <= 0) return 0;
     if (price < p.seller.smallPriceThreshold) return p.seller.minAmount;
-    return Math.max(p.seller.minAmount, Math.ceil(price * rate));
+    const rawAmount = Math.ceil(price * rate);
+    const withMin = Math.max(p.seller.minAmount, rawAmount);
+    return Math.min(p.seller.maxAmount || 250000, withMin);
 };

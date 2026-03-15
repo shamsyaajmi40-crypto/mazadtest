@@ -485,22 +485,24 @@ const AuctionDetails = () => {
       return;
     }
 
-    // 🔥 عرض نافذة الشروط قبل المزايدة للمرة الأولى في هذه الجلسة
-    const acceptedKey = `hasAcceptedBidTerms_${auction._id}`;
-    if (!localStorage.getItem(acceptedKey)) {
+    // Always require terms confirmation before the first bid in this auction.
+    if (!hasAlreadyBid) {
       setShowBidTermsModal(true);
       return;
     }
 
-    await executeBid();
+    await executeBid(true);
   };
 
-  const executeBid = async () => {
+  const executeBid = async (termsAccepted = false) => {
     if (!auction || bidLoading) return;
 
-    // 🔥 ضمان تأكيد الموافقة على الشروط
-    const acceptedKey = `hasAcceptedBidTerms_${auction._id}`;
-    if (!localStorage.getItem(acceptedKey)) {
+    const hasAlreadyBid = bids.some(
+      (b) => b.bidder && String((b.bidder as any)?._id || b.bidder) === String(user?._id)
+    );
+
+    // Server also enforces this, but keep UX guard here.
+    if (!hasAlreadyBid && !termsAccepted) {
       setShowBidTermsModal(true);
       return;
     }
@@ -527,7 +529,7 @@ const AuctionDetails = () => {
 
       setBids((prev) => [optimisticBidEntry, ...prev]);
 
-      await placeBid(auction._id, nextBid);
+      await placeBid(auction._id, nextBid, hasAlreadyBid ? true : termsAccepted);
       playSound('success');
       await refreshAuction();
     } catch (err: any) {
@@ -2233,10 +2235,8 @@ const AuctionDetails = () => {
               (optimisticBid !== null ? optimisticBid : auction.currentPrice) + auction.increment
             ).toLocaleString()} د.ع`}
             onAccept={async () => {
-              const acceptedKey = `hasAcceptedBidTerms_${auction._id}`;
-              localStorage.setItem(acceptedKey, "true");
               setShowBidTermsModal(false);
-              executeBid();
+              await executeBid(true);
             }}
           />
         )}

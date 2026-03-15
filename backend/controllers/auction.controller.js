@@ -910,6 +910,16 @@ export const placeBid = async (req, res) => {
         bidder: req.user._id,
       }).session(session);
 
+      const termsAccepted = req.body?.termsAccepted === true;
+      if (!existingBid && !termsAccepted) {
+        await session.abortTransaction();
+        session.endSession();
+        if (attempt === 1) await rollbackBidCooldown({ userId: req.user._id, auctionId: req.params.id });
+        return res.status(400).json({
+          message: "You must accept bidding terms before placing your first bid in this auction.",
+        });
+      }
+
       // 5. الحد الأقصى للمزادات النشطة (فقط للمزايدة الأولى)
       if (!existingBid) {
         const MAX_ACTIVE_AUCTIONS = 10;

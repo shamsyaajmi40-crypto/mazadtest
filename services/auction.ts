@@ -24,8 +24,8 @@ export const getWonAuctions = async () => {
 };
 
 // Function to get completed auctions with filter
-export const placeBid = (id: string, amount: number) => {
-  return api.post(`/auctions/${id}/bid`, { amount });
+export const placeBid = (id: string, amount: number, termsAccepted = false) => {
+  return api.post(`/auctions/${id}/bid`, { amount, termsAccepted });
 };
 // Function to get completed auctions with filter
 export const getMyAuctions = () => {

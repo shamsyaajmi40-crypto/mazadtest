@@ -29,8 +29,36 @@ import { getMyAuctions } from "../services/auction";
 import { updateProfile, getMyFavorites, changePassword, submitVerification } from "../services/user";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import toast from "react-hot-toast";
+import { AuthContextType } from "../context/AuthContext";
+
+const ProfileSkeleton = () => (
+  <div className="max-w-6xl mx-auto px-4 py-8 md:py-12 animate-pulse">
+    <div className="bg-white rounded-[2rem] h-64 mb-12 border border-slate-100 flex flex-col md:flex-row p-8 gap-8 items-center">
+      <div className="w-32 h-32 md:w-40 md:h-40 bg-slate-100 rounded-[2rem]"></div>
+      <div className="flex-1 space-y-4 w-full">
+        <div className="h-10 bg-slate-100 rounded-xl w-1/3"></div>
+        <div className="h-6 bg-slate-100 rounded-xl w-1/4"></div>
+        <div className="flex gap-4 mt-6">
+          <div className="h-20 bg-slate-100 rounded-2xl w-32"></div>
+          <div className="h-20 bg-slate-100 rounded-2xl w-32"></div>
+        </div>
+      </div>
+    </div>
+    <div className="flex gap-3 mb-8 overflow-hidden">
+      {[1, 2, 3, 4].map(i => (
+        <div key={i} className="h-12 bg-slate-50 rounded-2xl w-32 shrink-0 border border-slate-100"></div>
+      ))}
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {[1, 2, 3].map(i => (
+        <div key={i} className="h-80 bg-white rounded-[2rem] border border-slate-100"></div>
+      ))}
+    </div>
+  </div>
+);
+
 const UserProfile = () => {
-  const { user } = useContext(AuthContext);
+  const { user, setUser } = useContext(AuthContext);
   const { id } = useParams();
   const navigate = useNavigate();
   const isOwnProfile = !id;
@@ -222,10 +250,11 @@ const UserProfile = () => {
       const updatedUser = await updateProfile(formData);
       setSettingsSuccess("تم تحديث البيانات بنجاح");
       setProfileUser(updatedUser);
-      // Option: update local storage session or rely on TopBar to fetch me on mount. We can trigger a quick window reload to update context if necessary, or better, the Context needs an update function. We'll simply let the user see it updated.
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+      // Update AuthContext user state locally without reload
+      if (setUser) {
+        setUser(updatedUser);
+      }
+      toast.success("تم تحديث البيانات بنجاح");
     } catch (err: any) {
       setSettingsError(err.response?.data?.message || "حدث خطأ أثناء التحديث");
     } finally {
@@ -278,11 +307,7 @@ const UserProfile = () => {
   }
 
   if (loading)
-    return (
-      <div className="flex justify-center p-20">
-        <Loader2 className="animate-spin w-8 h-8 text-primary" />
-      </div>
-    );
+    return <ProfileSkeleton />;
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 md:py-12 animate-in fade-in duration-500">
@@ -316,7 +341,7 @@ const UserProfile = () => {
           {/* User Info */}
           <div className="flex-1 text-center md:text-right flex flex-col justify-center h-full pt-2">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-              <div>
+              <div className="flex-1">
                 <h1 className="text-3xl md:text-4xl font-black text-slate-800 tracking-tight flex items-center justify-center md:justify-start gap-3">
                   {profileUser?.name || "—"}
                   {profileUser?.verification?.status === "verified" && (
@@ -326,16 +351,34 @@ const UserProfile = () => {
 
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mt-3 text-slate-500 font-medium">
                   {profileUser?.governorate && (
-                    <span className="flex items-center gap-1.5 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
+                    <span className="flex items-center gap-1.5 bg-white px-3 py-1 rounded-full border border-slate-100 shadow-sm">
                       <MapPin className="w-4 h-4 text-primary" /> {profileUser.governorate}
                     </span>
                   )}
                   {profileUser?.createdAt && (
-                    <span className="flex items-center gap-1.5 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
+                    <span className="flex items-center gap-1.5 bg-white px-3 py-1 rounded-full border border-slate-100 shadow-sm">
                       <CalendarDays className="w-4 h-4 text-slate-400" />
                       عضو منذ {new Date(profileUser.createdAt).getFullYear()}
                     </span>
                   )}
+                </div>
+
+                {/* Quick Stats Bar */}
+                <div className="mt-6 flex flex-wrap items-center justify-center md:justify-start gap-4 no-print border-t border-slate-100/50 pt-5">
+                  <div className="flex flex-col items-center md:items-start">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">مزاداتي</span>
+                    <span className="text-lg font-black text-slate-900">{data.listings.length}</span>
+                  </div>
+                  <div className="w-px h-8 bg-slate-100 mx-2 hidden md:block"></div>
+                  <div className="flex flex-col items-center md:items-start">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">مزايداتي</span>
+                    <span className="text-lg font-black text-slate-900">{data.bids.length}</span>
+                  </div>
+                  <div className="w-px h-8 bg-slate-100 mx-2 hidden md:block"></div>
+                  <div className="flex flex-col items-center md:items-start">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">انضمام</span>
+                    <span className="text-lg font-black text-slate-900">{profileUser?.createdAt ? new Date(profileUser.createdAt).toLocaleDateString("ar-IQ") : "—"}</span>
+                  </div>
                 </div>
               </div>
 
@@ -560,6 +603,14 @@ const UserProfile = () => {
                 >
                   <Trophy className="w-4 h-4 text-white" />
                   قيّم الصفقة
+                </button>
+
+                <button
+                  className="absolute top-4 right-4 z-20 bg-white/90 backdrop-blur-md text-slate-700 px-4 py-2 rounded-xl text-sm font-bold shadow-lg flex items-center gap-2 hover:bg-white transition-all border border-slate-200"
+                  onClick={() => navigate(`/wallet?search=${auction._id}`)}
+                >
+                  <FileCheck className="w-4 h-4 text-indigo-500" />
+                  عرض الوصل
                 </button>
               </div>
             ))

@@ -226,7 +226,7 @@ const PORT = process.env.PORT || 5000;
 console.log("SERVER PID:", process.pid, "CWD:", process.cwd());
 const startServer = async () => {
   try {
-    console.log("MONGO_URI =", process.env.MONGO_URI);
+    console.log("MONGO_URI = [HIDDEN FOR SECURITY]");
     // ⬅️ انتظر الاتصال أولًا
     await connectDB();
     

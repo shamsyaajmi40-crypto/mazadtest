@@ -449,55 +449,60 @@ export const exportFinancialsExcel = async (req, res) => {
 
         let logs = [];
 
-        // 1. Penalties & Refunds & Commissions (AuditLog)
-        if (type === "all" || type === "penalty" || type === "refund" || type === "commission") {
+        // 1. Penalties & Refunds & Commissions & Holds (AuditLog & FinanceLog)
+        if (type === "all" || type === "penalty" || type === "refund" || type === "commission" || type === "hold") {
             const actions = [];
-            if (type === "all" || type === "penalty") actions.push("CONFISCATE_OK", "DEPOSIT_CONFISCATE");
-            if (type === "all" || type === "refund") actions.push("REFUND", "DEPOSIT_REFUND");
-            if (type === "all" || type === "commission") actions.push("PLATFORM_COMMISSION");
-            if (type === "all" || type === "hold") actions.push("DEPOSIT_HOLD");
+            if (type === "all" || type === "penalty") actions.push("CONFISCATE_OK");
+            if (type === "all" || type === "refund") actions.push("REFUND");
 
             const match = { action: { $in: actions }, ...dateFilter };
             if (userMatchIds) match.user = { $in: userMatchIds };
 
-            const audits = await AuditLog.find(match).populate("user", "name phone").populate("auction", "title").lean();
+            if (actions.length > 0) {
+                const audits = await AuditLog.find(match).populate("user", "name phone").populate("auction", "title").lean();
 
-            audits.forEach(p => {
-                logs.push({
-                    date: p.createdAt,
-                    type: p.action === "CONFISCATE_OK" || p.action === "DEPOSIT_CONFISCATE" ? "مصادرة" : 
-                          (p.action === "REFUND" || p.action === "DEPOSIT_REFUND" ? "إرجاع عربون" : 
-                          (p.action === "DEPOSIT_HOLD" ? "حجز عربون" : "عمولة مزاد")),
-                    status: "ناجحة",
-                    user: p.user?.name || "—",
-                    phone: p.user?.phone || "—",
-                    amount: Number(p.amountIQD || p.amount || 0),
-                    orderId: p.receiptId || (p.auction ? `AUC-${p.auction._id.toString().slice(-6).toUpperCase()}` : "—"),
-                    source: p.source === "SELLER" ? "بائع" : (p.source === "BUYER" ? "مشتري" : (p.action === "DEPOSIT_HOLD" ? "حجز" : "عمولة منصة")),
-                    details: (p.reason || "—") + (p.auction ? ` (مزاد: ${p.auction.title})` : "")
+                audits.forEach(p => {
+                    logs.push({
+                        date: p.createdAt,
+                        type: p.action === "CONFISCATE_OK" ? "مصادرة" : "إرجاع",
+                        status: "ناجحة",
+                        user: p.user?.name || "—",
+                        phone: p.user?.phone || "—",
+                        amount: Number(p.amountIQD || p.amount || 0),
+                        orderId: p.receiptId || (p.auction ? `AUC-${p.auction._id.toString().slice(-6).toUpperCase()}` : "—"),
+                        source: p.source === "SELLER" ? "بائع" : (p.source === "BUYER" ? "مشتري" : "عمولة منصة"),
+                        details: (p.reason || "—") + (p.auction ? ` (مزاد: ${p.auction.title})` : "")
+                    });
                 });
-            });
+            }
 
-            // 1.1 Manual Refunds (FinanceLog)
-            if (type === "all" || type === "refund") {
-                const fMatch = {
-                    type: { $in: ["REFUND_REQUEST_APPROVED", "REFUND_REQUEST_REJECTED"] },
-                    ...dateFilter
-                };
+            // 1.1 FinanceLog entries (Refunds, Holds, Penalties, Commissions)
+            const fTypes = [];
+            if (type === "all" || type === "refund") fTypes.push("REFUND_REQUEST_APPROVED", "REFUND_REQUEST_REJECTED", "DEPOSIT_REFUND");
+            if (type === "all" || type === "hold") fTypes.push("DEPOSIT_HOLD");
+            if (type === "all" || type === "penalty") fTypes.push("DEPOSIT_CONFISCATE");
+            if (type === "all" || type === "commission") fTypes.push("PLATFORM_COMMISSION");
+
+            if (fTypes.length > 0) {
+                const fMatch = { type: { $in: fTypes }, ...dateFilter };
                 if (userMatchIds) fMatch.user = { $in: userMatchIds };
 
                 const fLogs = await FinanceLog.find(fMatch).populate("user", "name phone").lean();
                 fLogs.forEach(l => {
                     logs.push({
                         date: l.createdAt,
-                        type: "سحب رصيد",
-                        status: l.type === "REFUND_REQUEST_APPROVED" ? "ناجحة" : "فاشلة",
+                        type: l.type === "DEPOSIT_HOLD" ? "حجز عربون" :
+                              l.type === "DEPOSIT_REFUND" ? "إرجاع عربون" :
+                              l.type === "DEPOSIT_CONFISCATE" ? "مصادرة عربون" :
+                              l.type === "PLATFORM_COMMISSION" ? "عمولة مزاد" :
+                              (l.type === "REFUND_REQUEST_REJECTED" ? "فشل سحب" : "سحب رصيد"),
+                        status: l.type === "REFUND_REQUEST_REJECTED" ? "فاشلة" : "ناجحة",
                         user: l.user?.name || "—",
                         phone: l.user?.phone || "—",
                         amount: Number(l.amountIQD || l.amount || 0),
-                        orderId: l.receiptId || (l.refId ? `WDR-${l.refId.toString().slice(-6).toUpperCase()}` : "—"),
-                        source: "منصة (يدوي)",
-                        details: (l.type === "REFUND_REQUEST_APPROVED" ? "موافقة" : "رفض") + ": " + (l.meta?.adminNote || l.meta?.reason || "—")
+                        orderId: l.receiptId || (l.refId ? `FIN-${l.refId.toString().slice(-6).toUpperCase()}` : "—"),
+                        source: l.type.startsWith("DEPOSIT_") ? "حجز تلقائي" : (l.type === "PLATFORM_COMMISSION" ? "عمولة منصة" : "منصة (يدوي)"),
+                        details: (l.meta?.adminNote || l.meta?.reason || l.meta?.note || "—")
                     });
                 });
             }

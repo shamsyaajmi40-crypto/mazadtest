@@ -245,12 +245,13 @@ export const getFinancialLogs = async (req, res) => {
             });
         }
 
-        // --- UNION: FinanceLog (Refund / Topup) ---
-        if (type === "all" || type === "refund" || type === "topup") {
+        // --- UNION: FinanceLog (Refund / Topup / Hold / Penalty) ---
+        if (type === "all" || type === "refund" || type === "topup" || type === "hold" || type === "penalty") {
             const finTypes = [];
-            if (type === "all" || type === "refund") finTypes.push("REFUND_REQUEST_APPROVED", "REFUND_REQUEST_REJECTED");
+            if (type === "all" || type === "refund") finTypes.push("REFUND_REQUEST_APPROVED", "REFUND_REQUEST_REJECTED", "DEPOSIT_REFUND");
             if (type === "all" || type === "topup") finTypes.push("WALLET_TOPUP_PAID");
-            if (type === "all" || type === "hold") finTypes.push("DEPOSIT_HOLD", "DEPOSIT_REFUND", "DEPOSIT_CONFISCATE");
+            if (type === "all" || type === "hold") finTypes.push("DEPOSIT_HOLD");
+            if (type === "all" || type === "penalty") finTypes.push("DEPOSIT_CONFISCATE");
 
             pipeline.push({
                 $unionWith: {

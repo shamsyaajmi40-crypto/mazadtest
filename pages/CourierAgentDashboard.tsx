@@ -13,6 +13,8 @@ import {
   User,
   Search,
   Building,
+  Phone,
+  MessageCircle,
 } from "lucide-react";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
@@ -270,7 +272,29 @@ export default function CourierAgentDashboard() {
                     <div className="absolute top-0 right-0 h-full w-1 bg-blue-500" />
                     <div className="text-[10px] font-bold text-blue-500 uppercase tracking-wider mb-3">بيانات وجهة التوصيل (المشتري)</div>
                     <div className="font-black text-slate-900 mb-1 flex items-center gap-2"><User className="w-4 h-4 text-blue-400" /> {o.auction?.winner?.name || "-"}</div>
-                    <div className="text-sm font-mono font-bold text-slate-700 mb-2 mr-6" dir="ltr">{o.auction?.winner?.phone || "-"}</div>
+                    <div className="text-sm font-mono font-bold text-slate-700 mb-3 mr-6 flex items-center justify-between" dir="ltr">
+                      <span>{o.auction?.winner?.phone || "-"}</span>
+                      {o.auction?.winner?.phone && (
+                        <div className="flex gap-2">
+                           <a 
+                             href={`tel:${o.auction.winner.phone}`} 
+                             className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"
+                             title="اتصال هاتفي"
+                           >
+                             <Phone className="w-4 h-4" />
+                           </a>
+                           <a 
+                             href={`https://wa.me/${o.auction.winner.phone.replace(/\D/g, '')}`} 
+                             target="_blank" 
+                             rel="noopener noreferrer"
+                             className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors border border-emerald-200"
+                             title="مراسلة واتساب"
+                           >
+                             <MessageCircle className="w-4 h-4" />
+                           </a>
+                        </div>
+                      )}
+                    </div>
                     <div className="text-sm text-slate-600 mr-6 leading-relaxed flex items-start gap-1"><MapPin className="w-4 h-4 mt-0.5 shrink-0 text-blue-400" /> {fullAddress(o.auction?.winner || null)}</div>
                  </div>
               </div>

@@ -36,7 +36,7 @@ export default function Wallet() {
 
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(true);
   const [activeTab, setActiveTab] = useState<"TOPUP" | "REFUND" | "ACTIVITY">("TOPUP");
 
   const showErr = (msg: string) => {

@@ -1599,20 +1599,26 @@ const AuctionDetails = () => {
                           {/* OTP المشتري */}
                           {isWinner && auction.deliveryOtpCode && (
                             <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
-                              <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">كود الاستلام — اعطه للمندوب</p>
+                              <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">كود استلام السلعة — اعطه للمندوب</p>
                               <div className="text-3xl font-black tracking-[0.3em] text-slate-900 select-all text-center py-2 bg-white rounded-lg border border-slate-100">
                                 {auction.deliveryOtpCode}
                               </div>
+                              <p className="mt-2 text-[10px] text-slate-500 font-bold leading-relaxed text-center">
+                                أعطِ هذا الرمز للمندوب **بعد فحص واستلام السلعة** فقط. بمجرد إعطائك للرمز، سيتم تحويل حالة الطلب إلى "تم التسليم".
+                              </p>
                             </div>
                           )}
 
                           {/* OTP البائع */}
                           {isOwner && auction.payoutOtpCode && (
                             <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
-                              <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">كود COD — اعطه لموظف الشركة</p>
+                              <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">كود استلام المبلغ (COD) — اعطه لموظف الشركة</p>
                               <div className="text-3xl font-black tracking-[0.3em] text-slate-900 select-all text-center py-2 bg-white rounded-lg border border-slate-100">
                                 {auction.payoutOtpCode}
                               </div>
+                              <p className="mt-2 text-[10px] text-slate-500 font-bold leading-relaxed text-center">
+                                أعطِ هذا الرمز لموظف الشركة **بعد استلامك كامل مبلغ البيع** نقداً. لا تشارك الرمز قبل التأكد من استلام فلوسك نهائياً.
+                              </p>
                             </div>
                           )}
 

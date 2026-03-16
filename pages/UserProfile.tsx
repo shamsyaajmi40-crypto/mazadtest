@@ -355,18 +355,6 @@ const UserProfile = () => {
                   {profileUser?.verification?.status === "verified" && (
                     <ShieldCheck className="w-8 h-8 text-blue-500 drop-shadow-sm" />
                   )}
-                  {isOwnProfile && (
-                    <button
-                      onClick={() => setActiveTab("SETTINGS")}
-                      className={`mr-auto px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 transition-all duration-300 border-2 ${activeTab === "SETTINGS"
-                        ? "bg-slate-900 text-white border-slate-900 shadow-lg"
-                        : "bg-white text-slate-600 border-slate-100 hover:border-primary/20 hover:bg-slate-50"
-                        }`}
-                    >
-                      <Settings className={`w-4 h-4 ${activeTab === "SETTINGS" ? "animate-spin-slow" : "text-slate-400"}`} />
-                      تعديل الحساب
-                    </button>
-                  )}
                 </h1>
 
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mt-3 text-slate-500 font-medium">
@@ -429,112 +417,133 @@ const UserProfile = () => {
                   </div>
                 )}
 
-
+                {isOwnProfile && (
+                  <button
+                    onClick={() => setActiveTab(activeTab === "SETTINGS" ? "LISTINGS" : "SETTINGS")}
+                    className={`w-full py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all duration-300 border-2 ${activeTab === "SETTINGS"
+                      ? "bg-white text-slate-900 border-slate-900 shadow-sm hover:bg-slate-50"
+                      : "bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-900/10 hover:bg-black hover:scale-[1.02]"
+                      }`}
+                  >
+                    {activeTab === "SETTINGS" ? (
+                      <>
+                        <ChevronRight className="w-4 h-4 rotate-180" />
+                        العودة للملف الشخصي
+                      </>
+                    ) : (
+                      <>
+                        <Settings className="w-4 h-4" />
+                        تعديل الحساب والإعدادات
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-3 overflow-x-auto pb-4 mb-8 snap-x hide-scrollbar">
-        <button
-          onClick={() => setActiveTab("LISTINGS")}
-          className={`shrink-0 snap-start px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all duration-300 ${activeTab === "LISTINGS"
-            ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 scale-100"
-            : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-100 scale-95 hover:scale-100"
-            }`}
-        >
-          <Package className={`w-5 h-5 ${activeTab === "LISTINGS" ? "text-blue-400" : ""}`} />
-          مزاداتي
-          <span className={`ml-1.5 px-2 py-0.5 rounded-lg text-xs font-black ${activeTab === "LISTINGS" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
-            }`}>
-            {data.listings.length}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("BIDS")}
-          className={`shrink-0 snap-start px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all duration-300 ${activeTab === "BIDS"
-            ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 scale-100"
-            : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-100 scale-95 hover:scale-100"
-            }`}
-        >
-          <Gavel className={`w-5 h-5 ${activeTab === "BIDS" ? "text-emerald-400" : ""}`} />
-          مزايداتي
-          <span className={`ml-1.5 px-2 py-0.5 rounded-lg text-xs font-black ${activeTab === "BIDS" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
-            }`}>
-            {data.bids.length}
-          </span>
-        </button>
-
-        {isOwnProfile && (
+      {/* Tabs - Hidden when in settings for focus */}
+      {activeTab !== "SETTINGS" && (
+        <div className="flex items-center gap-3 overflow-x-auto pb-4 mb-8 snap-x hide-scrollbar">
           <button
-            onClick={() => setActiveTab("WINS")}
-            className={`shrink-0 snap-start px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all duration-300 ${activeTab === "WINS"
+            onClick={() => setActiveTab("LISTINGS")}
+            className={`shrink-0 snap-start px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all duration-300 ${activeTab === "LISTINGS"
               ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 scale-100"
               : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-100 scale-95 hover:scale-100"
               }`}
           >
-            <Trophy className={`w-5 h-5 ${activeTab === "WINS" ? "text-amber-400" : ""}`} />
-            المكتسبة
-            <span className={`ml-1.5 px-2 py-0.5 rounded-lg text-xs font-black ${activeTab === "WINS" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+            <Package className={`w-5 h-5 ${activeTab === "LISTINGS" ? "text-blue-400" : ""}`} />
+            مزاداتي
+            <span className={`ml-1.5 px-2 py-0.5 rounded-lg text-xs font-black ${activeTab === "LISTINGS" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
               }`}>
-              {data.wins.length}
+              {data.listings.length}
             </span>
           </button>
-        )}
 
-        {isOwnProfile && pendingCourierAuctions.length > 0 && (
           <button
-            onClick={() => setActiveTab("PENDING_COURIER")}
-            className={`shrink-0 snap-start px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all duration-300 ${activeTab === "PENDING_COURIER"
+            onClick={() => setActiveTab("BIDS")}
+            className={`shrink-0 snap-start px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all duration-300 ${activeTab === "BIDS"
               ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 scale-100"
               : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-100 scale-95 hover:scale-100"
               }`}
           >
-            <PackageCheck className={`w-5 h-5 ${activeTab === "PENDING_COURIER" ? "text-indigo-400" : ""}`} />
-            تحديد توصيل
-            <span className={`ml-1.5 px-2 py-0.5 rounded-lg text-xs font-black ${activeTab === "PENDING_COURIER" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+            <Gavel className={`w-5 h-5 ${activeTab === "BIDS" ? "text-emerald-400" : ""}`} />
+            مزايداتي
+            <span className={`ml-1.5 px-2 py-0.5 rounded-lg text-xs font-black ${activeTab === "BIDS" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
               }`}>
-              {pendingCourierAuctions.length}
+              {data.bids.length}
             </span>
           </button>
-        )}
 
-        {isOwnProfile && (
+          {isOwnProfile && (
+            <button
+              onClick={() => setActiveTab("WINS")}
+              className={`shrink-0 snap-start px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all duration-300 ${activeTab === "WINS"
+                ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 scale-100"
+                : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-100 scale-95 hover:scale-100"
+                }`}
+            >
+              <Trophy className={`w-5 h-5 ${activeTab === "WINS" ? "text-amber-400" : ""}`} />
+              المكتسبة
+              <span className={`ml-1.5 px-2 py-0.5 rounded-lg text-xs font-black ${activeTab === "WINS" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+                }`}>
+                {data.wins.length}
+              </span>
+            </button>
+          )}
+
+          {isOwnProfile && pendingCourierAuctions.length > 0 && (
+            <button
+              onClick={() => setActiveTab("PENDING_COURIER")}
+              className={`shrink-0 snap-start px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all duration-300 ${activeTab === "PENDING_COURIER"
+                ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 scale-100"
+                : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-100 scale-95 hover:scale-100"
+                }`}
+            >
+              <PackageCheck className={`w-5 h-5 ${activeTab === "PENDING_COURIER" ? "text-indigo-400" : ""}`} />
+              تحديد توصيل
+              <span className={`ml-1.5 px-2 py-0.5 rounded-lg text-xs font-black ${activeTab === "PENDING_COURIER" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+                }`}>
+                {pendingCourierAuctions.length}
+              </span>
+            </button>
+          )}
+
+          {isOwnProfile && (
+            <button
+              onClick={() => setActiveTab("FAVORITES")}
+              className={`shrink-0 snap-start px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all duration-300 ${activeTab === "FAVORITES"
+                ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 scale-100"
+                : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-100 scale-95 hover:scale-100"
+                }`}
+            >
+              <Heart className={`w-5 h-5 ${activeTab === "FAVORITES" ? "text-rose-400" : ""}`} />
+              المفضلة
+              <span className={`ml-1.5 px-2 py-0.5 rounded-lg text-xs font-black ${activeTab === "FAVORITES" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+                }`}>
+                {data.favorites.length}
+              </span>
+            </button>
+          )}
+
           <button
-            onClick={() => setActiveTab("FAVORITES")}
-            className={`shrink-0 snap-start px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all duration-300 ${activeTab === "FAVORITES"
+            onClick={() => setActiveTab("RATINGS")}
+            className={`shrink-0 snap-start px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all duration-300 ${activeTab === "RATINGS"
               ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 scale-100"
               : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-100 scale-95 hover:scale-100"
               }`}
           >
-            <Heart className={`w-5 h-5 ${activeTab === "FAVORITES" ? "text-rose-400" : ""}`} />
-            المفضلة
-            <span className={`ml-1.5 px-2 py-0.5 rounded-lg text-xs font-black ${activeTab === "FAVORITES" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+            <Star className={`w-5 h-5 ${activeTab === "RATINGS" ? "text-amber-400" : ""}`} />
+            التقييمات
+            <span className={`ml-1.5 px-2 py-0.5 rounded-lg text-xs font-black ${activeTab === "RATINGS" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
               }`}>
-              {data.favorites.length}
+              {data.ratings.length}
             </span>
           </button>
-        )}
-
-        <button
-          onClick={() => setActiveTab("RATINGS")}
-          className={`shrink-0 snap-start px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all duration-300 ${activeTab === "RATINGS"
-            ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 scale-100"
-            : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-100 scale-95 hover:scale-100"
-            }`}
-        >
-          <Star className={`w-5 h-5 ${activeTab === "RATINGS" ? "text-amber-400" : ""}`} />
-          التقييمات
-          <span className={`ml-1.5 px-2 py-0.5 rounded-lg text-xs font-black ${activeTab === "RATINGS" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
-            }`}>
-            {data.ratings.length}
-          </span>
-        </button>
-
-      </div>
+        </div>
+      )}
 
       {/* Content */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1083,8 +1092,8 @@ const UserProfile = () => {
             )}
           </div>
         )}
-      </div >
-    </div >
+      </div>
+    </div>
   );
 };
 

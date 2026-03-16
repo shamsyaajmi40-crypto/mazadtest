@@ -247,33 +247,33 @@ export default function Wallet() {
 
       {/* Tabs Layout */}
       <div className="bg-white rounded-[3rem] border border-slate-200 shadow-2xl overflow-hidden min-h-[600px] flex flex-col mb-20">
-        {/* Navigation Tabs - REORDERED */}
+        {/* Navigation Tabs - PROMINENT HEADERS */}
         <div className="flex flex-col sm:flex-row items-stretch border-b border-slate-100">
           <button 
             onClick={() => setActiveTab("TOPUP")}
-            className={`flex-1 py-6 px-4 flex items-center justify-center gap-3 transition-all font-black text-sm relative ${activeTab === "TOPUP" ? "text-primary bg-primary/5" : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"}`}
+            className={`flex-1 py-7 px-4 flex items-center justify-center gap-3.5 transition-all font-black text-base relative ${activeTab === "TOPUP" ? "text-primary bg-primary/5" : "text-slate-400 hover:text-slate-800 hover:bg-slate-50"}`}
           >
-            <ArrowUpRight className={`w-5 h-5 ${activeTab === "TOPUP" ? "text-primary" : "text-slate-400"}`} />
+            <ArrowUpRight className={`w-6 h-6 ${activeTab === "TOPUP" ? "text-primary" : "text-slate-300"}`} />
             تعبئة رصيد
-            {activeTab === "TOPUP" && <div className="absolute bottom-0 left-0 w-full h-1 bg-primary rounded-full"></div>}
+            {activeTab === "TOPUP" && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[80%] h-1.5 bg-primary rounded-t-full shadow-[0_-4px_10px_rgba(var(--primary-rgb),0.3)] animate-in slide-in-from-bottom-1"></div>}
           </button>
 
           <button 
             onClick={() => setActiveTab("REFUND")}
-            className={`flex-1 py-6 px-4 flex items-center justify-center gap-3 transition-all font-black text-sm relative ${activeTab === "REFUND" ? "text-primary bg-primary/5" : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"}`}
+            className={`flex-1 py-7 px-4 flex items-center justify-center gap-3.5 transition-all font-black text-base relative ${activeTab === "REFUND" ? "text-primary bg-primary/5" : "text-slate-400 hover:text-slate-800 hover:bg-slate-50"}`}
           >
-            <ArrowDownLeft className={`w-5 h-5 ${activeTab === "REFUND" ? "text-primary" : "text-slate-400"}`} />
+            <ArrowDownLeft className={`w-6 h-6 ${activeTab === "REFUND" ? "text-primary" : "text-slate-300"}`} />
             سحب / استرجاع
-            {activeTab === "REFUND" && <div className="absolute bottom-0 left-0 w-full h-1 bg-primary rounded-full"></div>}
+            {activeTab === "REFUND" && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[80%] h-1.5 bg-primary rounded-t-full shadow-[0_-4px_10px_rgba(var(--primary-rgb),0.3)] animate-in slide-in-from-bottom-1"></div>}
           </button>
 
           <button 
             onClick={() => setActiveTab("ACTIVITY")}
-            className={`flex-1 py-6 px-4 flex items-center justify-center gap-3 transition-all font-black text-sm relative ${activeTab === "ACTIVITY" ? "text-primary bg-primary/5" : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"}`}
+            className={`flex-1 py-7 px-4 flex items-center justify-center gap-3.5 transition-all font-black text-base relative ${activeTab === "ACTIVITY" ? "text-primary bg-primary/5" : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"}`}
           >
-            <TrendingUp className={`w-5 h-5 ${activeTab === "ACTIVITY" ? "text-primary" : "text-slate-400"}`} />
+            <TrendingUp className={`w-6 h-6 ${activeTab === "ACTIVITY" ? "text-primary" : "text-slate-400"}`} />
             النشاط المالي
-            {activeTab === "ACTIVITY" && <div className="absolute bottom-0 left-0 w-full h-1 bg-primary rounded-full"></div>}
+            {activeTab === "ACTIVITY" && <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[80%] h-1.5 bg-primary rounded-t-full shadow-[0_-4px_10px_rgba(var(--primary-rgb),0.3)] animate-in slide-in-from-bottom-1"></div>}
           </button>
         </div>
 

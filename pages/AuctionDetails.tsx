@@ -1899,8 +1899,7 @@ const AuctionDetails = () => {
                   disabled={
                     ratingLoading ||
                     score < 1 ||
-                    reasons.length === 0 ||
-                    (score <= 2 && comment.trim().length < 5)
+                    (reasons.length === 0 && comment.trim().length < 5)
                   }
                   onClick={submitRating}
                   className="w-full sm:w-auto px-10 py-4 bg-gradient-to-r from-primary to-primary-light text-white font-black rounded-xl hover:shadow-lg hover:shadow-primary/30 transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"

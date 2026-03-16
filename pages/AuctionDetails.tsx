@@ -10,6 +10,7 @@ import {
   Navigation, CreditCard, Layout
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { calculateCommission } from "../utils/commission";
 
 
 import { getImageUrl } from "@/utils/getImageUrl";
@@ -54,6 +55,17 @@ const RatingStars = ({ value }: { value: number }) => {
       })}
     </div>
   );
+};
+
+const deliveryFailureReasonLabel: Record<string, string> = {
+  BUYER_NO_SHOW: "المشتري غير متواجد",
+  BUYER_REFUSED: "المشتري رفض الاستلام",
+  BUYER_DID_NOT_RECEIVE: "المشتري لم يستلم البضاعة",
+  BUYER_UNREACHABLE: "المشتري لا يرد",
+  WRONG_ADDRESS: "عنوان غير صحيح/غير واضح",
+  SELLER_NO_SHOW: "البائع غير متواجد",
+  SELLER_NOT_READY: "البائع غير جاهز",
+  COURIER_ISSUE: "مشكلة لوجستية",
 };
 
 const DeliveryStepper = ({ auction }: { auction: any }) => {
@@ -135,17 +147,6 @@ const DeliveryStepper = ({ auction }: { auction: any }) => {
       </div>
     </div>
   );
-};
-
-const deliveryFailureReasonLabel: Record<string, string> = {
-  BUYER_NO_SHOW: "المشتري غير متواجد",
-  BUYER_REFUSED: "المشتري رفض الاستلام",
-  BUYER_DID_NOT_RECEIVE: "المشتري لم يستلم البضاعة",
-  BUYER_UNREACHABLE: "المشتري لا يرد",
-  WRONG_ADDRESS: "عنوان غير صحيح/غير واضح",
-  SELLER_NO_SHOW: "البائع غير متواجد",
-  SELLER_NOT_READY: "البائع غير جاهز",
-  COURIER_ISSUE: "مشكلة لوجستية",
 };
 
 const AuctionDetails = () => {
@@ -567,24 +568,22 @@ const AuctionDetails = () => {
       return;
     }
 
-    // Always require terms confirmation before the first bid in this auction.
-    if (!hasAlreadyBid) {
+    // 🔥 عرض نافذة الشروط قبل المزايدة للمرة الأولى في هذه الجلسة
+    const acceptedKey = `hasAcceptedBidTerms_${auction._id}`;
+    if (!localStorage.getItem(acceptedKey)) {
       setShowBidTermsModal(true);
       return;
     }
 
-    await executeBid(true);
+    await executeBid();
   };
 
-  const executeBid = async (termsAccepted = false) => {
+  const executeBid = async () => {
     if (!auction || bidLoading) return;
 
-    const hasAlreadyBid = bids.some(
-      (b) => b.bidder && String((b.bidder as any)?._id || b.bidder) === String(user?._id)
-    );
-
-    // Server also enforces this, but keep UX guard here.
-    if (!hasAlreadyBid && !termsAccepted) {
+    // 🔥 ضمان تأكيد الموافقة على الشروط
+    const acceptedKey = `hasAcceptedBidTerms_${auction._id}`;
+    if (!localStorage.getItem(acceptedKey)) {
       setShowBidTermsModal(true);
       return;
     }
@@ -611,7 +610,7 @@ const AuctionDetails = () => {
 
       setBids((prev) => [optimisticBidEntry, ...prev]);
 
-      await placeBid(auction._id, nextBid, hasAlreadyBid ? true : termsAccepted);
+      await placeBid(auction._id, nextBid);
       playSound('success');
       await refreshAuction();
     } catch (err: any) {
@@ -878,22 +877,6 @@ const AuctionDetails = () => {
   const isDealResolved = isDealSuccess || isDealFailed;
   const isEnded = (now >= endTime || normalizedStatus === "ended" || isDealResolved) && !isPending && !isRejected;
 
-  // إنشاء خريطة للأسباب لسهولة الوصول إليها
-  const ratingReasonMap: Record<string, string> = {};
-
-  Object.values(RATING_REASONS).forEach((group: any) => {
-    if (group.positive) {
-      group.positive.forEach((r: any) => {
-        ratingReasonMap[r.key.toLowerCase()] = r.label;
-      });
-    }
-    if (group.negative) {
-      group.negative.forEach((r: any) => {
-        ratingReasonMap[r.key.toLowerCase()] = r.label;
-      });
-    }
-  });
-
   const isWinner =
     String(auction.winner?._id || auction.winner) ===
     String(user?._id);
@@ -935,6 +918,14 @@ const AuctionDetails = () => {
       setRatingLoading(false);
     }
   };
+  // إنشاء خريطة للأسباب لسهولة الوصول إليها
+  const ratingReasonMap: Record<string, string> = {};
+
+  Object.values(RATING_REASONS).forEach((group) => {
+    [...group.positive, ...group.negative].forEach((r) => {
+      ratingReasonMap[r.key.toLowerCase()] = r.label;
+    });
+  });
   // تحديد الأنماط للأسباب الإيجابية والسلبية
   const positiveReasons = new Set([
     "good_communication",
@@ -1314,7 +1305,7 @@ const AuctionDetails = () => {
                         )}
                       </div>
                       {!isEnded && (
-                        <span className="text-[9px] font-black bg-white px-1.5 py-0.5 rounded border shadow-sm ${isHotAuction ? 'text-orange-600 border-orange-100' : 'text-indigo-600 border-indigo-100'}">
+                        <span className={`text-[9px] font-black bg-white px-1.5 py-0.5 rounded border shadow-sm ${isHotAuction ? 'text-orange-600 border-orange-100' : 'text-indigo-600 border-indigo-100'}`}>
                           +{auction.increment.toLocaleString()}
                         </span>
                       )}
@@ -1560,147 +1551,218 @@ const AuctionDetails = () => {
                 </button>
               )}
 
-              {/* ===== Courier OTP (ظهر فقط لصاحبه من الباكند) ===== */}
-              {normalizedStatus === "ended" &&
+              {/* رسالة للبائع قبل ظهور OTP الدفع */}
+              {isOwner &&
+                normalizedStatus === "ended" &&
                 auction.deliveryMode === "courier" &&
-                (isOwner || isWinner) && !isDealResolved && (
-                  <div className="mt-4 rounded-2xl overflow-hidden border border-blue-100 mb-4">
-                    <div className="bg-gradient-to-l from-blue-600 to-indigo-600 px-4 py-3 flex items-center gap-2">
-                      <div className="p-1.5 bg-white/20 rounded-lg">
-                        <Package className="w-4 h-4 text-white" />
+                !auction.payoutOtpCode && !isDealResolved && (
+                  <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/60 p-4 flex items-start gap-3">
+                    <span className="text-2xl shrink-0 mt-0.5">📦</span>
+                    <div>
+                      <p className="font-black text-amber-900 text-sm mb-1">الطلب في طريقه إلى المشتري</p>
+                      <p className="text-xs text-amber-700 leading-relaxed font-medium">
+                        راح يطلعلك بعد ما يستلم االمشتري البضاعة رمز استلام الفلوس من شركة التوصيل، تروح للشركة تستلم فلوسك بالبداية بعدين تنطي الرقم.
+                      </p>
+                      <div className="mt-2 p-2 bg-rose-50 border border-rose-100 rounded-lg">
+                        <p className="text-[11px] text-rose-600 font-black">
+                          ⚠️ تحذير: لاتنطي الرقم بدون ماتتاكد من فلوسك، غير هيج المنصة مو مسؤولة.
+                        </p>
                       </div>
-                      <span className="text-white font-black text-sm">كود التسليم عبر شركة (OTP)</span>
-                    </div>
-
-                    <div className="bg-white p-4 space-y-3">
-                      {isWinner && auction.deliveryOtpCode && (
-                        <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 text-center">
-                          <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">كود الاستلام — اعطه للمندوب</p>
-                          <div className="text-3xl font-black tracking-[0.3em] text-slate-900 select-all py-2 bg-white rounded-lg border border-slate-100">
-                            {auction.deliveryOtpCode}
-                          </div>
-                        </div>
-                      )}
-
-                      {isOwner && auction.payoutOtpCode && (
-                        <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 text-center">
-                          <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">كود COD — اعطه لموظف الشركة</p>
-                          <div className="text-3xl font-black tracking-[0.3em] text-slate-900 select-all py-2 bg-white rounded-lg border border-slate-100">
-                            {auction.payoutOtpCode}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {!auction.deliveryOtpCode && !auction.payoutOtpCode && (
-                        <p className="text-sm text-slate-500 text-center py-2">لا يوجد كود متاح حالياً.</p>
-                      )}
                     </div>
                   </div>
                 )}
 
-              {auction.deliveryMode === "courier" && auction.deliveryOrder && (
-                <div className="mt-4 rounded-[2rem] overflow-hidden border border-slate-200 shadow-sm bg-white">
-                  <div className="p-6">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="p-2 bg-slate-900 text-white rounded-xl">
-                        <Package className="w-5 h-5" />
+              {/* ===== Courier OTP (ظهر فقط لصاحبه من الباكند) ===== */}
+              {normalizedStatus === "ended" &&
+                auction.deliveryMode === "courier" &&
+                (isOwner || isWinner) && !isDealResolved && (
+                  <div className="mt-4 rounded-2xl overflow-hidden border border-blue-100">
+                    {/* Header */}
+                    <div className="bg-gradient-to-l from-blue-600 to-indigo-600 px-4 py-3 flex items-center gap-2">
+                      <div className="p-1.5 bg-white/20 rounded-lg">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
                       </div>
-                      <h3 className="text-lg font-black text-slate-800">متابعة حالة التوصيل</h3>
+                      <span className="text-white font-black text-sm">كود التسليم عبر شركة (OTP)</span>
                     </div>
 
+                    {/* OTP codes */}
+                    <div className="bg-white p-4 space-y-3">
+                      {!isDealResolved && (
+                        <>
+                          {/* OTP المشتري */}
+                          {isWinner && auction.deliveryOtpCode && (
+                            <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                              <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">كود الاستلام — اعطه للمندوب</p>
+                              <div className="text-3xl font-black tracking-[0.3em] text-slate-900 select-all text-center py-2 bg-white rounded-lg border border-slate-100">
+                                {auction.deliveryOtpCode}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* OTP البائع */}
+                          {isOwner && auction.payoutOtpCode && (
+                            <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                              <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">كود COD — اعطه لموظف الشركة</p>
+                              <div className="text-3xl font-black tracking-[0.3em] text-slate-900 select-all text-center py-2 bg-white rounded-lg border border-slate-100">
+                                {auction.payoutOtpCode}
+                              </div>
+                            </div>
+                          )}
+
+                          {!auction.deliveryOtpCode && !auction.payoutOtpCode && (
+                            <p className="text-sm text-slate-500 text-center py-2">لا يوجد كود متاح حالياً.</p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              {auction.deliveryMode === "courier" && auction.deliveryOrder && (
+                <div className="mt-4 rounded-2xl overflow-hidden border border-slate-200">
+                  {/* Header */}
+                  <div className="bg-gradient-to-l from-slate-800 to-slate-700 px-4 py-3 flex items-center gap-2">
+                    <div className="p-1.5 bg-white/10 rounded-lg">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <span className="text-white font-black text-sm">حالة التوصيل</span>
+                  </div>
+                  <div className="bg-white p-4 space-y-2.5">
+                    {/* Stepper Integration */}
                     <DeliveryStepper auction={auction} />
 
-                    <div className="mt-4 pt-4 border-t border-slate-50 text-center">
-                      <div className="text-sm font-bold">
-                        {(() => {
-                          const order = auction.deliveryOrder;
-                          const status = order?.status;
-                          const reason = order?.failureReason || auction.deliveryPenaltyReason || "";
-                          const label = deliveryFailureReasonLabel[reason] || reason || "سبب الفشل غير محدد";
+                    <div className="text-sm font-bold">
+                      {(() => {
+                        const order = auction.deliveryOrder;
+                        const status = order?.status;
 
-                          const isSellerFault = ["SELLER_NO_SHOW", "SELLER_NOT_READY"].includes(reason);
-                          const isBuyerFault = ["BUYER_NO_SHOW", "BUYER_REFUSED", "BUYER_DID_NOT_RECEIVE", "BUYER_UNREACHABLE", "WRONG_ADDRESS"].includes(reason);
+                        const reason =
+                          order?.failureReason ||
+                          auction.deliveryPenaltyReason ||
+                          "";
 
-                          switch (status) {
-                            case "READY_FOR_PICKUP":
-                              return <span className="text-blue-600">📦 بانتظار استلام الطلب من البائع</span>;
-                            case "PICKED_UP":
-                              return <span className="text-indigo-600">🚚 تم استلام الطلب من البائع {order?.agentUser && " وتحديد مندوب التوصيل"}</span>;
-                            case "DELIVERED":
-                              return <span className="text-green-600">✅ تم تسليم الطلب للمشتري</span>;
-                            case "COD_PAID_TO_SELLER":
-                              return <span className="text-emerald-600">💰 تم تسليم المبلغ للبائع — الصفقة مكتملة</span>;
-                            case "DELIVERY_FAILED": {
-                              // ===== البائع مخطئ =====
-                              if (isSellerFault) {
-                                if (isSeller) {
-                                  return (
-                                    <span className="text-red-600">
-                                      ❌ فشل التوصيل بسببك ({label}) — {auction.penaltyApplied ? "تم تطبيق العقوبة" : "قد يتم تطبيق عقوبة"}
-                                    </span>
-                                  );
-                                }
+                        const label =
+                          deliveryFailureReasonLabel[reason] ||
+                          reason ||
+                          "سبب الفشل غير محدد";
 
-                                if (isWinner) {
-                                  return (
-                                    <span className="text-orange-600">
-                                      ⚠️ فشل التوصيل بسبب البائع ({label}) — {auction.penaltyApplied ? "تم إعادة عربونك" : "سيتم إرجاع عربونك"}
-                                    </span>
-                                  );
-                                }
-                              }
+                        const sellerReasons = ["SELLER_NO_SHOW", "SELLER_NOT_READY"];
+                        const buyerReasons = [
+                          "BUYER_NO_SHOW",
+                          "BUYER_REFUSED",
+                          "BUYER_DID_NOT_RECEIVE",
+                          "BUYER_UNREACHABLE",
+                          "WRONG_ADDRESS",
+                        ];
 
-                              // ===== المشتري مخطئ =====
-                              if (isBuyerFault) {
-                                if (isWinner) {
-                                  return (
-                                    <span className="text-red-600">
-                                      ❌ فشل التوصيل بسببك ({label}) — {auction.penaltyApplied ? "تم تطبيق العقوبة" : "قد يتم تطبيق عقوبة"}
-                                    </span>
-                                  );
-                                }
+                        const isSellerFault = sellerReasons.includes(reason);
+                        const isBuyerFault = buyerReasons.includes(reason);
 
-                                if (isSeller) {
-                                  return (
-                                    <span className="text-orange-600">
-                                      ⚠️ فشل التوصيل بسبب المشتري ({label}) — {auction.penaltyApplied ? "تم إعادة عربونك" : "سيتم إرجاع عربونك"}
-                                    </span>
-                                  );
-                                }
-                              }
+                        const isSeller =
+                          user &&
+                          auction.seller &&
+                          String(auction.seller._id || auction.seller) === String(user._id);
 
-                              // ===== شركة التوصيل =====
-                              if (reason === "COURIER_ISSUE") {
+                        const isWinner =
+                          user &&
+                          auction.winner &&
+                          String(auction.winner._id || auction.winner) === String(user._id);
+
+                        switch (status) {
+                          case "READY_FOR_PICKUP":
+                            return (
+                              <span className="text-blue-600">
+                                📦 بانتظار استلام الطلب من البائع
+                              </span>
+                            );
+
+                          case "PICKED_UP":
+                            return (
+                              <span className="text-indigo-600">
+                                🚚 تم استلام الطلب من البائع
+                                {order?.agentUser && " وتحديد مندوب التوصيل"}
+                              </span>
+                            );
+
+                          case "DELIVERED":
+                            return (
+                              <span className="text-green-600">
+                                ✅ تم تسليم الطلب للمشتري
+                              </span>
+                            );
+
+                          case "COD_PAID_TO_SELLER":
+                            return (
+                              <span className="text-emerald-600">
+                                💰 تم تسليم المبلغ للبائع — الصفقة مكتملة
+                              </span>
+                            );
+
+                          case "DELIVERY_FAILED": {
+                            // ===== البائع مخطئ =====
+                            if (isSellerFault) {
+                              if (isSeller) {
                                 return (
-                                  <span className="text-yellow-600">
-                                    🚚 مشكلة لوجستية — سيتم إعادة المحاولة بدون عقوبات
+                                  <span className="text-red-600">
+                                    ❌ فشل التوصيل بسببك ({label}) — {auction.penaltyApplied ? "تم تطبيق العقوبة" : "قد يتم تطبيق عقوبة"}
                                   </span>
                                 );
                               }
 
+                              if (isWinner) {
+                                return (
+                                  <span className="text-orange-600">
+                                    ⚠️ فشل التوصيل بسبب البائع ({label}) — {auction.penaltyApplied ? "تم إعادة عربونك" : "سيتم إرجاع عربونك"}
+                                  </span>
+                                );
+                              }
+                            }
+
+                            // ===== المشتري مخطئ =====
+                            if (isBuyerFault) {
+                              if (isWinner) {
+                                return (
+                                  <span className="text-red-600">
+                                    ❌ فشل التوصيل بسببك ({label}) — {auction.penaltyApplied ? "تم تطبيق العقوبة" : "قد يتم تطبيق عقوبة"}
+                                  </span>
+                                );
+                              }
+
+                              if (isSeller) {
+                                return (
+                                  <span className="text-orange-600">
+                                    ⚠️ فشل التوصيل بسبب المشتري ({label}) — {auction.penaltyApplied ? "تم إعادة عربونك" : "سيتم إرجاع عربونك"}
+                                  </span>
+                                );
+                              }
+                            }
+
+                            // ===== شركة التوصيل =====
+                            if (reason === "COURIER_ISSUE") {
                               return (
-                                <span className="text-red-600">
-                                  ❌ {label}
+                                <span className="text-yellow-600">
+                                  🚚 مشكلة لوجستية — سيتم إعادة المحاولة بدون عقوبات
                                 </span>
                               );
                             }
 
-                            default:
-                              return <span className="text-slate-500">جاري المعالجة...</span>;
+                            return (
+                              <span className="text-red-600">
+                                ❌ {label}
+                              </span>
+                            );
                           }
-                        })()}
-                      </div>
-                    </div>
-                  </div>
 
-                  {auction.deliveryOrder?.status === "DELIVERY_FAILED" && (
-                    <div className="bg-slate-50 p-4 border-t border-slate-100">
-                       {/* Fees and Pentalty Details here if needed - original code had them below */}
+                          default:
+                            return status;
+                        }
+                      })()}
                     </div>
-                  )}
 
-                  {/* Rest of delivery info like fees */}
-                  <div className="px-6 pb-6 space-y-2">
+
                     {auction.penaltyApplied && (auction.deliveryOrder?.status === "DELIVERY_FAILED") ? (
                       // ✅ رسالة ما بعد تطبيق العقوبة
                       (() => {
@@ -1732,21 +1794,42 @@ const AuctionDetails = () => {
                         );
                       })()
                     ) : (
-                      <div className="space-y-2">
-                        {Number(auction.deliveryOrder.deliveryFee || 0) > 0 && (
-                          <div className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
-                            <span className="text-xs font-bold text-slate-500">🚚 أجرة التوصيل</span>
-                            <span className="text-xs font-black text-slate-800">{Number(auction.deliveryOrder.deliveryFee || 0).toLocaleString()} د.ع</span>
-                          </div>
-                        )}
-                        <div className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
-                          <span className="text-xs font-bold text-slate-500">💰 مستحق البائع</span>
-                          <span className="text-xs font-black text-slate-800">{Number(auction.currentPrice || 0).toLocaleString()} د.ع</span>
+                      <div className="mt-4 pt-4 border-t border-slate-100 space-y-3">
+                        <div className="flex justify-between items-center text-xs font-bold text-slate-500">
+                          <span>قيمة المزايدة الفائزة:</span>
+                          <span className="text-slate-900">{auction.currentPrice.toLocaleString()} د.ع</span>
                         </div>
-                        <div className="flex items-center justify-between bg-emerald-50 rounded-xl px-3 py-2 border border-emerald-100">
-                          <span className="text-xs font-bold text-emerald-700">🧾 إجمالي المشتري</span>
-                          <span className="text-xs font-black text-emerald-800">{(Number(auction.currentPrice || 0) + Number(auction.deliveryOrder.deliveryFee || 0)).toLocaleString()} د.ع</span>
-                        </div>
+                        
+                        {/* Commission is calculated using the hybrid logic */}
+                        {(() => {
+                          const comm = calculateCommission(auction.startingPrice || 0, auction.currentPrice);
+                          const sellerPayout = auction.currentPrice - comm;
+                          const deliveryFee = auction.deliveryOrder?.deliveryFee || 0;
+                          
+                          return (
+                            <>
+                              <div className="flex justify-between items-center text-xs font-bold text-rose-500 bg-rose-50/50 px-2 py-1.5 rounded-lg border border-rose-100/50">
+                                <span>عـمـولة المنصة:</span>
+                                <span>-{comm.toLocaleString()} د.ع</span>
+                              </div>
+                              
+                              <div className="flex justify-between items-center text-sm font-black text-emerald-600 bg-emerald-50/50 px-3 py-2.5 rounded-xl border border-emerald-100/50 shadow-sm">
+                                <span>صافي مستحق البائع:</span>
+                                <span>{sellerPayout.toLocaleString()} د.ع</span>
+                              </div>
+
+                              <div className="flex justify-between items-center text-[10px] font-black text-slate-400 pt-1">
+                                <span>أجرة التوصيل:</span>
+                                <span>{deliveryFee.toLocaleString()} د.ع</span>
+                              </div>
+
+                              <div className="flex justify-between items-center text-xs font-black text-indigo-600 pt-2 border-t border-dashed border-slate-200">
+                                <span>إجمالي ما يدفعه المشتري:</span>
+                                <span className="bg-indigo-50 px-2 py-1 rounded-lg">{(auction.currentPrice + deliveryFee).toLocaleString()} د.ع</span>
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
@@ -1861,45 +1944,42 @@ const AuctionDetails = () => {
                 <p className="text-sm font-bold text-slate-500 mb-3">ما هي أبرز الأسباب؟</p>
                 <div className="flex flex-wrap gap-2.5">
                   {(() => {
-                    const group = (RATING_REASONS as any)[role];
-                    if (!group) return null;
+                    const group = RATING_REASONS[role];
+                    let available: { key: string; label: string }[] = [];
+                    if (score >= 4) available = group.positive;
+                    else if (score <= 2) available = group.negative;
+                    else available = [...group.positive, ...group.negative];
 
-                    let available: any[] = [];
-                    if (score >= 4) available = group.positive || [];
-                    else if (score <= 2) available = group.negative || [];
-                    else available = [...(group.positive || []), ...(group.negative || [])];
-
-                    return available.map((r: any) => {
-
-                    const isChecked = reasons.includes(r.key);
-                    return (
-                      <label
-                        key={r.key}
-                        className={`cursor-pointer select-none px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 border ${isChecked
-                          ? "bg-slate-900 border-slate-900 text-white shadow-md shadow-slate-900/20"
-                          : "bg-white border-slate-200 text-slate-600 hover:border-slate-400 hover:bg-slate-50"
-                          }`}
-                      >
-                        <input
-                          type="checkbox"
-                          className="hidden"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            if (e.target.checked) setReasons((prev) => [...prev, r.key]);
-                            else setReasons((prev) => prev.filter((x) => x !== r.key));
-                          }}
-                        />
-                        {r.label}
-                      </label>
-                    );
-                  });
-                })()}
+                    return available.map((r) => {
+                      const isChecked = reasons.includes(r.key);
+                      return (
+                        <label
+                          key={r.key}
+                          className={`cursor-pointer select-none px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 border ${isChecked
+                            ? "bg-slate-900 border-slate-900 text-white shadow-md shadow-slate-900/20"
+                            : "bg-white border-slate-200 text-slate-600 hover:border-slate-400 hover:bg-slate-50"
+                            }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="hidden"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) setReasons((prev) => [...prev, r.key]);
+                              else setReasons((prev) => prev.filter((x) => x !== r.key));
+                            }}
+                          />
+                          {r.label}
+                        </label>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
 
               {/* التعليق */}
               <div className={`transition-all duration-500 overflow-hidden ${score <= 2 || comment ? "max-h-40 opacity-100" : "max-h-0 opacity-0"}`}>
-                <p className="text-sm font-bold text-slate-500 mb-2">تعليق إضافي {(score <= 2 && reasons.length === 0) && <span className="text-rose-500 text-xs bg-rose-50 px-2 py-0.5 rounded-md ml-2">مطلوب</span>}</p>
+                <p className="text-sm font-bold text-slate-500 mb-2">تعليق إضافي {(score <= 2) && <span className="text-rose-500 text-xs bg-rose-50 px-2 py-0.5 rounded-md ml-2">مطلوب</span>}</p>
                 <textarea
                   className="w-full border-2 border-slate-200 bg-white p-4 rounded-2xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none resize-none text-sm font-medium h-28"
                   placeholder="اكتب تعليقك هنا لمعرفة سبب تجربتك..."
@@ -1914,7 +1994,8 @@ const AuctionDetails = () => {
                   disabled={
                     ratingLoading ||
                     score < 1 ||
-                    (reasons.length === 0 && comment.trim().length < 5)
+                    reasons.length === 0 ||
+                    (score <= 2 && comment.trim().length < 5)
                   }
                   onClick={submitRating}
                   className="w-full sm:w-auto px-10 py-4 bg-gradient-to-r from-primary to-primary-light text-white font-black rounded-xl hover:shadow-lg hover:shadow-primary/30 transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
@@ -2251,25 +2332,22 @@ const AuctionDetails = () => {
             description={
               <>
                 بمجرد وضع المزايدة، سيتم اقتطاع وحجز <strong>عربون دخول</strong> بقيمة ({(auction.depositAmount || 0).toLocaleString()} د.ع) من محفظتك لضمان جديتك في هذا المزاد.
-                {" "}
-                <a href="#/privacy" target="_blank" rel="noopener noreferrer" className="text-primary underline font-bold">
-                  اطلع على سياسة الرسوم والأسعار
-                </a>
               </>
             }
             termsList={[
               "المزايدة تعتبر التزاماً قاطعاً بالشراء في حال رسو المزاد عليك.",
               "سيتم خصم مبلغ العربون فور المزايدة ولن يتم استرداده إذا انسحبت بعد فوزك أو تهربت من إتمام عملية الدفع والتسليم عبر المنصة.",
               "في حال خسارتك للمزاد، سيتم فك الحجز وإرجاع العربون إلى محفظتك فوراً.",
-              "يجب عليك الرد وإتمام الصفقة مع البائع خلال المدة المحددة بعد فوزك وإلا سيتم حظر حسابك ومصادرة العربون.",
-              "رسوم خدمة المنصة: تُستقطع عمولة من 1.5% إلى 5% من السعر النهائي للمزاد (بحد أدنى 1,000 د.ع وحد أقصى 50,000 د.ع) وتُخصم من مبلغ الدفع عند إتمام الصفقة. بمزايدتك فإنك تقر بعلمك وموافقتك على هذه الرسوم."
+              "يجب عليك الرد وإتمام الصفقة مع البائع خلال المدة المحددة بعد فوزك وإلا سيتم حظر حسابك ومصادرة العربون."
             ]}
             actionLabel={`موافق ومزايدة بـ ${(
               (optimisticBid !== null ? optimisticBid : auction.currentPrice) + auction.increment
             ).toLocaleString()} د.ع`}
             onAccept={async () => {
+              const acceptedKey = `hasAcceptedBidTerms_${auction._id}`;
+              localStorage.setItem(acceptedKey, "true");
               setShowBidTermsModal(false);
-              await executeBid(true);
+              executeBid();
             }}
           />
         )}

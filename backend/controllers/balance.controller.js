@@ -517,6 +517,7 @@ export const getMyFinancialLogs = async (req, res) => {
       receiptId: l.receiptId,
       createdAt: l.createdAt,
       meta: l.meta,
+      refId: l.refId,
       isImmutable: l.isImmutable
     }));
 

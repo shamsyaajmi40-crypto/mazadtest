@@ -64,11 +64,11 @@ const UserProfile = () => {
   const isOwnProfile = !id;
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const initialTab = (queryParams.get("tab") as "LISTINGS" | "BIDS" | "WINS" | "PENDING_COURIER" | "SETTINGS" | "FAVORITES") || "LISTINGS";
+  const initialTab = (queryParams.get("tab") as "LISTINGS" | "BIDS" | "WINS" | "PENDING_COURIER" | "SETTINGS" | "FAVORITES" | "RATINGS") || "LISTINGS";
 
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] =
-    useState<"LISTINGS" | "BIDS" | "WINS" | "PENDING_COURIER" | "SETTINGS" | "FAVORITES">(initialTab);
+    useState<"LISTINGS" | "BIDS" | "WINS" | "PENDING_COURIER" | "SETTINGS" | "FAVORITES" | "RATINGS">(initialTab);
 
   const [data, setData] = useState<{
     listings: Auction[];
@@ -80,6 +80,7 @@ const UserProfile = () => {
     bids: [],
     wins: [],
     favorites: [],
+    ratings: [],
   });
 
   //
@@ -129,8 +130,9 @@ const UserProfile = () => {
         getMyBids(),
         getWonAuctions(),
         getMyFavorites().catch(() => []),
+        api.get(`/ratings/user/${user._id}`).then(res => res.data).catch(() => []),
       ])
-        .then(([a, b, w, favs]) => {
+        .then(([a, b, w, favs, rats]) => {
           console.log("Logged In User:", user);
           setProfileUser(user);
           setData({
@@ -138,6 +140,7 @@ const UserProfile = () => {
             bids: b.data,
             wins: w.data,
             favorites: favs,
+            ratings: rats,
           });
         })
         .finally(() => setLoading(false));
@@ -154,6 +157,7 @@ const UserProfile = () => {
           setData((prev) => ({
             ...prev,
             listings: res.data.auctions,
+            ratings: res.data.ratings || [],
           }));
         }
       })
@@ -498,6 +502,21 @@ const UserProfile = () => {
             </span>
           </button>
         )}
+
+        <button
+          onClick={() => setActiveTab("RATINGS")}
+          className={`shrink-0 snap-start px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all duration-300 ${activeTab === "RATINGS"
+            ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 scale-100"
+            : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-100 scale-95 hover:scale-100"
+            }`}
+        >
+          <Star className={`w-5 h-5 ${activeTab === "RATINGS" ? "text-amber-400" : ""}`} />
+          التقييمات
+          <span className={`ml-1.5 px-2 py-0.5 rounded-lg text-xs font-black ${activeTab === "RATINGS" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+            }`}>
+            {data.ratings.length}
+          </span>
+        </button>
 
         {isOwnProfile && (
           <button
@@ -1005,6 +1024,53 @@ const UserProfile = () => {
             </div>
           )
         }
+
+        {activeTab === "RATINGS" && (
+          <div className="col-span-full space-y-4">
+            {data.ratings.length > 0 ? (
+              data.ratings.map((r: any) => (
+                <div key={r._id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row gap-6">
+                  <div className="flex flex-col items-center md:items-start min-w-[120px]">
+                    <div className="flex mb-1">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star key={s} className={`w-4 h-4 ${s <= r.score ? "text-amber-400 fill-amber-400" : "text-slate-200 fill-slate-100"}`} />
+                      ))}
+                    </div>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider mt-1">
+                      {new Date(r.createdAt).toLocaleDateString("ar-IQ")}
+                    </span>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-sm font-black text-slate-800">{r.fromUser?.name || "مستخدم مزايد"}</span>
+                      <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded">
+                        {r.role === "buyer_to_seller" ? "مشتري" : "بائع"}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-600 font-medium leading-relaxed">
+                      {r.comment || "لا يوجد تعليق إضافي"}
+                    </p>
+                    {r.reasons && r.reasons.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-3">
+                        {r.reasons.map((reason: string) => (
+                          <span key={reason} className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
+                            {reason}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center p-12 bg-white rounded-[2rem] border border-slate-100 border-dashed">
+                <Star className="w-12 h-12 text-slate-200 mb-4" />
+                <h3 className="text-xl font-black text-slate-800 mb-2">لا يوجد تقييمات بعد</h3>
+                <p className="text-slate-500 text-center">لم يتلقى هذا المستخدم أي تقييمات حتى الآن.</p>
+              </div>
+            )}
+          </div>
+        )}
       </div >
     </div >
   );

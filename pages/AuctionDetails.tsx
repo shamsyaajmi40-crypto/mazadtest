@@ -796,6 +796,22 @@ const AuctionDetails = () => {
   const isDealResolved = isDealSuccess || isDealFailed;
   const isEnded = (now >= endTime || normalizedStatus === "ended" || isDealResolved) && !isPending && !isRejected;
 
+  // إنشاء خريطة للأسباب لسهولة الوصول إليها
+  const ratingReasonMap: Record<string, string> = {};
+
+  Object.values(RATING_REASONS).forEach((group: any) => {
+    if (group.positive) {
+      group.positive.forEach((r: any) => {
+        ratingReasonMap[r.key.toLowerCase()] = r.label;
+      });
+    }
+    if (group.negative) {
+      group.negative.forEach((r: any) => {
+        ratingReasonMap[r.key.toLowerCase()] = r.label;
+      });
+    }
+  });
+
   const isWinner =
     String(auction.winner?._id || auction.winner) ===
     String(user?._id);
@@ -837,14 +853,6 @@ const AuctionDetails = () => {
       setRatingLoading(false);
     }
   };
-  // إنشاء خريطة للأسباب لسهولة الوصول إليها
-  const ratingReasonMap: Record<string, string> = {};
-
-  Object.values(RATING_REASONS).forEach((group) => {
-    group.forEach((r) => {
-      ratingReasonMap[r.key.toLowerCase()] = r.label;
-    });
-  });
   // تحديد الأنماط للأسباب الإيجابية والسلبية
   const positiveReasons = new Set([
     "good_communication",
@@ -1224,7 +1232,7 @@ const AuctionDetails = () => {
                         )}
                       </div>
                       {!isEnded && (
-                        <span className={`text-[9px] font-black bg-white px-1.5 py-0.5 rounded border shadow-sm ${isHotAuction ? 'text-orange-600 border-orange-100' : 'text-indigo-600 border-indigo-100'}`}>
+                        <span className="text-[9px] font-black bg-white px-1.5 py-0.5 rounded border shadow-sm ${isHotAuction ? 'text-orange-600 border-orange-100' : 'text-indigo-600 border-indigo-100'}">
                           +{auction.increment.toLocaleString()}
                         </span>
                       )}
@@ -1837,7 +1845,17 @@ const AuctionDetails = () => {
               <div>
                 <p className="text-sm font-bold text-slate-500 mb-3">ما هي أبرز الأسباب؟</p>
                 <div className="flex flex-wrap gap-2.5">
-                  {RATING_REASONS[role].map((r) => {
+                  {(() => {
+                    const group = (RATING_REASONS as any)[role];
+                    if (!group) return null;
+
+                    let available: any[] = [];
+                    if (score >= 4) available = group.positive || [];
+                    else if (score <= 2) available = group.negative || [];
+                    else available = [...(group.positive || []), ...(group.negative || [])];
+
+                    return available.map((r: any) => {
+
                     const isChecked = reasons.includes(r.key);
                     return (
                       <label
@@ -1859,7 +1877,8 @@ const AuctionDetails = () => {
                         {r.label}
                       </label>
                     );
-                  })}
+                  });
+                })()}
                 </div>
               </div>
 

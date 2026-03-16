@@ -18,6 +18,7 @@ import jwt from "jsonwebtoken";
 import User from "./models/User.js";
 import closeAuctions from "./cron/auctionCloser.js";
 import startAuctionCleanupCron from "./cron/auctionCleanup.js";
+import { startAutoPositiveRatingCron } from "./cron/autoPositiveRating.js";
 
 import authRoutes from "./routes/auth.routes.js";
 import auctionRoutes from "./routes/auction.routes.js";
@@ -238,6 +239,7 @@ const startServer = async () => {
     // // ⬅️ Cron jobs
     closeAuctions();
     startAuctionCleanupCron();
+    startAutoPositiveRatingCron();
     await activateScheduledAuctions();
     // كل 30 ثانية
     setInterval(async () => {

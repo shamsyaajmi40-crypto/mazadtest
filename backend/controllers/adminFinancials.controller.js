@@ -464,14 +464,16 @@ export const exportFinancialsExcel = async (req, res) => {
             audits.forEach(p => {
                 logs.push({
                     date: p.createdAt,
-                    type: p.action === "CONFISCATE_OK" ? "مصادرة" : (p.action === "REFUND" ? "إرجاع عربون" : "عمولة مزاد"),
+                    type: p.action === "CONFISCATE_OK" || p.action === "DEPOSIT_CONFISCATE" ? "مصادرة" : 
+                          (p.action === "REFUND" || p.action === "DEPOSIT_REFUND" ? "إرجاع عربون" : 
+                          (p.action === "DEPOSIT_HOLD" ? "حجز عربون" : "عمولة مزاد")),
                     status: "ناجحة",
                     user: p.user?.name || "—",
                     phone: p.user?.phone || "—",
                     amount: Number(p.amountIQD || p.amount || 0),
                     orderId: p.receiptId || (p.auction ? `AUC-${p.auction._id.toString().slice(-6).toUpperCase()}` : "—"),
-                    source: p.source === "SELLER" ? "بائع" : (p.source === "BUYER" ? "مشتري" : "عمولة منصة"),
-                    details: p.reason + (p.auction ? ` (مزاد: ${p.auction.title})` : "")
+                    source: p.source === "SELLER" ? "بائع" : (p.source === "BUYER" ? "مشتري" : (p.action === "DEPOSIT_HOLD" ? "حجز" : "عمولة منصة")),
+                    details: (p.reason || "—") + (p.auction ? ` (مزاد: ${p.auction.title})` : "")
                 });
             });
 

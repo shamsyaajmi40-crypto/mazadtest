@@ -13,7 +13,8 @@ import {
   AlertCircle,
   TrendingUp,
   CreditCard,
-  ShieldCheck
+  ShieldCheck,
+  FileCheck
 } from "lucide-react";
 
 const formatCurrency = (n: any) => `${Number(n || 0).toLocaleString("en-US")} د.ع`;
@@ -43,31 +44,45 @@ export default function Wallet() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
 
-  const loadLogs = async () => {
+  useEffect(() => {
+    refreshUser?.();
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("topup") === "1" || params.get("paid") === "1") {
+      showOk("تمت التعبئة بنجاح ✅");
+      refreshUser?.();
+    } else if (params.get("paid") === "0") {
+      showErr("فشلت عملية الدفع أو تم إلغاؤها");
+    }
+
+    const searchQuery = params.get("search");
+    loadLogs(searchQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadLogs = async (searchQuery?: string | null) => {
     try {
       setLoadingLogs(true);
       const { data } = await api.get("/users/me/financial-logs");
-      setLogs(data);
+      let filtered = data;
+      if (searchQuery) {
+        filtered = data.filter((l: any) =>
+          String(l.refId || "").includes(searchQuery) ||
+          String(l.receiptId || "").includes(searchQuery)
+        );
+      }
+      setLogs(filtered);
+      if (searchQuery && filtered.length > 0) {
+        setTimeout(() => {
+          document.getElementById("ledger-section")?.scrollIntoView({ behavior: "smooth" });
+        }, 500);
+      }
     } catch (e) {
       console.error("loadLogs error:", e);
     } finally {
       setLoadingLogs(false);
     }
   };
-
-  useEffect(() => {
-    refreshUser?.();
-
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("topup") === "1" || params.get("paid") === "1") {
-      setOk("تمت التعبئة بنجاح ✅");
-      refreshUser?.();
-    } else if (params.get("paid") === "0") {
-      setErr("فشلت عملية الدفع أو تم إلغاؤها");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    loadLogs();
-  }, []);
 
   const startTopup = async () => {
     showOk("");
@@ -121,6 +136,8 @@ export default function Wallet() {
   const available = Number(user?.balance || 0);
   const held = Number(user?.heldBalance || 0);
   const total = available + held;
+
+  const isFiltered = new URLSearchParams(window.location.search).has("search");
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12 animate-in fade-in duration-700">
@@ -299,26 +316,42 @@ export default function Wallet() {
         </div>
       </div>
 
-      {/* Message Notifications */}
       {/* Transaction Ledger Section */}
-      <div className="mt-16 bg-white rounded-[3rem] border border-slate-200 shadow-xl overflow-hidden" dir="rtl">
+      <div id="ledger-section" className="mt-16 bg-white rounded-[3rem] border border-slate-200 shadow-xl overflow-hidden" dir="rtl">
         <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-white shadow-lg">
               <TrendingUp className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-xl font-black text-slate-800 tracking-tight">سجل المعاملات والوصولات</h3>
-              <p className="text-xs font-bold text-slate-500">سجل عملياتك المالية موثق برقم وصل فريد وغير قابل للتعديل</p>
+              <h3 className="text-xl font-black text-slate-800 tracking-tight">
+                {isFiltered ? "نتائج البحث في السجلات" : "سجل المعاملات والوصولات"}
+              </h3>
+              <p className="text-xs font-bold text-slate-500">
+                {isFiltered ? "يتم عرض العمليات المرتبطة بهذا المزاد فقط" : "سجل عملياتك المالية موثق برقم وصل فريد وغير قابل للتعديل"}
+              </p>
             </div>
           </div>
-          <button
-            onClick={() => loadLogs()}
-            className="p-2 hover:bg-slate-200 rounded-xl transition-colors text-slate-400"
-            title="تحديث السجل"
-          >
-            <Loader2 className={`w-5 h-5 ${loadingLogs ? 'animate-spin' : ''}`} />
-          </button>
+          <div className="flex gap-2">
+            {isFiltered && (
+              <button
+                onClick={() => {
+                  window.history.replaceState({}, "", "/wallet");
+                  loadLogs();
+                }}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 rounded-xl text-xs font-black text-slate-700 transition-colors"
+              >
+                إلغاء الفلترة
+              </button>
+            )}
+            <button
+              onClick={() => loadLogs(new URLSearchParams(window.location.search).get("search"))}
+              className="p-2 hover:bg-slate-200 rounded-xl transition-colors text-slate-400"
+              title="تحديث السجل"
+            >
+              <Loader2 className={`w-5 h-5 ${loadingLogs ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto text-right">
@@ -384,7 +417,7 @@ export default function Wallet() {
                             : 'text-rose-600'
                         }`}>
                         {['WALLET_TOPUP_PAID', 'DEPOSIT_REFUND', 'REFUND_REQUEST_REJECTED', 'COD_SELLER_PAYOUT', 'COD_DELIVERY_FEE'].includes(log.type) ? '+' :
-                          (log.type === 'PLATFORM_COMMISSION' || log.type === 'REFUND_REQUEST_APPROVED') ? '' : '-'} {formatCurrency(log.amountIQD || log.amount)}
+                          (log.type === 'PLATFORM_COMMISSION' || log.type === 'REFUND_REQUEST_APPROVED') ? '' : '-'} {formatCurrency(log.amount)}
                       </span>
                     </td>
                     <td className="px-8 py-5 text-xs font-bold text-slate-500">

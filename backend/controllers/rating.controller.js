@@ -143,6 +143,10 @@ export const rateAuctionUser = async (req, res) => {
       return res.status(400).json({ message: "Score must be between 1 and 5" });
     }
 
+    // ✅ Validate reasons (optional but recommended for data integrity)
+    // imports logic should be checked if RATING_REASONS is available here
+    // For now, we proceed to other checks
+
     // 2️⃣ جلب المزاد
     const auction = await Auction.findById(auctionId).populate("deliveryOrder");
     const resolvedStatuses = new Set([

@@ -235,7 +235,8 @@ const AdminCompletedAuctions = () => {
                   <th className="px-4 py-3 whitespace-nowrap">المزاد</th>
                   <th className="px-4 py-3 whitespace-nowrap">البائع</th>
                   <th className="px-4 py-3 whitespace-nowrap">الفائز</th>
-                  <th className="px-4 py-3 whitespace-nowrap">السعر</th>
+                  <th className="px-4 py-3 whitespace-nowrap text-slate-500">سعر البداية</th>
+                  <th className="px-4 py-3 whitespace-nowrap">السعر النهائي</th>
                   <th className="px-4 py-3 whitespace-nowrap">النتيجة</th>
                   <th className="px-4 py-3 whitespace-nowrap">التاريخ</th>
                   <th className="px-4 py-3 whitespace-nowrap">عقوبة</th>
@@ -279,7 +280,11 @@ const AdminCompletedAuctions = () => {
                         )}
                       </td>
 
-                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                      <td className="px-4 py-3 text-slate-400 whitespace-nowrap font-medium">
+                        {auction.startingPrice?.toLocaleString()} د.ع
+                      </td>
+
+                      <td className="px-4 py-3 text-slate-900 font-black whitespace-nowrap">
                         {auction.currentPrice?.toLocaleString()} د.ع
                       </td>
 

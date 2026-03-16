@@ -1311,9 +1311,14 @@ const AuctionDetails = () => {
                       )}
                     </div>
 
-                    <div className="flex items-baseline gap-1 relative z-10">
-                      <span className={`text-xl sm:text-2xl font-black tracking-tight leading-none whitespace-nowrap ${isHotAuction ? 'text-orange-900' : 'text-indigo-900'}`}>{displayedPrice.toLocaleString()}</span>
-                      <span className={`text-[9px] sm:text-[10px] font-bold shrink-0 ${isHotAuction ? 'text-orange-400' : 'text-indigo-400'}`}>د.ع</span>
+                    <div className="flex flex-col relative z-10">
+                      <div className="flex items-baseline gap-1">
+                        <span className={`text-xl sm:text-2xl font-black tracking-tight leading-none whitespace-nowrap ${isHotAuction ? 'text-orange-900' : 'text-indigo-900'}`}>{displayedPrice.toLocaleString()}</span>
+                        <span className={`text-[9px] sm:text-[10px] font-bold shrink-0 ${isHotAuction ? 'text-orange-400' : 'text-indigo-400'}`}>د.ع</span>
+                      </div>
+                      <div className={`text-[8px] font-bold mt-0.5 ${isHotAuction ? 'text-orange-600/60' : 'text-indigo-600/40'}`}>
+                        بدأ بـ: {auction?.startingPrice?.toLocaleString()} د.ع
+                      </div>
                     </div>
 
                     {!isEnded && (

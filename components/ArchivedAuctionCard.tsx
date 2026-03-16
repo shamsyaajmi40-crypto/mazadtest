@@ -164,6 +164,10 @@ const ArchivedAuctionCard = ({ auction }: Props) => {
           )}
         </p>
 
+        <p className="text-[10px] text-gray-500 mb-0.5">
+          بدأ بـ: <span className="font-bold">{auction.startingPrice?.toLocaleString()} د.ع</span>
+        </p>
+
         <p className="text-xs text-gray-600 mb-1">
           السعر النهائي:{" "}
           <span className="font-black text-slate-800">

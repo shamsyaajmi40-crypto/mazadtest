@@ -65,7 +65,7 @@ export type Auction = {
 
   images: string[];
 
-  startPrice: number;
+  startingPrice: number;
   currentPrice: number;
   increment: number;
   deliveryMode?: "manual" | "courier";

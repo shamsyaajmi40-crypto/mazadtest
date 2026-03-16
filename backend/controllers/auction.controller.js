@@ -1062,7 +1062,34 @@ export const placeBid = async (req, res) => {
       }
 
       const io = req.app.get("io");
+
       if (io) {
+        // Only send push notification if seller is NOT currently viewing this specific auction room
+        let isSellerInRoom = false;
+        if (auction.seller) {
+            const room = io.sockets.adapter.rooms.get(auction._id.toString());
+            if (room) {
+                for (const clientId of room) {
+                    const clientSocket = io.sockets.sockets.get(clientId);
+                    if (clientSocket && clientSocket.user && String(clientSocket.user._id) === String(auction.seller)) {
+                        isSellerInRoom = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (auction.seller && String(auction.seller) !== String(req.user._id) && !isSellerInRoom) {
+          sendAppNotification({
+            userId: auction.seller,
+            title: "مزايدة جديدة! 💰",
+            message: `هناك شخص قام بالمزايدة بمبلغ ${(amount).toLocaleString()} د.ع على مزادك "${auction.title}".`,
+            event: "NEW_BID",
+            type: "SYSTEM",
+            auctionId: auction._id
+          });
+        }
+
         Bid.find({ auction: updatedAuction._id })
           .sort({ createdAt: -1 })
           .limit(20)

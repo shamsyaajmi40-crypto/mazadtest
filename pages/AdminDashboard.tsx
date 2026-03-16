@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
-  Users, Gavel, CheckCircle, XCircle, DollarSign, Ban, RefreshCw, BarChart2, CheckSquare, Settings, ArrowLeft, ArrowRight, ShieldCheck
+  Users, Gavel, CheckCircle, XCircle, DollarSign, Ban, RefreshCw, BarChart2, CheckSquare, Settings, ArrowLeft, ArrowRight, ShieldCheck, Tag
 } from "lucide-react";
 
 import {
@@ -32,6 +32,7 @@ type Auction = {
   _id: string;
   title: string;
   status: string;
+  startingPrice?: number;
   seller?: {
     _id?: string;
     name: string;
@@ -450,6 +451,9 @@ const AdminDashboard = () => {
                             </div>
                             <p className="text-sm font-bold text-slate-500 flex items-center gap-1.5">
                               <Users className="w-3.5 h-3.5" /> البائع: {auction.seller?.name ?? "غير متوفر"}
+                            </p>
+                            <p className="text-sm font-black text-primary flex items-center gap-1.5 mt-1">
+                              <Tag className="w-3.5 h-3.5" /> السعر الابتدائي: {auction.startingPrice?.toLocaleString()} د.ع
                             </p>
                             <div className="mt-2 flex flex-wrap gap-2">
                               <Link

@@ -135,8 +135,11 @@ export const rateAuctionUser = async (req, res) => {
     const fromId = req.user._id.toString();
 
     // 1️⃣ التحقق الأساسي من المدخلات
-    if (!auctionId || !score || !Array.isArray(reasons) || reasons.length === 0) {
-      return res.status(400).json({ message: "Invalid rating data" });
+    const hasReasons = Array.isArray(reasons) && reasons.length > 0;
+    const hasComment = comment && comment.trim().length >= 5;
+
+    if (!auctionId || !score || (!hasReasons && !hasComment)) {
+      return res.status(400).json({ message: "Invalid rating data. Please provide reasons or a comment." });
     }
 
     if (score < 1 || score > 5) {

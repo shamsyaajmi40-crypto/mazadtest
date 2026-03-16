@@ -1884,7 +1884,7 @@ const AuctionDetails = () => {
 
               {/* التعليق */}
               <div className={`transition-all duration-500 overflow-hidden ${score <= 2 || comment ? "max-h-40 opacity-100" : "max-h-0 opacity-0"}`}>
-                <p className="text-sm font-bold text-slate-500 mb-2">تعليق إضافي {(score <= 2) && <span className="text-rose-500 text-xs bg-rose-50 px-2 py-0.5 rounded-md ml-2">مطلوب</span>}</p>
+                <p className="text-sm font-bold text-slate-500 mb-2">تعليق إضافي {(score <= 2 && reasons.length === 0) && <span className="text-rose-500 text-xs bg-rose-50 px-2 py-0.5 rounded-md ml-2">مطلوب</span>}</p>
                 <textarea
                   className="w-full border-2 border-slate-200 bg-white p-4 rounded-2xl focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all outline-none resize-none text-sm font-medium h-28"
                   placeholder="اكتب تعليقك هنا لمعرفة سبب تجربتك..."

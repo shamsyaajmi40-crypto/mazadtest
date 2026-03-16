@@ -6,7 +6,8 @@ import { AuthContext } from "../context/AuthContext";
 import {
   ArrowRight, Loader2, Gavel, FileText, AlertTriangle, History, Clock, ChevronLeft,
   ChevronRight, Image, Star, Check, MessageSquare, Package, X, ChevronDown, Eye,
-  Volume2, VolumeX, XCircle, CheckCircle, Settings, MapPin
+  Volume2, VolumeX, XCircle, CheckCircle, Settings, MapPin, Trophy, Truck, Home,
+  Navigation, CreditCard, Layout
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -51,6 +52,87 @@ const RatingStars = ({ value }: { value: number }) => {
           </div>
         );
       })}
+    </div>
+  );
+};
+
+const DeliveryStepper = ({ auction }: { auction: any }) => {
+  const order = auction.deliveryOrder;
+  const status = order?.status;
+
+  const steps = [
+    { label: "تحديد الفائز", icon: Trophy, id: "WINNER" },
+    { label: "حجز التوصيل", icon: Truck, id: "BOOKED" },
+    { label: "انتظار الاستلام", icon: Package, id: "READY" },
+    { label: "في الطريق", icon: Navigation, id: "TRANSIT" },
+    { label: "تم الوصول", icon: Home, id: "DELIVERED" },
+    { label: "اكتمال الدفع", icon: CreditCard, id: "COMPLETED" },
+  ];
+
+  // Calculate current step index
+  let currentStep = -1;
+  if (auction.status === "ENDED" || auction.status === "completed") currentStep = 0;
+  if (order) {
+    currentStep = 1;
+    if (status === "READY_FOR_PICKUP") currentStep = 2;
+    if (status === "PICKED_UP") currentStep = 3;
+    if (status === "DELIVERED") currentStep = 4;
+    if (status === "COD_PAID_TO_SELLER") currentStep = 5;
+  }
+
+  const isFailed = status === "DELIVERY_FAILED";
+
+  return (
+    <div className="w-full py-6 px-2 mb-6">
+      <div className="relative flex items-center justify-between">
+        {/* Connection Lines */}
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-0.5 bg-slate-100 -z-10"></div>
+        <div 
+          className="absolute left-0 top-1/2 -translate-y-1/2 h-0.5 bg-primary transition-all duration-700 ease-in-out -z-10"
+          style={{ width: `${(Math.max(0, currentStep) / (steps.length - 1)) * 100}%` }}
+        ></div>
+
+        {steps.map((step, idx) => {
+          const Icon = step.icon;
+          const isCompleted = idx < currentStep;
+          const isActive = idx === currentStep;
+
+          return (
+            <div key={idx} className="flex flex-col items-center gap-2 relative">
+              <div 
+                className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-500 shadow-sm border ${
+                  isFailed && isActive ? "bg-rose-500 border-rose-300 text-white animate-bounce" :
+                  isActive ? "bg-primary border-primary-light text-white shadow-primary/30 scale-110 ring-4 ring-primary/10" :
+                  isCompleted ? "bg-emerald-500 border-emerald-300 text-white" :
+                  "bg-white border-slate-200 text-slate-400"
+                }`}
+              >
+                {isFailed && isActive ? <X className="w-5 h-5" /> : (isCompleted ? <Check className="w-5 h-5" /> : <Icon className={`w-5 h-5 ${isActive ? "animate-pulse" : ""}`} />)}
+              </div>
+              <span className={`text-[10px] font-black whitespace-nowrap hidden sm:block ${
+                isFailed && isActive ? "text-rose-600" :
+                isActive ? "text-primary" :
+                isCompleted ? "text-emerald-600" :
+                "text-slate-400"
+              }`}>
+                {step.label}
+              </span>
+
+              {/* Mobile Indicator Pointer */}
+              {isActive && (
+                <div className="absolute -top-1 w-2 h-2 bg-primary rounded-full sm:hidden"></div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      
+      {/* Active Step Label for Mobile */}
+      <div className="mt-4 text-center sm:hidden">
+        <span className="text-xs font-black text-primary bg-primary/5 px-4 py-1.5 rounded-full border border-primary/10">
+          المرحلة الحالية: {steps[Math.max(0, currentStep)]?.label}
+        </span>
+      </div>
     </div>
   );
 };
@@ -1478,214 +1560,147 @@ const AuctionDetails = () => {
                 </button>
               )}
 
-              {/* رسالة للبائع قبل ظهور OTP الدفع */}
-              {isOwner &&
-                normalizedStatus === "ended" &&
-                auction.deliveryMode === "courier" &&
-                !auction.payoutOtpCode && !isDealResolved && (
-                  <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/60 p-4 flex items-start gap-3">
-                    <span className="text-2xl shrink-0 mt-0.5">📦</span>
-                    <div>
-                      <p className="font-black text-amber-900 text-sm mb-1">الطلب في طريقه إلى المشتري</p>
-                      <p className="text-xs text-amber-700 leading-relaxed font-medium">
-                        راح يطلعلك بعد ما يستلم االمشتري البضاعة رمز استلام الفلوس من شركة التوصيل، تروح للشركة تستلم فلوسك بالبداية بعدين تنطي الرقم.
-                      </p>
-                      <div className="mt-2 p-2 bg-rose-50 border border-rose-100 rounded-lg">
-                        <p className="text-[11px] text-rose-600 font-black">
-                          ⚠️ تحذير: لاتنطي الرقم بدون ماتتاكد من فلوسك، غير هيج المنصة مو مسؤولة.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
               {/* ===== Courier OTP (ظهر فقط لصاحبه من الباكند) ===== */}
               {normalizedStatus === "ended" &&
                 auction.deliveryMode === "courier" &&
                 (isOwner || isWinner) && !isDealResolved && (
-                  <div className="mt-4 rounded-2xl overflow-hidden border border-blue-100">
-                    {/* Header */}
+                  <div className="mt-4 rounded-2xl overflow-hidden border border-blue-100 mb-4">
                     <div className="bg-gradient-to-l from-blue-600 to-indigo-600 px-4 py-3 flex items-center gap-2">
                       <div className="p-1.5 bg-white/20 rounded-lg">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
+                        <Package className="w-4 h-4 text-white" />
                       </div>
                       <span className="text-white font-black text-sm">كود التسليم عبر شركة (OTP)</span>
                     </div>
 
-                    {/* OTP codes */}
                     <div className="bg-white p-4 space-y-3">
-                      {!isDealResolved && (
-                        <>
-                          {/* OTP المشتري */}
-                          {isWinner && auction.deliveryOtpCode && (
-                            <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
-                              <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">كود الاستلام — اعطه للمندوب</p>
-                              <div className="text-3xl font-black tracking-[0.3em] text-slate-900 select-all text-center py-2 bg-white rounded-lg border border-slate-100">
-                                {auction.deliveryOtpCode}
-                              </div>
-                            </div>
-                          )}
+                      {isWinner && auction.deliveryOtpCode && (
+                        <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 text-center">
+                          <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">كود الاستلام — اعطه للمندوب</p>
+                          <div className="text-3xl font-black tracking-[0.3em] text-slate-900 select-all py-2 bg-white rounded-lg border border-slate-100">
+                            {auction.deliveryOtpCode}
+                          </div>
+                        </div>
+                      )}
 
-                          {/* OTP البائع */}
-                          {isOwner && auction.payoutOtpCode && (
-                            <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
-                              <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">كود COD — اعطه لموظف الشركة</p>
-                              <div className="text-3xl font-black tracking-[0.3em] text-slate-900 select-all text-center py-2 bg-white rounded-lg border border-slate-100">
-                                {auction.payoutOtpCode}
-                              </div>
-                            </div>
-                          )}
-
-                          {!auction.deliveryOtpCode && !auction.payoutOtpCode && (
-                            <p className="text-sm text-slate-500 text-center py-2">لا يوجد كود متاح حالياً.</p>
-                          )}
-                        </>
+                      {isOwner && auction.payoutOtpCode && (
+                        <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 text-center">
+                          <p className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">كود COD — اعطه لموظف الشركة</p>
+                          <div className="text-3xl font-black tracking-[0.3em] text-slate-900 select-all py-2 bg-white rounded-lg border border-slate-100">
+                            {auction.payoutOtpCode}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {!auction.deliveryOtpCode && !auction.payoutOtpCode && (
+                        <p className="text-sm text-slate-500 text-center py-2">لا يوجد كود متاح حالياً.</p>
                       )}
                     </div>
                   </div>
                 )}
+
               {auction.deliveryMode === "courier" && auction.deliveryOrder && (
-                <div className="mt-4 rounded-2xl overflow-hidden border border-slate-200">
-                  {/* Header */}
-                  <div className="bg-gradient-to-l from-slate-800 to-slate-700 px-4 py-3 flex items-center gap-2">
-                    <div className="p-1.5 bg-white/10 rounded-lg">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
+                <div className="mt-4 rounded-[2rem] overflow-hidden border border-slate-200 shadow-sm bg-white">
+                  <div className="p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="p-2 bg-slate-900 text-white rounded-xl">
+                        <Package className="w-5 h-5" />
+                      </div>
+                      <h3 className="text-lg font-black text-slate-800">متابعة حالة التوصيل</h3>
                     </div>
-                    <span className="text-white font-black text-sm">حالة التوصيل</span>
-                  </div>
-                  <div className="bg-white p-4 space-y-2.5">
 
-                    <div className="text-sm font-bold">
-                      {(() => {
-                        const order = auction.deliveryOrder;
-                        const status = order?.status;
+                    <DeliveryStepper auction={auction} />
 
-                        const reason =
-                          order?.failureReason ||
-                          auction.deliveryPenaltyReason ||
-                          "";
+                    <div className="mt-4 pt-4 border-t border-slate-50 text-center">
+                      <div className="text-sm font-bold">
+                        {(() => {
+                          const order = auction.deliveryOrder;
+                          const status = order?.status;
+                          const reason = order?.failureReason || auction.deliveryPenaltyReason || "";
+                          const label = deliveryFailureReasonLabel[reason] || reason || "سبب الفشل غير محدد";
 
-                        const label =
-                          deliveryFailureReasonLabel[reason] ||
-                          reason ||
-                          "سبب الفشل غير محدد";
+                          const isSellerFault = ["SELLER_NO_SHOW", "SELLER_NOT_READY"].includes(reason);
+                          const isBuyerFault = ["BUYER_NO_SHOW", "BUYER_REFUSED", "BUYER_DID_NOT_RECEIVE", "BUYER_UNREACHABLE", "WRONG_ADDRESS"].includes(reason);
 
-                        const sellerReasons = ["SELLER_NO_SHOW", "SELLER_NOT_READY"];
-                        const buyerReasons = [
-                          "BUYER_NO_SHOW",
-                          "BUYER_REFUSED",
-                          "BUYER_DID_NOT_RECEIVE",
-                          "BUYER_UNREACHABLE",
-                          "WRONG_ADDRESS",
-                        ];
+                          switch (status) {
+                            case "READY_FOR_PICKUP":
+                              return <span className="text-blue-600">📦 بانتظار استلام الطلب من البائع</span>;
+                            case "PICKED_UP":
+                              return <span className="text-indigo-600">🚚 تم استلام الطلب من البائع {order?.agentUser && " وتحديد مندوب التوصيل"}</span>;
+                            case "DELIVERED":
+                              return <span className="text-green-600">✅ تم تسليم الطلب للمشتري</span>;
+                            case "COD_PAID_TO_SELLER":
+                              return <span className="text-emerald-600">💰 تم تسليم المبلغ للبائع — الصفقة مكتملة</span>;
+                            case "DELIVERY_FAILED": {
+                              // ===== البائع مخطئ =====
+                              if (isSellerFault) {
+                                if (isSeller) {
+                                  return (
+                                    <span className="text-red-600">
+                                      ❌ فشل التوصيل بسببك ({label}) — {auction.penaltyApplied ? "تم تطبيق العقوبة" : "قد يتم تطبيق عقوبة"}
+                                    </span>
+                                  );
+                                }
 
-                        const isSellerFault = sellerReasons.includes(reason);
-                        const isBuyerFault = buyerReasons.includes(reason);
+                                if (isWinner) {
+                                  return (
+                                    <span className="text-orange-600">
+                                      ⚠️ فشل التوصيل بسبب البائع ({label}) — {auction.penaltyApplied ? "تم إعادة عربونك" : "سيتم إرجاع عربونك"}
+                                    </span>
+                                  );
+                                }
+                              }
 
-                        const isSeller =
-                          user &&
-                          auction.seller &&
-                          String(auction.seller._id || auction.seller) === String(user._id);
+                              // ===== المشتري مخطئ =====
+                              if (isBuyerFault) {
+                                if (isWinner) {
+                                  return (
+                                    <span className="text-red-600">
+                                      ❌ فشل التوصيل بسببك ({label}) — {auction.penaltyApplied ? "تم تطبيق العقوبة" : "قد يتم تطبيق عقوبة"}
+                                    </span>
+                                  );
+                                }
 
-                        const isWinner =
-                          user &&
-                          auction.winner &&
-                          String(auction.winner._id || auction.winner) === String(user._id);
+                                if (isSeller) {
+                                  return (
+                                    <span className="text-orange-600">
+                                      ⚠️ فشل التوصيل بسبب المشتري ({label}) — {auction.penaltyApplied ? "تم إعادة عربونك" : "سيتم إرجاع عربونك"}
+                                    </span>
+                                  );
+                                }
+                              }
 
-                        switch (status) {
-                          case "READY_FOR_PICKUP":
-                            return (
-                              <span className="text-blue-600">
-                                📦 بانتظار استلام الطلب من البائع
-                              </span>
-                            );
-
-                          case "PICKED_UP":
-                            return (
-                              <span className="text-indigo-600">
-                                🚚 تم استلام الطلب من البائع
-                                {order?.agentUser && " وتحديد مندوب التوصيل"}
-                              </span>
-                            );
-
-                          case "DELIVERED":
-                            return (
-                              <span className="text-green-600">
-                                ✅ تم تسليم الطلب للمشتري
-                              </span>
-                            );
-
-                          case "COD_PAID_TO_SELLER":
-                            return (
-                              <span className="text-emerald-600">
-                                💰 تم تسليم المبلغ للبائع — الصفقة مكتملة
-                              </span>
-                            );
-
-                          case "DELIVERY_FAILED": {
-                            // ===== البائع مخطئ =====
-                            if (isSellerFault) {
-                              if (isSeller) {
+                              // ===== شركة التوصيل =====
+                              if (reason === "COURIER_ISSUE") {
                                 return (
-                                  <span className="text-red-600">
-                                    ❌ فشل التوصيل بسببك ({label}) — {auction.penaltyApplied ? "تم تطبيق العقوبة" : "قد يتم تطبيق عقوبة"}
+                                  <span className="text-yellow-600">
+                                    🚚 مشكلة لوجستية — سيتم إعادة المحاولة بدون عقوبات
                                   </span>
                                 );
                               }
 
-                              if (isWinner) {
-                                return (
-                                  <span className="text-orange-600">
-                                    ⚠️ فشل التوصيل بسبب البائع ({label}) — {auction.penaltyApplied ? "تم إعادة عربونك" : "سيتم إرجاع عربونك"}
-                                  </span>
-                                );
-                              }
-                            }
-
-                            // ===== المشتري مخطئ =====
-                            if (isBuyerFault) {
-                              if (isWinner) {
-                                return (
-                                  <span className="text-red-600">
-                                    ❌ فشل التوصيل بسببك ({label}) — {auction.penaltyApplied ? "تم تطبيق العقوبة" : "قد يتم تطبيق عقوبة"}
-                                  </span>
-                                );
-                              }
-
-                              if (isSeller) {
-                                return (
-                                  <span className="text-orange-600">
-                                    ⚠️ فشل التوصيل بسبب المشتري ({label}) — {auction.penaltyApplied ? "تم إعادة عربونك" : "سيتم إرجاع عربونك"}
-                                  </span>
-                                );
-                              }
-                            }
-
-                            // ===== شركة التوصيل =====
-                            if (reason === "COURIER_ISSUE") {
                               return (
-                                <span className="text-yellow-600">
-                                  🚚 مشكلة لوجستية — سيتم إعادة المحاولة بدون عقوبات
+                                <span className="text-red-600">
+                                  ❌ {label}
                                 </span>
                               );
                             }
 
-                            return (
-                              <span className="text-red-600">
-                                ❌ {label}
-                              </span>
-                            );
+                            default:
+                              return <span className="text-slate-500">جاري المعالجة...</span>;
                           }
-
-                          default:
-                            return status;
-                        }
-                      })()}
+                        })()}
+                      </div>
                     </div>
+                  </div>
+
+                  {auction.deliveryOrder?.status === "DELIVERY_FAILED" && (
+                    <div className="bg-slate-50 p-4 border-t border-slate-100">
+                       {/* Fees and Pentalty Details here if needed - original code had them below */}
+                    </div>
+                  )}
+
+                  {/* Rest of delivery info like fees */}
+                  <div className="px-6 pb-6 space-y-2">
                     {auction.penaltyApplied && (auction.deliveryOrder?.status === "DELIVERY_FAILED") ? (
                       // ✅ رسالة ما بعد تطبيق العقوبة
                       (() => {

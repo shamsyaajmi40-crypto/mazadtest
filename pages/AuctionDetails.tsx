@@ -570,7 +570,7 @@ const AuctionDetails = () => {
 
     // 🔥 عرض نافذة الشروط قبل المزايدة للمرة الأولى في هذه الجلسة
     const acceptedKey = `hasAcceptedBidTerms_${auction._id}`;
-    if (!localStorage.getItem(acceptedKey)) {
+    if (!sessionStorage.getItem(acceptedKey)) {
       setShowBidTermsModal(true);
       return;
     }
@@ -583,7 +583,7 @@ const AuctionDetails = () => {
 
     // 🔥 ضمان تأكيد الموافقة على الشروط
     const acceptedKey = `hasAcceptedBidTerms_${auction._id}`;
-    if (!localStorage.getItem(acceptedKey)) {
+    if (!sessionStorage.getItem(acceptedKey)) {
       setShowBidTermsModal(true);
       return;
     }
@@ -610,7 +610,7 @@ const AuctionDetails = () => {
 
       setBids((prev) => [optimisticBidEntry, ...prev]);
 
-      await placeBid(auction._id, nextBid);
+      await placeBid(auction._id, nextBid, true);
       playSound('success');
       await refreshAuction();
     } catch (err: any) {

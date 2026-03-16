@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
-import { Plus, Wallet, User, LogOut, LayoutDashboard, Archive, Menu, X, ChevronDown, Diamond, PackageCheck, Star } from "lucide-react";
+import { Plus, Wallet, User, LogOut, LayoutDashboard, Archive, Menu, X, ChevronDown, Diamond, PackageCheck, Star, ShieldCheck, TrendingUp, Coins } from "lucide-react";
+import { formatCurrency } from "../utils/numberFormat";
 import NotificationManager from "./NotificationManager";
 import { useContext, useState, useEffect, useRef } from "react";
 import { AuthContext } from "../context/AuthContext";
@@ -256,41 +257,80 @@ export default function TopBar() {
                     <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${userMenuOpen ? "rotate-180" : ""}`} />
                   </button>
 
-                  {/* محتوى القائمة المنسدلة */}
-                  <div className={`absolute left-0 top-full mt-3 w-64 bg-white/90 backdrop-blur-xl border border-slate-200/60 rounded-[1.5rem] shadow-2xl p-2 transition-all duration-200 origin-top-left ${userMenuOpen ? "opacity-100 scale-100 visible" : "opacity-0 scale-95 invisible"
-                    }`}>
-                    <div className="px-4 py-3 border-b border-slate-100 mb-2">
-                      <p className="text-xs font-bold text-slate-400 mb-1">حسابك</p>
-                      <p className="text-sm font-black text-slate-800 truncate">{user.name}</p>
+                  {/* محتوى القائمة المنسدلة - Premium Mini Dashboard */}
+                  <div className={`absolute left-0 top-full mt-4 w-72 bg-white/80 backdrop-blur-2xl border border-slate-200/60 rounded-[2.5rem] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.15)] overflow-hidden transition-all duration-300 origin-top-left ${userMenuOpen ? "opacity-100 scale-100 visible" : "opacity-0 scale-95 invisible"}`}>
+                    
+                    {/* Header: User Info & Badge */}
+                    <div className="p-6 pb-4 bg-gradient-to-br from-slate-50 to-white border-b border-slate-100">
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center text-white shadow-lg shadow-slate-900/20">
+                          <User className="w-6 h-6" />
+                        </div>
+                        <div className="overflow-hidden">
+                          <p className="text-sm font-black text-slate-800 truncate">{user.name}</p>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <ShieldCheck className="w-3 h-3 text-emerald-500" />
+                            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-tight">حساب موثق</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Mini Balance Card */}
+                      <Link 
+                        to="/wallet"
+                        className="block p-4 rounded-2xl bg-slate-900 text-white shadow-xl shadow-slate-900/10 hover:scale-[1.02] transition-transform active:scale-95 group"
+                      >
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[10px] font-bold text-slate-400">الرصيد المتاح</span>
+                          <Coins className="w-3.5 h-3.5 text-amber-400 group-hover:rotate-12 transition-transform" />
+                        </div>
+                        <div className="text-lg font-black tracking-tight">
+                          {formatCurrency(user.balance || 0)}
+                        </div>
+                      </Link>
                     </div>
 
-                    <div className="space-y-1">
+                    {/* Menu Links */}
+                    <div className="p-3 space-y-1">
                       <Link
                         to="/profile"
-                        className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                        className="flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all group"
                       >
-                        <div className="p-1.5 rounded-lg bg-slate-100 text-slate-500"><User className="w-4 h-4" /></div>
-                        الملف الشخصي
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                            <User className="w-4.5 h-4.5" />
+                          </div>
+                          <span>الملف الشخصي</span>
+                        </div>
+                        <ChevronDown className="w-4 h-4 text-slate-300 -rotate-90 group-hover:translate-l-1 transition-transform" />
                       </Link>
 
                       <Link
                         to="/wallet"
-                        className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                        className="flex items-center justify-between px-4 py-3 rounded-2xl text-sm font-bold text-slate-600 hover:bg-emerald-50 hover:text-emerald-900 transition-all group"
                       >
-                        <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-600"><Wallet className="w-4 h-4" /></div>
-                        المحفظة
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-emerald-100/50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-100 transition-colors">
+                            <Wallet className="w-4.5 h-4.5" />
+                          </div>
+                          <span>المحفظة المالية</span>
+                        </div>
+                        <TrendingUp className="w-4 h-4 text-emerald-300 group-hover:translate-y-[-2px] transition-transform" />
                       </Link>
                     </div>
 
-                    <div className="h-px bg-slate-100 my-2"></div>
-
-                    <button
-                      onClick={() => { logout(); setUserMenuOpen(false); }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors"
-                    >
-                      <div className="p-1.5 rounded-lg bg-rose-100"><LogOut className="w-4 h-4" /></div>
-                      تسجيل الخروج
-                    </button>
+                    {/* Footer: Logout */}
+                    <div className="p-3 pt-0">
+                      <button
+                        onClick={() => { logout(); setUserMenuOpen(false); }}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-rose-600 hover:bg-rose-50 transition-all group"
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-rose-100/50 flex items-center justify-center text-rose-600 group-hover:bg-rose-100 transition-colors">
+                          <LogOut className="w-4.5 h-4.5" />
+                        </div>
+                        <span>تسجيل الخروج</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

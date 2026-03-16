@@ -20,6 +20,8 @@ import {
   Building,
   MapPin,
   Calendar,
+  Phone,
+  MessageCircle,
 } from "lucide-react";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
@@ -337,13 +339,57 @@ export default function CourierStaffDashboard() {
                  <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                     <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">بيانات التسليم (المشتري)</div>
                     <div className="font-bold text-slate-800 mb-1">{o.auction?.winner?.name || "-"}</div>
-                    <div className="text-sm font-mono text-slate-600 mb-2">{o.auction?.winner?.phone || "-"}</div>
+                    <div className="text-sm font-mono text-slate-600 mb-2 flex items-center justify-between">
+                      <span dir="ltr">{o.auction?.winner?.phone || "-"}</span>
+                      {o.auction?.winner?.phone && (
+                        <div className="flex gap-2">
+                           <a 
+                             href={`tel:${o.auction.winner.phone}`} 
+                             className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"
+                             title="اتصال هاتفي"
+                           >
+                             <Phone className="w-3.5 h-3.5" />
+                           </a>
+                           <a 
+                             href={`https://wa.me/${o.auction.winner.phone.replace(/\D/g, '')}`} 
+                             target="_blank" 
+                             rel="noopener noreferrer"
+                             className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors border border-emerald-200"
+                             title="مراسلة واتساب"
+                           >
+                             <MessageCircle className="w-3.5 h-3.5" />
+                           </a>
+                        </div>
+                      )}
+                    </div>
                     <div className="text-sm text-slate-600">{fullAddress(o.auction?.winner || null)}</div>
                  </div>
                  <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                     <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">بيانات الاستلام (البائع)</div>
                     <div className="font-bold text-slate-800 mb-1">{o.auction?.seller?.name || "-"}</div>
-                    <div className="text-sm font-mono text-slate-600 mb-2">{o.auction?.seller?.phone || "-"}</div>
+                    <div className="text-sm font-mono text-slate-600 mb-2 flex items-center justify-between">
+                      <span dir="ltr">{o.auction?.seller?.phone || "-"}</span>
+                      {o.auction?.seller?.phone && (
+                        <div className="flex gap-2">
+                           <a 
+                             href={`tel:${o.auction.seller.phone}`} 
+                             className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"
+                             title="اتصال هاتفي"
+                           >
+                             <Phone className="w-3.5 h-3.5" />
+                           </a>
+                           <a 
+                             href={`https://wa.me/${o.auction.seller.phone.replace(/\D/g, '')}`} 
+                             target="_blank" 
+                             rel="noopener noreferrer"
+                             className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors border border-emerald-200"
+                             title="مراسلة واتساب"
+                           >
+                             <MessageCircle className="w-3.5 h-3.5" />
+                           </a>
+                        </div>
+                      )}
+                    </div>
                     <div className="text-sm text-slate-600">{fullAddress(o.auction?.seller || null)}</div>
                  </div>
                </div>

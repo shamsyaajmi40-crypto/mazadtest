@@ -259,15 +259,7 @@ export default function CourierAgentDashboard() {
                </div>
 
               {/* Clean Data Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <div className="bg-white border text-right border-slate-200 p-4 rounded-lg relative overflow-hidden">
-                    <div className="absolute top-0 right-0 h-full w-1 bg-slate-300" />
-                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3">بيانات الاستلام (البائع)</div>
-                    <div className="font-black text-slate-900 mb-1 flex items-center gap-2"><User className="w-4 h-4 text-slate-400" /> {o.auction?.seller?.name || "-"}</div>
-                    <div className="text-sm font-mono font-bold text-slate-700 mb-2 mr-6" dir="ltr">{o.auction?.seller?.phone || "-"}</div>
-                    <div className="text-sm text-slate-600 mr-6 leading-relaxed flex items-start gap-1"><MapPin className="w-4 h-4 mt-0.5 shrink-0 text-slate-400" /> {fullAddress(o.auction?.seller || null)}</div>
-                 </div>
-                 
+              <div className="grid grid-cols-1 gap-4">
                  <div className="bg-white border text-right border-blue-200 p-4 rounded-lg relative overflow-hidden shadow-[0_0_15px_rgba(59,130,246,0.05)]">
                     <div className="absolute top-0 right-0 h-full w-1 bg-blue-500" />
                     <div className="text-[10px] font-bold text-blue-500 uppercase tracking-wider mb-3">بيانات وجهة التوصيل (المشتري)</div>

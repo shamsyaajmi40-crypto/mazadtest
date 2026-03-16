@@ -1637,7 +1637,7 @@ const AuctionDetails = () => {
                     </div>
                   </div>
                 )}
-              {auction.deliveryMode === "courier" && auction.deliveryOrder && (
+              {(isOwner || isWinner || isAdmin) && auction.deliveryMode === "courier" && auction.deliveryOrder && (
                 <div className="mt-4 rounded-2xl overflow-hidden border border-slate-200">
                   {/* Header */}
                   <div className="bg-gradient-to-l from-slate-800 to-slate-700 px-4 py-3 flex items-center gap-2">

@@ -411,34 +411,34 @@ export default function AdminPlatformBalance() {
             <Calendar className="w-5 h-5 text-indigo-500" /> سجل العمليات الموحد
           </h3>
 
-          <div className="flex bg-white p-1 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+          <div className="flex bg-white p-1 rounded-xl border border-slate-200 overflow-x-auto shadow-sm custom-scrollbar-hide max-w-full">
             <button
               onClick={() => { setTypeFilter("all"); setPage(1); }}
-              className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${typeFilter === 'all' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+              className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all whitespace-nowrap ${typeFilter === 'all' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
             >الكل</button>
             <button
               onClick={() => { setTypeFilter("subscription"); setPage(1); }}
-              className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${typeFilter === 'subscription' ? 'bg-emerald-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+              className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all whitespace-nowrap ${typeFilter === 'subscription' ? 'bg-emerald-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
             >الاشتراكات</button>
             <button
               onClick={() => { setTypeFilter("penalty"); setPage(1); }}
-              className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${typeFilter === 'penalty' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+              className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all whitespace-nowrap ${typeFilter === 'penalty' ? 'bg-indigo-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
             >المصادرات</button>
             <button
               onClick={() => { setTypeFilter("topup"); setPage(1); }}
-              className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${typeFilter === 'topup' ? 'bg-blue-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+              className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all whitespace-nowrap ${typeFilter === 'topup' ? 'bg-blue-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
             >الإيداع</button>
             <button
               onClick={() => { setTypeFilter("refund"); setPage(1); }}
-              className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${typeFilter === 'refund' ? 'bg-amber-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+              className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all whitespace-nowrap ${typeFilter === 'refund' ? 'bg-amber-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
             >إرجاع</button>
             <button
               onClick={() => { setTypeFilter("commission"); setPage(1); }}
-              className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${typeFilter === 'commission' ? 'bg-violet-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+              className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all whitespace-nowrap ${typeFilter === 'commission' ? 'bg-violet-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
             >عمولات</button>
             <button
               onClick={() => { setTypeFilter("hold"); setPage(1); }}
-              className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all ${typeFilter === 'hold' ? 'bg-slate-700 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+              className={`px-4 py-1.5 rounded-lg text-xs font-black transition-all whitespace-nowrap ${typeFilter === 'hold' ? 'bg-slate-700 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
             >الحجوزات</button>
           </div>
         </div>

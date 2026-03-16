@@ -147,7 +147,7 @@ export const createDeliveryOrder = async (req, res) => {
     const { auctionId } = req.params;
     const { companyId, trackingCode = "" } = req.body;
 
-    const auction = await Auction.findById(auctionId);
+    const auction = await Auction.findById(auctionId).populate("winner", "governorate address location");
     if (!auction) return res.status(404).json({ message: "Auction not found" });
 
     // ✅ يسمح للبائع أو courier_staff/admin/superAdmin فقط
@@ -185,6 +185,11 @@ export const createDeliveryOrder = async (req, res) => {
       company: company._id,
       deliveryFee: Number(company.deliveryFee || 0),
       trackingCode,
+      destination: {
+        governorate: auction.winner?.governorate || null,
+        address: auction.winner?.address || null,
+        location: auction.winner?.location || null
+      },
       status: "READY_FOR_PICKUP",
       staffUser: req.user._id,
       logs: [

@@ -55,7 +55,7 @@ export const getMe = async (req, res) => {
 // PUT /api/users/me/profile
 export const updateProfile = async (req, res) => {
   try {
-    const { name, phone, governorate, address, zainCashNumber, notificationPrefs } = req.body;
+    const { name, phone, governorate, address, zainCashNumber, notificationPrefs, location } = req.body;
     const user = await User.findById(req.user._id);
 
     if (!user) {
@@ -74,6 +74,7 @@ export const updateProfile = async (req, res) => {
     if (governorate !== undefined) user.governorate = governorate;
     if (address !== undefined) user.address = address;
     if (zainCashNumber !== undefined) user.zainCashNumber = zainCashNumber;
+    if (location !== undefined) user.location = location;
 
     if (notificationPrefs !== undefined) {
       user.notificationPrefs = {

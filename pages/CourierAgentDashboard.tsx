@@ -44,6 +44,11 @@ type DeliveryOrder = {
       address?: string;
     } | null;
   } | null;
+  destination?: {
+    governorate?: string;
+    address?: string;
+    location?: { lat: number; lng: number } | null;
+  } | null;
   createdAt?: string;
 };
 
@@ -287,7 +292,24 @@ export default function CourierAgentDashboard() {
                         </div>
                       )}
                     </div>
-                    <div className="text-sm text-slate-600 mr-6 leading-relaxed flex items-start gap-1"><MapPin className="w-4 h-4 mt-0.5 shrink-0 text-blue-400" /> {fullAddress(o.auction?.winner || null)}</div>
+                    <div className="text-sm text-slate-600 mr-6 leading-relaxed flex items-start flex-col gap-2">
+                      <div className="flex items-start gap-1">
+                        <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-blue-400" /> 
+                        {fullAddress(o.destination || o.auction?.winner || null)}
+                      </div>
+                      
+                      {o.destination?.location && (
+                         <a 
+                           href={`https://www.google.com/maps/dir/?api=1&destination=${o.destination.location.lat},${o.destination.location.lng}`}
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-200 transition-colors mt-1 border border-blue-200"
+                           title="فتح في خرائط جوجل للملاحة"
+                         >
+                           <MapPin className="w-3 h-3" /> الملاحة إلى الموقع
+                         </a>
+                      )}
+                    </div>
                  </div>
               </div>
 

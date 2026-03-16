@@ -54,6 +54,11 @@ type DeliveryOrder = {
     } | null;
   } | null;
   receiptId?: string | null;
+  destination?: {
+    governorate?: string;
+    address?: string;
+    location?: { lat: number; lng: number } | null;
+  } | null;
   createdAt?: string;
 };
 
@@ -360,9 +365,24 @@ export default function CourierStaffDashboard() {
                              <MessageCircle className="w-3.5 h-3.5" />
                            </a>
                         </div>
+                       )}
+                    </div>
+                    <div className="text-sm text-slate-600 flex flex-col gap-2">
+                      <div className="flex items-start gap-1">
+                        <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-blue-400" />
+                        {fullAddress(o.destination || o.auction?.winner || null)}
+                      </div>
+                      {o.destination?.location && (
+                        <a 
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${o.destination.location.lat},${o.destination.location.lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 w-fit px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-100 transition-colors mt-1 border border-blue-200"
+                        >
+                          <MapPin className="w-3 h-3" /> الملاحة عبر خرائط جوجل
+                        </a>
                       )}
                     </div>
-                    <div className="text-sm text-slate-600">{fullAddress(o.auction?.winner || null)}</div>
                  </div>
                  <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                     <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">بيانات الاستلام (البائع)</div>

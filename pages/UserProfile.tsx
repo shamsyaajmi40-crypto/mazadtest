@@ -4,6 +4,7 @@ import api from "../services/api";
 import { getAuctions, getWonAuctions, getMyBids } from "../services/auction";
 import type { Auction, User } from "../types";
 import AuctionCard from "../components/AuctionCard";
+import MapLocationPicker from "../components/MapLocationPicker";
 import {
   MapPin,
   Star,
@@ -170,6 +171,7 @@ const UserProfile = () => {
     phone: "",
     governorate: "",
     address: "",
+    location: null as { lat: number; lng: number } | null,
     zainCashNumber: "",
     notificationPrefs: {
       outbid: true,
@@ -235,6 +237,7 @@ const UserProfile = () => {
         phone: user.phone || "",
         governorate: user.governorate || "",
         address: user.address || "",
+        location: (user as any).location || null,
         zainCashNumber: (user as any).zainCashNumber || "",
         notificationPrefs: (user as any).notificationPrefs || {
           outbid: true,
@@ -745,6 +748,16 @@ const UserProfile = () => {
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-slate-400 focus:bg-white transition-colors outline-none font-medium min-h-[100px] resize-y"
                     placeholder="المدينة، المنطقة، أقرب نقطة دالة، رقم المنزل المخصص لك لكي يسهل على شركة التوصيل استلام وتسليم البضائع..."
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <MapLocationPicker 
+                    location={formData.location}
+                    onChange={(newLoc) => setFormData({ ...formData, location: newLoc })}
+                  />
+                  <p className="text-[10px] text-slate-400 font-bold mt-1">
+                    * تحديد موقعك الجغرافي دقيق يساعد مندوبي التوصيل على الوصول إليك بسرعة.
+                  </p>
                 </div>
 
                 <div className="pt-10 border-t border-slate-100 mt-8">

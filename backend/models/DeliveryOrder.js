@@ -15,6 +15,15 @@ const deliveryOrderSchema = new mongoose.Schema(
       },
     },
 
+    destination: {
+      governorate: { type: String, default: null },
+      address: { type: String, default: null },
+      location: {
+        lat: { type: Number, default: null },
+        lng: { type: Number, default: null }
+      }
+    },
+
     agentUser: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }, // courier_agent
     staffUser: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }, // courier_staff (آخر موظف عدّل)
 

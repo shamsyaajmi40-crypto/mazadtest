@@ -6,6 +6,7 @@ export const updateProfile = async (data: {
     governorate?: string;
     address?: string;
     zainCashNumber?: string;
+    location?: { lat: number; lng: number } | null;
     notificationPrefs?: {
         outbid?: boolean;
         favoriteEnding?: boolean;

@@ -440,14 +440,34 @@ export default function TopBar() {
             </div>
 
             {user && (
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-6 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-slate-200 flex flex-shrink-0 items-center justify-center font-black text-slate-600 text-lg">
-                  {user.name.charAt(0)}
+              <div className="bg-gradient-to-br from-slate-50 to-white p-5 rounded-[2rem] border border-slate-100 mb-6 shadow-sm">
+                <div className="flex items-center gap-4 mb-5">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 flex flex-shrink-0 items-center justify-center font-black text-white shadow-lg shadow-slate-900/10">
+                    <User className="w-6 h-6" />
+                  </div>
+                  <div className="overflow-hidden">
+                    <div className="font-black text-slate-800 truncate leading-none mb-1.5">{user.name}</div>
+                    <div className="flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-emerald-500" />
+                      <span className="text-[10px] font-black text-emerald-600 uppercase tracking-tight">حساب موثق</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="overflow-hidden">
-                  <div className="font-bold text-slate-800 truncate">{user.name}</div>
-                  <div className="text-xs font-bold text-primary mt-0.5">عضو موثوق</div>
-                </div>
+
+                {/* Mobile Balance Card */}
+                <Link 
+                  to="/wallet"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block p-4 rounded-2xl bg-slate-900 text-white shadow-xl shadow-slate-900/10 active:scale-95 transition-transform"
+                >
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] font-bold text-slate-400">الرصيد المتاح</span>
+                    <Coins className="w-3.5 h-3.5 text-amber-400" />
+                  </div>
+                  <div className="text-lg font-black tracking-tight">
+                    {formatCurrency(user.balance || 0)}
+                  </div>
+                </Link>
               </div>
             )}
 

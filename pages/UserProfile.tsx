@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext, FormEvent } from "react";
+﻿import { useEffect, useState, useContext, FormEvent } from "react";
 import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
 import { getAuctions, getWonAuctions, getMyBids } from "../services/auction";
@@ -182,6 +182,7 @@ const UserProfile = () => {
   const [submittingSettings, setSubmittingSettings] = useState(false);
   const [settingsSuccess, setSettingsSuccess] = useState("");
   const [settingsError, setSettingsError] = useState("");
+  const [settingsSection, setSettingsSection] = useState<"INFO" | "ADDRESS" | "PAYMENT" | "NOTIFICATIONS" | "KYC" | "SECURITY">("INFO");
 
   // Change Password state
   const [pwdFormData, setPwdFormData] = useState({
@@ -680,6 +681,7 @@ const UserProfile = () => {
           )
         }
 
+
         {
           activeTab === "SETTINGS" && isOwnProfile && (() => {
             const GOVERNORATES = [
@@ -688,430 +690,352 @@ const UserProfile = () => {
               'القادسية', 'ميسان', 'المثنى', 'ذي قار'
             ];
 
-            type SettingsSection = "INFO" | "ADDRESS" | "PAYMENT" | "NOTIFICATIONS" | "KYC" | "SECURITY";
-            const [activeSettingsSection, setActiveSettingsSection] = (window as any).__settingsSectionHook
-              || (() => {
-                // We'll use a simpler approach with a data attribute trick
-                return ["INFO", () => {}];
-              })();
-
-            const settingsSections: { id: SettingsSection; label: string; icon: string; desc: string }[] = [
-              { id: "INFO",          label: "المعلومات الشخصية",  icon: "👤", desc: "الاسم والهاتف" },
-              { id: "ADDRESS",       label: "العنوان والموقع",    icon: "📍", desc: "المحافظة والخريطة" },
-              { id: "PAYMENT",       label: "إعدادات الدفع",      icon: "💳", desc: "رقم ZainCash" },
-              { id: "NOTIFICATIONS", label: "التنبيهات",           icon: "🔔", desc: "نوع الإشعارات" },
-              { id: "KYC",           label: "توثيق الحساب",       icon: "🛡️", desc: "رفع الهوية" },
-              { id: "SECURITY",      label: "الأمان",              icon: "🔒", desc: "كلمة المرور" },
+            const settingsSections = [
+              { id: "INFO"          as const, label: "المعلومات الشخصية", icon: "👤", desc: "الاسم والهاتف" },
+              { id: "ADDRESS"       as const, label: "العنوان والموقع",   icon: "📍", desc: "المحافظة والخريطة" },
+              { id: "PAYMENT"       as const, label: "إعدادات الدفع",     icon: "💳", desc: "رقم ZainCash" },
+              { id: "NOTIFICATIONS" as const, label: "التنبيهات",          icon: "🔔", desc: "نوع الإشعارات" },
+              { id: "KYC"           as const, label: "توثيق الحساب",      icon: "🛡️", desc: "رفع الهوية" },
+              { id: "SECURITY"      as const, label: "الأمان",             icon: "🔒", desc: "كلمة المرور" },
             ];
 
             return (
               <div className="col-span-full">
-                <div className="flex flex-col md:flex-row gap-6 min-h-[600px]">
+                <div className="flex flex-col md:flex-row gap-6 min-h-[500px]">
 
                   {/* ===== Side Nav ===== */}
                   <aside className="w-full md:w-64 shrink-0 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-2 md:pb-0">
                     {settingsSections.map(sec => {
+                      const isActive = settingsSection === sec.id;
                       const badge =
                         sec.id === "KYC" && verifyStatus === "pending" ? "⏳" :
                         sec.id === "KYC" && verifyStatus === "verified" ? "✓" : null;
                       return (
                         <button
                           key={sec.id}
-                          onClick={() => {
-                            const el = document.getElementById(`settings-${sec.id}`);
-                            el?.scrollIntoView({ behavior: "smooth", block: "start" });
-                          }}
-                          className="flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-right shrink-0 md:shrink whitespace-nowrap md:whitespace-normal
-                            bg-white border border-slate-100 hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm group"
+                          onClick={() => setSettingsSection(sec.id)}
+                          className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-right shrink-0 md:shrink whitespace-nowrap md:whitespace-normal group
+                            ${isActive
+                              ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20"
+                              : "bg-white border border-slate-100 hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm"
+                            }`}
                         >
                           <span className="text-xl">{sec.icon}</span>
                           <div className="hidden md:block text-right flex-1">
-                            <p className="text-sm font-black text-slate-800 group-hover:text-primary transition-colors flex items-center gap-1.5">
+                            <p className={`text-sm font-black flex items-center gap-1.5 ${isActive ? "text-white" : "text-slate-800 group-hover:text-primary"} transition-colors`}>
                               {sec.label}
                               {badge && <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-md font-black">{badge}</span>}
                             </p>
-                            <p className="text-[11px] text-slate-400 font-medium">{sec.desc}</p>
+                            <p className={`text-[11px] font-medium ${isActive ? "text-white/60" : "text-slate-400"}`}>{sec.desc}</p>
                           </div>
-                          <span className="md:hidden text-sm font-black text-slate-700">{sec.label}</span>
+                          <span className={`md:hidden text-sm font-black ${isActive ? "text-white" : "text-slate-700"}`}>{sec.label}</span>
                         </button>
                       );
                     })}
                   </aside>
 
-                  {/* ===== Main Settings Content ===== */}
-                  <div className="flex-1 space-y-6">
+                  {/* ===== Section Content (one at a time) ===== */}
+                  <div className="flex-1">
 
-                    {/* ── Section 1: Personal Info ── */}
-                    <div id="settings-INFO" className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8">
-                      <div className="flex items-center gap-4 mb-6 pb-5 border-b border-slate-100">
-                        <div className="w-11 h-11 bg-primary/10 rounded-2xl flex items-center justify-center text-lg">👤</div>
-                        <div>
-                          <h3 className="text-lg font-black text-slate-800">المعلومات الشخصية</h3>
-                          <p className="text-slate-400 text-xs font-medium">الاسم ورقم الهاتف</p>
+                    {/* ── INFO ── */}
+                    {settingsSection === "INFO" && (
+                      <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8 animate-in fade-in slide-in-from-right-2 duration-300">
+                        <div className="flex items-center gap-4 mb-6 pb-5 border-b border-slate-100">
+                          <div className="w-11 h-11 bg-primary/10 rounded-2xl flex items-center justify-center text-xl">👤</div>
+                          <div>
+                            <h3 className="text-lg font-black text-slate-800">المعلومات الشخصية</h3>
+                            <p className="text-slate-400 text-xs font-medium">الاسم ورقم الهاتف</p>
+                          </div>
                         </div>
+
+                        {settingsSuccess && <div className="bg-emerald-50 text-emerald-700 p-3 rounded-xl mb-5 font-bold text-sm border border-emerald-100 flex items-center gap-2"><span>✓</span>{settingsSuccess}</div>}
+                        {settingsError && <div className="bg-rose-50 text-rose-600 p-3 rounded-xl mb-5 font-bold text-sm border border-rose-100">{settingsError}</div>}
+
+                        <form onSubmit={handleUpdateSettings} className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-black text-slate-500 uppercase tracking-wider">الاسم الكامل</label>
+                              <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})}
+                                className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-primary focus:bg-white outline-none transition-all font-bold text-slate-700"
+                                placeholder="اسمك الكامل" required />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-black text-slate-500 uppercase tracking-wider">رقم الهاتف</label>
+                              <input type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})}
+                                className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-primary focus:bg-white outline-none transition-all font-bold text-slate-700 text-left dir-ltr"
+                                placeholder="07XX XXX XXXX" required />
+                            </div>
+                          </div>
+                          <div className="flex justify-end pt-2">
+                            <button type="submit" disabled={submittingSettings}
+                              className="bg-slate-900 text-white px-6 py-2.5 rounded-2xl font-black text-sm flex items-center gap-2 hover:bg-primary transition-colors disabled:opacity-50 shadow-sm">
+                              {submittingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                              {submittingSettings ? "جاري الحفظ..." : "حفظ المعلومات"}
+                            </button>
+                          </div>
+                        </form>
                       </div>
+                    )}
 
-                      {settingsSuccess && (
-                        <div className="bg-emerald-50 text-emerald-700 p-3 rounded-xl mb-5 font-bold text-sm border border-emerald-100 flex items-center gap-2">
-                          <span>✓</span> {settingsSuccess}
+                    {/* ── ADDRESS ── */}
+                    {settingsSection === "ADDRESS" && (
+                      <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8 animate-in fade-in slide-in-from-right-2 duration-300">
+                        <div className="flex items-center gap-4 mb-6 pb-5 border-b border-slate-100">
+                          <div className="w-11 h-11 bg-rose-50 rounded-2xl flex items-center justify-center text-xl">📍</div>
+                          <div>
+                            <h3 className="text-lg font-black text-slate-800">العنوان والموقع</h3>
+                            <p className="text-slate-400 text-xs font-medium">تفاصيل العنوان وتحديد الموقع على الخريطة</p>
+                          </div>
                         </div>
-                      )}
-                      {settingsError && (
-                        <div className="bg-rose-50 text-rose-600 p-3 rounded-xl mb-5 font-bold text-sm border border-rose-100">
-                          {settingsError}
-                        </div>
-                      )}
 
-                      <form onSubmit={handleUpdateSettings} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {settingsSuccess && <div className="bg-emerald-50 text-emerald-700 p-3 rounded-xl mb-5 font-bold text-sm border border-emerald-100 flex items-center gap-2"><span>✓</span>{settingsSuccess}</div>}
+                        {settingsError && <div className="bg-rose-50 text-rose-600 p-3 rounded-xl mb-5 font-bold text-sm border border-rose-100">{settingsError}</div>}
+
+                        <form onSubmit={handleUpdateSettings} className="space-y-4">
                           <div className="space-y-1.5">
-                            <label className="text-xs font-black text-slate-500 uppercase tracking-wider">الاسم الكامل</label>
-                            <input
-                              type="text"
-                              value={formData.name}
-                              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                              className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-primary focus:bg-white outline-none transition-all font-bold text-slate-700"
-                              placeholder="اسمك الكامل"
-                              required
-                            />
+                            <label className="text-xs font-black text-slate-500 uppercase tracking-wider">المحافظة</label>
+                            <div className="relative">
+                              <select value={formData.governorate} onChange={e => setFormData({...formData, governorate: e.target.value})}
+                                className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-primary focus:bg-white outline-none transition-all font-bold text-slate-700 appearance-none">
+                                <option value="">اختر المحافظة</option>
+                                {GOVERNORATES.map(g => <option key={g} value={g}>{g}</option>)}
+                              </select>
+                              <ChevronRight className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-90 pointer-events-none" />
+                            </div>
                           </div>
                           <div className="space-y-1.5">
-                            <label className="text-xs font-black text-slate-500 uppercase tracking-wider">رقم الهاتف</label>
-                            <input
-                              type="tel"
-                              value={formData.phone}
-                              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                            <label className="text-xs font-black text-slate-500 uppercase tracking-wider">تفاصيل العنوان</label>
+                            <textarea value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})}
+                              className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-primary focus:bg-white outline-none transition-all font-bold text-slate-700 min-h-[90px] resize-y"
+                              placeholder="المدينة، المنطقة، أقرب نقطة دالة، رقم المنزل..." />
+                          </div>
+                          <div className="space-y-1.5">
+                            <MapLocationPicker location={formData.location} onChange={loc => setFormData({...formData, location: loc})} />
+                            <p className="text-[10px] text-slate-400 font-bold">* تحديد موقعك بدقة يساعد مندوبي التوصيل على الوصول إليك بسرعة.</p>
+                          </div>
+                          <div className="flex justify-end pt-2">
+                            <button type="submit" disabled={submittingSettings}
+                              className="bg-slate-900 text-white px-6 py-2.5 rounded-2xl font-black text-sm flex items-center gap-2 hover:bg-primary transition-colors disabled:opacity-50 shadow-sm">
+                              {submittingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                              {submittingSettings ? "جاري الحفظ..." : "حفظ العنوان"}
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    )}
+
+                    {/* ── PAYMENT ── */}
+                    {settingsSection === "PAYMENT" && (
+                      <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8 animate-in fade-in slide-in-from-right-2 duration-300">
+                        <div className="flex items-center gap-4 mb-6 pb-5 border-b border-slate-100">
+                          <div className="w-11 h-11 bg-emerald-50 rounded-2xl flex items-center justify-center text-xl">💳</div>
+                          <div>
+                            <h3 className="text-lg font-black text-slate-800">إعدادات الدفع</h3>
+                            <p className="text-slate-400 text-xs font-medium">رقم ZainCash لاستلام مستحقاتك التلقائي</p>
+                          </div>
+                        </div>
+
+                        <div className="bg-amber-50/70 border border-amber-100 p-4 rounded-2xl mb-5 flex gap-3">
+                          <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                          <p className="text-xs font-bold text-amber-800 leading-relaxed">جميع الحركات المالية والوصولات مسجلة في سجلاتنا لضمان حقوقك في حال حدوث أي نزاع.</p>
+                        </div>
+
+                        {settingsSuccess && <div className="bg-emerald-50 text-emerald-700 p-3 rounded-xl mb-5 font-bold text-sm border border-emerald-100 flex items-center gap-2"><span>✓</span>{settingsSuccess}</div>}
+                        {settingsError && <div className="bg-rose-50 text-rose-600 p-3 rounded-xl mb-5 font-bold text-sm border border-rose-100">{settingsError}</div>}
+
+                        <form onSubmit={handleUpdateSettings} className="space-y-4">
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-black text-slate-500 uppercase tracking-wider">رقم ZainCash (للاستلام)</label>
+                            <input type="tel" value={formData.zainCashNumber} onChange={e => setFormData({...formData, zainCashNumber: e.target.value})}
                               className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-primary focus:bg-white outline-none transition-all font-bold text-slate-700 text-left dir-ltr"
-                              placeholder="07XX XXX XXXX"
-                              required
-                            />
+                              placeholder="07XX XXX XXXX" />
+                            <p className="text-[10px] text-slate-400 font-bold">* سيتم استخدام هذا الرقم لإرسال مستحقاتك تلقائياً بعد إتمام البيع.</p>
                           </div>
-                        </div>
-                        <div className="flex justify-end pt-2">
-                          <button
-                            type="submit"
-                            disabled={submittingSettings}
-                            className="bg-slate-900 text-white px-6 py-2.5 rounded-2xl font-black text-sm flex items-center gap-2 hover:bg-primary transition-colors disabled:opacity-50 shadow-sm"
-                          >
-                            {submittingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                            {submittingSettings ? "جاري الحفظ..." : "حفظ المعلومات"}
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-
-                    {/* ── Section 2: Address & Location ── */}
-                    <div id="settings-ADDRESS" className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8">
-                      <div className="flex items-center gap-4 mb-6 pb-5 border-b border-slate-100">
-                        <div className="w-11 h-11 bg-rose-50 rounded-2xl flex items-center justify-center text-lg">📍</div>
-                        <div>
-                          <h3 className="text-lg font-black text-slate-800">العنوان والموقع</h3>
-                          <p className="text-slate-400 text-xs font-medium">تفاصيل العنوان وتحديد الموقع على الخريطة</p>
-                        </div>
-                      </div>
-
-                      <form onSubmit={handleUpdateSettings} className="space-y-4">
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-black text-slate-500 uppercase tracking-wider">المحافظة</label>
-                          <div className="relative">
-                            <select
-                              value={formData.governorate}
-                              onChange={(e) => setFormData({ ...formData, governorate: e.target.value })}
-                              className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-primary focus:bg-white outline-none transition-all font-bold text-slate-700 appearance-none"
-                            >
-                              <option value="">اختر المحافظة</option>
-                              {GOVERNORATES.map(g => <option key={g} value={g}>{g}</option>)}
-                            </select>
-                            <ChevronRight className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-90 pointer-events-none" />
+                          <div className="flex justify-end pt-2">
+                            <button type="submit" disabled={submittingSettings}
+                              className="bg-emerald-600 text-white px-6 py-2.5 rounded-2xl font-black text-sm flex items-center gap-2 hover:bg-emerald-700 transition-colors disabled:opacity-50 shadow-sm">
+                              {submittingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                              {submittingSettings ? "جاري الحفظ..." : "حفظ معلومات الدفع"}
+                            </button>
                           </div>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-black text-slate-500 uppercase tracking-wider">تفاصيل العنوان</label>
-                          <textarea
-                            value={formData.address}
-                            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-primary focus:bg-white outline-none transition-all font-bold text-slate-700 min-h-[90px] resize-y"
-                            placeholder="المدينة، المنطقة، أقرب نقطة دالة، رقم المنزل..."
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <MapLocationPicker
-                            location={formData.location}
-                            onChange={(newLoc) => setFormData({ ...formData, location: newLoc })}
-                          />
-                          <p className="text-[10px] text-slate-400 font-bold">* تحديد موقعك بدقة يساعد مندوبي التوصيل على الوصول إليك بسرعة.</p>
-                        </div>
-
-                        <div className="flex justify-end pt-2">
-                          <button
-                            type="submit"
-                            disabled={submittingSettings}
-                            className="bg-slate-900 text-white px-6 py-2.5 rounded-2xl font-black text-sm flex items-center gap-2 hover:bg-primary transition-colors disabled:opacity-50 shadow-sm"
-                          >
-                            {submittingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                            {submittingSettings ? "جاري الحفظ..." : "حفظ العنوان"}
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-
-                    {/* ── Section 3: Payment ── */}
-                    <div id="settings-PAYMENT" className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8">
-                      <div className="flex items-center gap-4 mb-6 pb-5 border-b border-slate-100">
-                        <div className="w-11 h-11 bg-emerald-50 rounded-2xl flex items-center justify-center text-lg">💳</div>
-                        <div>
-                          <h3 className="text-lg font-black text-slate-800">إعدادات الدفع</h3>
-                          <p className="text-slate-400 text-xs font-medium">رقم zainCash لاستلام مستحقاتك التلقائي</p>
-                        </div>
+                        </form>
                       </div>
+                    )}
 
-                      <div className="bg-amber-50/70 border border-amber-100 p-4 rounded-2xl mb-5 flex gap-3">
-                        <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                        <p className="text-xs font-bold text-amber-800 leading-relaxed">
-                          جميع الحركات المالية والوصولات مسجلة في سجلاتنا لضمان حقوقك في حال حدوث أي نزاع.
-                        </p>
-                      </div>
-
-                      <form onSubmit={handleUpdateSettings} className="space-y-4">
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-black text-slate-500 uppercase tracking-wider">رقم ZainCash (للاستلام)</label>
-                          <input
-                            type="tel"
-                            value={formData.zainCashNumber}
-                            onChange={(e) => setFormData({ ...formData, zainCashNumber: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-primary focus:bg-white outline-none transition-all font-bold text-slate-700 text-left dir-ltr"
-                            placeholder="07XX XXX XXXX"
-                          />
-                          <p className="text-[10px] text-slate-400 font-bold">* سيتم استخدام هذا الرقم لإرسال مستحقاتك تلقائياً بعد إتمام البيع.</p>
-                        </div>
-                        <div className="flex justify-end pt-2">
-                          <button
-                            type="submit"
-                            disabled={submittingSettings}
-                            className="bg-emerald-600 text-white px-6 py-2.5 rounded-2xl font-black text-sm flex items-center gap-2 hover:bg-emerald-700 transition-colors disabled:opacity-50 shadow-sm"
-                          >
-                            {submittingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                            {submittingSettings ? "جاري الحفظ..." : "حفظ معلومات الدفع"}
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-
-                    {/* ── Section 4: Notifications ── */}
-                    <div id="settings-NOTIFICATIONS" className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8">
-                      <div className="flex items-center gap-4 mb-6 pb-5 border-b border-slate-100">
-                        <div className="w-11 h-11 bg-indigo-50 rounded-2xl flex items-center justify-center text-lg">🔔</div>
-                        <div>
-                          <h3 className="text-lg font-black text-slate-800">إعدادات التنبيهات</h3>
-                          <p className="text-slate-400 text-xs font-medium">تخصيص نوع الإشعارات المستلمة</p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        {[
-                          { key: "outbid",          label: "تنبيهات المزايدة",   desc: "عندما يقوم شخص آخر بالمزايدة على عرضك",  icon: Gavel,    color: "indigo" },
-                          { key: "favoriteEnding",  label: "المزادات المفضلة",   desc: "عند اقتراب انتهاء مزاد أضفته للمفضلة",   icon: Heart,    color: "rose" },
-                          { key: "platformUpdates", label: "تحديثات المنصة",     desc: "أخبار المزايد والميزات الجديدة",           icon: Settings, color: "emerald" },
-                        ].map(({ key, label, desc, icon: Icon, color }) => {
-                          const isOn = (formData.notificationPrefs as any)[key];
-                          return (
-                            <div
-                              key={key}
-                              className={`flex items-center justify-between p-4 rounded-2xl border-2 cursor-pointer transition-all duration-200 select-none ${isOn ? `border-${color}-200 bg-${color}-50/50` : "border-slate-100 bg-slate-50 hover:bg-slate-100/50"}`}
-                              onClick={() => setFormData(prev => ({ ...prev, notificationPrefs: { ...prev.notificationPrefs, [key]: !isOn } }))}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-xl transition-colors ${isOn ? `bg-${color}-100 text-${color}-600` : "bg-slate-200 text-slate-400"}`}>
-                                  <Icon className="w-4 h-4" />
-                                </div>
-                                <div>
-                                  <p className="text-sm font-black text-slate-800">{label}</p>
-                                  <p className="text-xs text-slate-500 font-medium">{desc}</p>
-                                </div>
-                              </div>
-                              <div className={`w-11 h-6 rounded-full p-0.5 transition-all duration-300 ${isOn ? `bg-${color}-500` : "bg-slate-300"}`}>
-                                <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${isOn ? "translate-x-5" : "translate-x-0"}`} />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      <div className="flex justify-end pt-4">
-                        <button
-                          onClick={handleUpdateSettings as any}
-                          disabled={submittingSettings}
-                          className="bg-indigo-600 text-white px-6 py-2.5 rounded-2xl font-black text-sm flex items-center gap-2 hover:bg-indigo-700 transition-colors disabled:opacity-50 shadow-sm"
-                        >
-                          {submittingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                          {submittingSettings ? "جاري الحفظ..." : "حفظ التنبيهات"}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* ── Section 5: KYC ── */}
-                    <div id="settings-KYC" className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8">
-                      <div className="flex items-center gap-4 mb-6 pb-5 border-b border-slate-100">
-                        <div className="w-11 h-11 bg-blue-50 rounded-2xl flex items-center justify-center text-lg">🛡️</div>
-                        <div>
-                          <h3 className="text-lg font-black text-slate-800">توثيق الحساب (KYC)</h3>
-                          <p className="text-slate-400 text-xs font-medium">ارفع وثائق الهوية للحصول على شارة "موثوق"</p>
-                        </div>
-                      </div>
-
-                      {verifyStatus === "verified" ? (
-                        <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-[2rem] flex items-center gap-5">
-                          <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center text-2xl shrink-0">✅</div>
+                    {/* ── NOTIFICATIONS ── */}
+                    {settingsSection === "NOTIFICATIONS" && (
+                      <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8 animate-in fade-in slide-in-from-right-2 duration-300">
+                        <div className="flex items-center gap-4 mb-6 pb-5 border-b border-slate-100">
+                          <div className="w-11 h-11 bg-indigo-50 rounded-2xl flex items-center justify-center text-xl">🔔</div>
                           <div>
-                            <h4 className="text-base font-black text-emerald-800 mb-1">حسابك موثق بنجاح!</h4>
-                            <p className="text-emerald-600 text-sm font-medium">أنت الآن تحمل شارة "بائع موثوق" وتتمتع بثقة كاملة من المشترين.</p>
+                            <h3 className="text-lg font-black text-slate-800">إعدادات التنبيهات</h3>
+                            <p className="text-slate-400 text-xs font-medium">تخصيص نوع الإشعارات المستلمة</p>
                           </div>
                         </div>
-                      ) : verifyStatus === "pending" ? (
-                        <div className="bg-amber-50 border border-amber-100 p-6 rounded-[2rem] flex items-center gap-5">
-                          <div className="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center shrink-0">
-                            <Loader2 className="w-7 h-7 text-amber-600 animate-spin" />
-                          </div>
-                          <div>
-                            <h4 className="text-base font-black text-amber-800 mb-1">طلبك قيد المراجعة</h4>
-                            <p className="text-amber-600 text-sm font-medium">يقوم فريقنا بمراجعة وثائقك، سيتم تحديث حالتك قريباً.</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-5">
-                          {verifyStatus === "rejected" && (
-                            <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex gap-3 text-rose-600">
-                              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                              <div>
-                                <p className="text-sm font-black">تم رفض طلبك السابق</p>
-                                <p className="text-xs font-medium opacity-80">{user?.verification?.rejectionReason || "الوثائق المرفوعة غير واضحة"}</p>
-                              </div>
-                            </div>
-                          )}
 
-                          <div className="bg-slate-50 border-2 border-dashed border-slate-200 p-8 rounded-[2rem] flex flex-col items-center text-center">
-                            <input
-                              type="file"
-                              id="kyc-upload"
-                              multiple
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => { if (e.target.files) setVerificationFiles(Array.from(e.target.files)); }}
-                            />
-                            <label htmlFor="kyc-upload" className="cursor-pointer flex flex-col items-center group">
-                              <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-100 mb-4 group-hover:scale-110 group-hover:border-primary/30 transition-transform text-2xl">
-                                📎
-                              </div>
-                              <span className="text-sm font-black text-slate-800">اضغط لرفع صور الهوية</span>
-                              <span className="text-xs text-slate-400 mt-1">البطاقة الموحدة أو جواز السفر (وجه + ظهر)</span>
-                            </label>
-
-                            {verificationFiles.length > 0 && (
-                              <div className="mt-4 flex flex-wrap gap-2 justify-center">
-                                {verificationFiles.map((file, idx) => (
-                                  <div key={idx} className="bg-white px-3 py-1.5 rounded-xl text-[11px] font-bold text-slate-600 border border-slate-200 flex items-center gap-1.5">
-                                    <span>📄</span> {file.name}
+                        <div className="space-y-3 mb-6">
+                          {[
+                            { key: "outbid",          label: "تنبيهات المزايدة",  desc: "عندما يقوم شخص آخر بالمزايدة على عرضك",  icon: Gavel,    color: "indigo" },
+                            { key: "favoriteEnding",  label: "المزادات المفضلة",  desc: "عند اقتراب انتهاء مزاد أضفته للمفضلة",   icon: Heart,    color: "rose" },
+                            { key: "platformUpdates", label: "تحديثات المنصة",    desc: "أخبار المزايد والميزات الجديدة",           icon: Settings, color: "emerald" },
+                          ].map(({ key, label, desc, icon: Icon, color }) => {
+                            const isOn = (formData.notificationPrefs as any)[key];
+                            return (
+                              <div key={key}
+                                className={`flex items-center justify-between p-4 rounded-2xl border-2 cursor-pointer transition-all duration-200 select-none ${isOn ? `border-${color}-200 bg-${color}-50/50` : "border-slate-100 bg-slate-50 hover:bg-slate-100/50"}`}
+                                onClick={() => setFormData(prev => ({ ...prev, notificationPrefs: { ...prev.notificationPrefs, [key]: !isOn } }))}>
+                                <div className="flex items-center gap-3">
+                                  <div className={`p-2 rounded-xl transition-colors ${isOn ? `bg-${color}-100 text-${color}-600` : "bg-slate-200 text-slate-400"}`}>
+                                    <Icon className="w-4 h-4" />
                                   </div>
-                                ))}
+                                  <div>
+                                    <p className="text-sm font-black text-slate-800">{label}</p>
+                                    <p className="text-xs text-slate-500 font-medium">{desc}</p>
+                                  </div>
+                                </div>
+                                <div className={`w-11 h-6 rounded-full p-0.5 transition-all duration-300 ${isOn ? `bg-${color}-500` : "bg-slate-300"}`}>
+                                  <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${isOn ? "translate-x-5" : "translate-x-0"}`} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {settingsSuccess && <div className="bg-emerald-50 text-emerald-700 p-3 rounded-xl mb-4 font-bold text-sm border border-emerald-100 flex items-center gap-2"><span>✓</span>{settingsSuccess}</div>}
+
+                        <div className="flex justify-end">
+                          <button onClick={handleUpdateSettings as any} disabled={submittingSettings}
+                            className="bg-indigo-600 text-white px-6 py-2.5 rounded-2xl font-black text-sm flex items-center gap-2 hover:bg-indigo-700 transition-colors disabled:opacity-50 shadow-sm">
+                            {submittingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            {submittingSettings ? "جاري الحفظ..." : "حفظ التنبيهات"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── KYC ── */}
+                    {settingsSection === "KYC" && (
+                      <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8 animate-in fade-in slide-in-from-right-2 duration-300">
+                        <div className="flex items-center gap-4 mb-6 pb-5 border-b border-slate-100">
+                          <div className="w-11 h-11 bg-blue-50 rounded-2xl flex items-center justify-center text-xl">🛡️</div>
+                          <div>
+                            <h3 className="text-lg font-black text-slate-800">توثيق الحساب (KYC)</h3>
+                            <p className="text-slate-400 text-xs font-medium">ارفع وثائق الهوية للحصول على شارة "موثوق"</p>
+                          </div>
+                        </div>
+
+                        {verifyStatus === "verified" ? (
+                          <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-[2rem] flex items-center gap-5">
+                            <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center text-2xl shrink-0">✅</div>
+                            <div>
+                              <h4 className="text-base font-black text-emerald-800 mb-1">حسابك موثق بنجاح!</h4>
+                              <p className="text-emerald-600 text-sm font-medium">أنت الآن تحمل شارة "بائع موثوق" وتتمتع بثقة كاملة من المشترين.</p>
+                            </div>
+                          </div>
+                        ) : verifyStatus === "pending" ? (
+                          <div className="bg-amber-50 border border-amber-100 p-6 rounded-[2rem] flex items-center gap-5">
+                            <div className="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center shrink-0">
+                              <Loader2 className="w-7 h-7 text-amber-600 animate-spin" />
+                            </div>
+                            <div>
+                              <h4 className="text-base font-black text-amber-800 mb-1">طلبك قيد المراجعة</h4>
+                              <p className="text-amber-600 text-sm font-medium">يقوم فريقنا بمراجعة وثائقك، سيتم تحديث حالتك قريباً.</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-5">
+                            {verifyStatus === "rejected" && (
+                              <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl flex gap-3 text-rose-600">
+                                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                                <div>
+                                  <p className="text-sm font-black">تم رفض طلبك السابق</p>
+                                  <p className="text-xs font-medium opacity-80">{user?.verification?.rejectionReason || "الوثائق المرفوعة غير واضحة"}</p>
+                                </div>
                               </div>
                             )}
+                            <div className="bg-slate-50 border-2 border-dashed border-slate-200 p-8 rounded-[2rem] flex flex-col items-center text-center">
+                              <input type="file" id="kyc-upload" multiple accept="image/*" className="hidden"
+                                onChange={e => { if (e.target.files) setVerificationFiles(Array.from(e.target.files)); }} />
+                              <label htmlFor="kyc-upload" className="cursor-pointer flex flex-col items-center group">
+                                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-100 mb-4 group-hover:scale-110 group-hover:border-primary/30 transition-transform text-2xl">📎</div>
+                                <span className="text-sm font-black text-slate-800">اضغط لرفع صور الهوية</span>
+                                <span className="text-xs text-slate-400 mt-1">البطاقة الموحدة أو جواز السفر (وجه + ظهر)</span>
+                              </label>
+                              {verificationFiles.length > 0 && (
+                                <div className="mt-4 flex flex-wrap gap-2 justify-center">
+                                  {verificationFiles.map((file, idx) => (
+                                    <div key={idx} className="bg-white px-3 py-1.5 rounded-xl text-[11px] font-bold text-slate-600 border border-slate-200 flex items-center gap-1.5">
+                                      <span>📄</span> {file.name}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            {verifyError && <p className="text-center text-rose-500 text-xs font-bold">{verifyError}</p>}
+                            {verifySuccess && <p className="text-center text-emerald-500 text-xs font-bold">{verifySuccess}</p>}
+                            <button onClick={handleVerifySubmit as any} disabled={uploadingVerify || verificationFiles.length === 0}
+                              className="w-full bg-blue-600 text-white py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors disabled:opacity-50 shadow-sm">
+                              {uploadingVerify ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldCheck className="w-5 h-5" />}
+                              {uploadingVerify ? "جاري الرفع..." : "تقديم الوثائق للتوثيق"}
+                            </button>
                           </div>
-
-                          {verifyError && <p className="text-center text-rose-500 text-xs font-bold">{verifyError}</p>}
-                          {verifySuccess && <p className="text-center text-emerald-500 text-xs font-bold">{verifySuccess}</p>}
-
-                          <button
-                            onClick={handleVerifySubmit as any}
-                            disabled={uploadingVerify || verificationFiles.length === 0}
-                            className="w-full bg-blue-600 text-white py-3.5 rounded-2xl font-black text-sm flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors disabled:opacity-50 shadow-sm"
-                          >
-                            {uploadingVerify ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldCheck className="w-5 h-5" />}
-                            {uploadingVerify ? "جاري الرفع..." : "تقديم الوثائق للتوثيق"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* ── Section 6: Security / Password ── */}
-                    <div id="settings-SECURITY" className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8">
-                      <div className="flex items-center gap-4 mb-6 pb-5 border-b border-slate-100">
-                        <div className="w-11 h-11 bg-amber-50 rounded-2xl flex items-center justify-center text-lg">🔒</div>
-                        <div>
-                          <h3 className="text-lg font-black text-slate-800">الأمان وكلمة المرور</h3>
-                          <p className="text-slate-400 text-xs font-medium">تغيير كلمة المرور الخاصة بحسابك</p>
-                        </div>
+                        )}
                       </div>
+                    )}
 
-                      {pwdSuccess && (
-                        <div className="bg-emerald-50 text-emerald-700 p-3 rounded-xl mb-5 font-bold text-sm border border-emerald-100 flex items-center gap-2">
-                          <span>✓</span> {pwdSuccess}
-                        </div>
-                      )}
-                      {pwdError && (
-                        <div className="bg-rose-50 text-rose-600 p-3 rounded-xl mb-5 font-bold text-sm border border-rose-100">
-                          {pwdError}
-                        </div>
-                      )}
-
-                      <form onSubmit={handleUpdatePassword} className="space-y-4">
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-black text-slate-500 uppercase tracking-wider">كلمة المرور الحالية</label>
-                          <input
-                            type="password"
-                            value={pwdFormData.currentPassword}
-                            onChange={(e) => setPwdFormData({ ...pwdFormData, currentPassword: e.target.value })}
-                            className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-primary focus:bg-white outline-none transition-all font-bold"
-                            placeholder="••••••••"
-                            required
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-black text-slate-500 uppercase tracking-wider">كلمة المرور الجديدة</label>
-                            <input
-                              type="password"
-                              value={pwdFormData.newPassword}
-                              onChange={(e) => setPwdFormData({ ...pwdFormData, newPassword: e.target.value })}
-                              className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-primary focus:bg-white outline-none transition-all font-bold"
-                              placeholder="6 أحرف على الأقل"
-                              required
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-black text-slate-500 uppercase tracking-wider">تأكيد كلمة المرور</label>
-                            <input
-                              type="password"
-                              value={pwdFormData.confirmPassword}
-                              onChange={(e) => setPwdFormData({ ...pwdFormData, confirmPassword: e.target.value })}
-                              className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-primary focus:bg-white outline-none transition-all font-bold"
-                              placeholder="••••••••"
-                              required
-                            />
+                    {/* ── SECURITY ── */}
+                    {settingsSection === "SECURITY" && (
+                      <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8 animate-in fade-in slide-in-from-right-2 duration-300">
+                        <div className="flex items-center gap-4 mb-6 pb-5 border-b border-slate-100">
+                          <div className="w-11 h-11 bg-amber-50 rounded-2xl flex items-center justify-center text-xl">🔒</div>
+                          <div>
+                            <h3 className="text-lg font-black text-slate-800">الأمان وكلمة المرور</h3>
+                            <p className="text-slate-400 text-xs font-medium">تغيير كلمة المرور الخاصة بحسابك</p>
                           </div>
                         </div>
 
-                        <div className="flex justify-end pt-2">
-                          <button
-                            type="submit"
-                            disabled={submittingPwd}
-                            className="bg-amber-600 text-white px-6 py-2.5 rounded-2xl font-black text-sm flex items-center gap-2 hover:bg-amber-700 transition-colors disabled:opacity-50 shadow-sm"
-                          >
-                            {submittingPwd ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                            {submittingPwd ? "جاري التحديث..." : "تحديث كلمة المرور"}
-                          </button>
-                        </div>
-                      </form>
-                    </div>
+                        {pwdSuccess && <div className="bg-emerald-50 text-emerald-700 p-3 rounded-xl mb-5 font-bold text-sm border border-emerald-100 flex items-center gap-2"><span>✓</span>{pwdSuccess}</div>}
+                        {pwdError && <div className="bg-rose-50 text-rose-600 p-3 rounded-xl mb-5 font-bold text-sm border border-rose-100">{pwdError}</div>}
 
-                  </div>{/* end main content */}
+                        <form onSubmit={handleUpdatePassword} className="space-y-4">
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-black text-slate-500 uppercase tracking-wider">كلمة المرور الحالية</label>
+                            <input type="password" value={pwdFormData.currentPassword} onChange={e => setPwdFormData({...pwdFormData, currentPassword: e.target.value})}
+                              className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-primary focus:bg-white outline-none transition-all font-bold"
+                              placeholder="••••••••" required />
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-black text-slate-500 uppercase tracking-wider">كلمة المرور الجديدة</label>
+                              <input type="password" value={pwdFormData.newPassword} onChange={e => setPwdFormData({...pwdFormData, newPassword: e.target.value})}
+                                className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-primary focus:bg-white outline-none transition-all font-bold"
+                                placeholder="6 أحرف على الأقل" required />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-black text-slate-500 uppercase tracking-wider">تأكيد كلمة المرور</label>
+                              <input type="password" value={pwdFormData.confirmPassword} onChange={e => setPwdFormData({...pwdFormData, confirmPassword: e.target.value})}
+                                className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-primary focus:bg-white outline-none transition-all font-bold"
+                                placeholder="••••••••" required />
+                            </div>
+                          </div>
+                          <div className="flex justify-end pt-2">
+                            <button type="submit" disabled={submittingPwd}
+                              className="bg-amber-600 text-white px-6 py-2.5 rounded-2xl font-black text-sm flex items-center gap-2 hover:bg-amber-700 transition-colors disabled:opacity-50 shadow-sm">
+                              {submittingPwd ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                              {submittingPwd ? "جاري التحديث..." : "تحديث كلمة المرور"}
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    )}
+
+                  </div>{/* end section content */}
                 </div>{/* end flex */}
               </div>
             );
           })()
         }
+
 
         {activeTab === "RATINGS" && (
           <div className="col-span-full space-y-4">

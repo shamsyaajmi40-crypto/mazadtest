@@ -4,6 +4,7 @@ import api from "../services/api";
 import { getAuctions, getWonAuctions, getMyBids } from "../services/auction";
 import type { Auction, User } from "../types";
 import AuctionCard from "../components/AuctionCard";
+import ProfileAuctionCard from "../components/ProfileAuctionCard";
 import MapLocationPicker from "../components/MapLocationPicker";
 import {
   MapPin,
@@ -545,8 +546,8 @@ const UserProfile = () => {
         </div>
       )}
 
-      {/* Content */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Content - Compact List Layout */}
+      <div className="flex flex-col gap-4">
         {activeTab === "LISTINGS" && (
           data.listings.length > 0 ? (
             data.listings.map((auction) => {
@@ -559,7 +560,7 @@ const UserProfile = () => {
 
               return (
                 <div key={auction._id} className="relative group">
-                  <AuctionCard auction={auction} />
+                  <ProfileAuctionCard auction={auction} />
 
                   {isOwner && isEnded && auction.winner && (
                     <button
@@ -590,8 +591,8 @@ const UserProfile = () => {
 
         {activeTab === "BIDS" && (
           data.bids.length > 0 ? (
-            data.bids.map((a) => (
-              <AuctionCard key={a._id} auction={a} />
+            data.bids.map((auction) => (
+              <ProfileAuctionCard key={auction._id} auction={auction} />
             ))
           ) : (
             <div className="col-span-full flex flex-col items-center justify-center p-12 bg-white rounded-[2rem] border border-slate-100 border-dashed">
@@ -609,7 +610,7 @@ const UserProfile = () => {
         {activeTab === "FAVORITES" && (
           data.favorites.length > 0 ? (
             data.favorites.map((a) => (
-              <AuctionCard key={a._id} auction={a} />
+              <ProfileAuctionCard key={a._id} auction={a} />
             ))
           ) : (
             <div className="col-span-full flex flex-col items-center justify-center p-12 bg-white rounded-[2rem] border border-slate-100 border-dashed">
@@ -627,7 +628,7 @@ const UserProfile = () => {
           data.wins.length > 0 ? (
             data.wins.map((auction) => (
               <div key={auction._id} className="relative group">
-                <AuctionCard auction={auction} />
+                <ProfileAuctionCard auction={auction} />
 
                 <button
                   className="absolute top-4 left-4 z-20 bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg flex items-center gap-2 hover:bg-emerald-600 transition-colors"
@@ -665,7 +666,7 @@ const UserProfile = () => {
             pendingCourierAuctions.length > 0 ? (
               pendingCourierAuctions.map((auction) => (
                 <div key={auction._id} className="relative group">
-                  <AuctionCard auction={auction} />
+                  <ProfileAuctionCard auction={auction} />
 
                   <button
                     className="absolute top-4 left-4 z-20 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors"

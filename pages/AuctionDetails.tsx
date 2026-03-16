@@ -2345,7 +2345,7 @@ const AuctionDetails = () => {
             ).toLocaleString()} د.ع`}
             onAccept={async () => {
               const acceptedKey = `hasAcceptedBidTerms_${auction._id}`;
-              localStorage.setItem(acceptedKey, "true");
+              sessionStorage.setItem(acceptedKey, "true");
               setShowBidTermsModal(false);
               executeBid();
             }}

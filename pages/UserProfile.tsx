@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useContext, FormEvent } from "react";
+import { useEffect, useState, useContext, FormEvent } from "react";
 import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
 import { getAuctions, getWonAuctions, getMyBids } from "../services/auction";
@@ -355,6 +355,18 @@ const UserProfile = () => {
                   {profileUser?.verification?.status === "verified" && (
                     <ShieldCheck className="w-8 h-8 text-blue-500 drop-shadow-sm" />
                   )}
+                  {isOwnProfile && (
+                    <button
+                      onClick={() => setActiveTab("SETTINGS")}
+                      className={`mr-auto px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 transition-all duration-300 border-2 ${activeTab === "SETTINGS"
+                        ? "bg-slate-900 text-white border-slate-900 shadow-lg"
+                        : "bg-white text-slate-600 border-slate-100 hover:border-primary/20 hover:bg-slate-50"
+                        }`}
+                    >
+                      <Settings className={`w-4 h-4 ${activeTab === "SETTINGS" ? "animate-spin-slow" : "text-slate-400"}`} />
+                      تعديل الحساب
+                    </button>
+                  )}
                 </h1>
 
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mt-3 text-slate-500 font-medium">
@@ -522,18 +534,6 @@ const UserProfile = () => {
           </span>
         </button>
 
-        {isOwnProfile && (
-          <button
-            onClick={() => setActiveTab("SETTINGS")}
-            className={`shrink-0 snap-start px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2.5 transition-all duration-300 ${activeTab === "SETTINGS"
-              ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 scale-100"
-              : "bg-white text-slate-500 hover:bg-slate-50 border border-slate-100 scale-95 hover:scale-100"
-              }`}
-          >
-            <Settings className={`w-5 h-5 ${activeTab === "SETTINGS" ? "text-slate-400" : ""}`} />
-            إعدادات الحساب
-          </button>
-        )}
       </div>
 
       {/* Content */}

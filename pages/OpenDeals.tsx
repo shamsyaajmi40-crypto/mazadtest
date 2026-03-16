@@ -225,20 +225,13 @@ const OpenDeals = () => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex">
                   <Link
                     to={`/auction/${auction._id}`}
                     className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 text-white px-5 py-4 text-sm font-black hover:bg-primary hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-95"
                   >
-                    تفاصيل الصفقة
+                    تفاصيل ومتابعة الصفقة
                     <ExternalLink className="w-4 h-4" />
-                  </Link>
-                  <Link
-                    to="/wallet"
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white text-slate-700 px-5 py-4 text-sm font-black hover:bg-slate-50 transition-all active:scale-95"
-                  >
-                    رصيد الضمان
-                    <ArrowLeft className="w-4 h-4" />
                   </Link>
                 </div>
               </div>

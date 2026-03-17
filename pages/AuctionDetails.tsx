@@ -60,7 +60,7 @@ const AuctionDetails = () => {
       fire: new Audio("https://assets.mixkit.co/active_storage/sfx/1483/1483-preview.mp3"),
       competition: new Audio("https://assets.mixkit.co/active_storage/sfx/2573/2573-preview.mp3"),
     };
-    Object.values(soundsRef.current).forEach(s => { s.load(); s.volume = 0.5; });
+    (Object.values(soundsRef.current) as HTMLAudioElement[]).forEach(s => { s.load(); s.volume = 0.5; });
   }, []);
 
   const playSound = (type: string) => {

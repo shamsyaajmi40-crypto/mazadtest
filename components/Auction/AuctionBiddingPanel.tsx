@@ -230,6 +230,9 @@ const AuctionBiddingPanel = ({
   useEffect(() => {
     if (!socket || !isConnected) return;
 
+    // Join the auction room for real-time updates
+    socket.emit("auction:join", auction._id);
+
     const handleBidNew = (data: { auction: any; bids?: any[] }) => {
       if (!data?.bids) {
         setAuction((prev: any) => {
@@ -321,7 +324,8 @@ const AuctionBiddingPanel = ({
               <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">تم الرفض</span>
             </div>
           ) : !isEnded ? (
-            <div className="flex items-center gap-2 bg-red-50 px-3 py-1 rounded-lg border border-red-100/50">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 bg-red-50 px-3 py-1 rounded-lg border border-red-100/50">
               <div className="relative flex items-center justify-center w-2 h-2">
                 {isActive && <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping"></span>}
                 <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${isActive ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]' : 'bg-slate-300'}`}></span>
@@ -330,6 +334,12 @@ const AuctionBiddingPanel = ({
                 {isActive ? "LIVE" : "UPCOMING"}
               </span>
             </div>
+            {/* Connection Status Indicator */}
+            <div 
+              className={`w-2 h-2 rounded-full shadow-[0_0_5px_rgba(0,0,0,0.1)] transition-colors duration-500 ${isConnected ? 'bg-emerald-500 shadow-emerald-500/50' : 'bg-slate-300'}`}
+              title={isConnected ? "متصل بالبث المباشر" : "غير متصل - جاري إعادة الاتصال..."}
+            />
+          </div>
           ) : (
             <div className="flex items-center gap-2 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">
               <span className="text-[10px] font-black text-slate-500">منتهي</span>

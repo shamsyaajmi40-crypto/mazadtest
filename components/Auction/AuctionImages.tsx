@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import { ChevronRight, ChevronLeft, Image, X, Maximize2 } from "lucide-react";
 import { getImageUrl } from "@/utils/getImageUrl";
 import { motion, AnimatePresence } from "framer-motion";

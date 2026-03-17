@@ -153,7 +153,8 @@ const AuctionBiddingPanel = ({
   const applyAuctionUpdate = (data: { auction: any; bids: any[] }) => {
     setAuction((prev: any) => {
       if (!prev) return data.auction;
-      if (optimisticBidRef.current !== null) {
+      // Allow update if optimistic bid is null OR if server price has caught up/surpassed it
+      if (optimisticBidRef.current !== null && data.auction.currentPrice < optimisticBidRef.current) {
         return { ...prev, endTime: data.auction.endTime };
       }
       return data.auction;
@@ -186,6 +187,7 @@ const AuctionBiddingPanel = ({
       await placeBid(auction._id, nextBid, true);
       playSound('success');
       await refreshAuction();
+      setOptimisticBid(null);
     } catch (err: any) {
       setOptimisticBid(null);
       const status = err?.response?.status;
@@ -316,7 +318,7 @@ const AuctionBiddingPanel = ({
       socket.off("bid:new", handleBidNew); 
       socket.off("viewers_count", handleViewersCount);
     };
-  }, [socket, isConnected, playSound, triggerHaptic, setAuction, setBids, isHotAuction, setViewersCount]);
+  }, [socket, isConnected, playSound, triggerHaptic, setAuction, setBids, setViewersCount]);
 
   useEffect(() => {
     if (optimisticBid !== null && auction && auction.currentPrice >= optimisticBid) {

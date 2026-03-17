@@ -154,20 +154,20 @@ const AuctionBiddingPanel = ({
     setAuction((prev: any) => {
       if (!prev) return data.auction;
       
-      // If server price >= our optimistic bid, we must clear the optimistic state to prevent freezing
-      if (optimisticBidRef.current !== null && data.auction.currentPrice >= optimisticBidRef.current) {
-        setOptimisticBid(null);
-        setBidLoading(false);
-        return data.auction;
-      }
-
-      // If we have an active optimistic bid and server price is still lower, preserve optimistic state but update time
+      // Decide if we should accept the new auction data based on optimistic state
       if (optimisticBidRef.current !== null && data.auction.currentPrice < optimisticBidRef.current) {
         return { ...prev, endTime: data.auction.endTime };
       }
       
       return data.auction;
     });
+
+    // Side effects handled OUTSIDE the state updater function
+    if (optimisticBidRef.current !== null && data.auction.currentPrice >= optimisticBidRef.current) {
+      setOptimisticBid(null);
+      setBidLoading(false);
+    }
+
     setBids(data.bids);
   }, [setAuction, setBids]);
 
@@ -183,11 +183,13 @@ const AuctionBiddingPanel = ({
     playSound('bid');
     triggerHaptic(50);
 
+    const previousBids = [...bids];
+
     try {
       const optimisticBidEntry = {
-        _id: "optimistic",
+        _id: `optimistic_${Date.now()}`,
         amount: nextBid,
-        bidder: user._id,
+        bidder: user,
         createdAt: new Date().toISOString(),
       };
 
@@ -199,6 +201,7 @@ const AuctionBiddingPanel = ({
       setOptimisticBid(null);
     } catch (err: any) {
       setOptimisticBid(null);
+      setBids(previousBids); // REVERT!
       const status = err?.response?.status;
       if (status === 429) {
         const retryAfter = err?.response?.data?.retryAfter ?? Number(err?.response?.headers?.["retry-after"]) ?? 5;

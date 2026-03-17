@@ -31,7 +31,13 @@ const AuctionRatingSection: React.FC<AuctionRatingSectionProps> = ({
   const [comment, setComment] = useState("");
   const [ratingLoading, setRatingLoading] = useState(false);
 
-  const isWinner = String(auction.winner?._id || auction.winner) === String(user?._id);
+  const getUserId = (u: any): string => {
+    if (!u) return "";
+    return typeof u === "string" ? u : u._id || u.id || "";
+  };
+
+  const isWinner = getUserId(auction.winner) === getUserId(user);
+  const isOwner = getUserId(auction.owner) === getUserId(user);
   const role = isWinner ? "buyer_to_seller" : "seller_to_buyer";
 
   const submitRating = async () => {

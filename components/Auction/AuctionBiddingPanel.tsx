@@ -226,24 +226,32 @@ const AuctionBiddingPanel = ({
       return;
     }
 
-    try { await refreshUser(); } catch (e) { }
+    setBidLoading(true); // IMMEDIATE LOCK
 
-    const hasAlreadyBid = bids.some(
-      (b) => b.bidder && getUserId(b.bidder) === String(user?._id)
-    );
+    try {
+      try { await refreshUser(); } catch (e) { }
 
-    if (!hasAlreadyBid && (user?.balance || 0) < (auction.depositAmount || 0)) {
-      setError(`رصيدك غير كافٍ. يتطلب المزاد عربوناً بقيمة ${(auction.depositAmount || 0).toLocaleString()} د.ع.`);
-      return;
+      const hasAlreadyBid = bids.some(
+        (b) => b.bidder && getUserId(b.bidder) === String(user?._id)
+      );
+
+      if (!hasAlreadyBid && (user?.balance || 0) < (auction.depositAmount || 0)) {
+        setError(`رصيدك غير كافٍ. يتطلب المزاد عربوناً بقيمة ${(auction.depositAmount || 0).toLocaleString()} د.ع.`);
+        setBidLoading(false);
+        return;
+      }
+
+      const acceptedKey = `hasAcceptedBidTerms_${auction._id}`;
+      if (!sessionStorage.getItem(acceptedKey)) {
+        setShowBidTermsModal(true);
+        setBidLoading(false);
+        return;
+      }
+
+      await executeBid();
+    } catch (err) {
+      setBidLoading(false);
     }
-
-    const acceptedKey = `hasAcceptedBidTerms_${auction._id}`;
-    if (!sessionStorage.getItem(acceptedKey)) {
-      setShowBidTermsModal(true);
-      return;
-    }
-
-    await executeBid();
   };
 
   useEffect(() => {

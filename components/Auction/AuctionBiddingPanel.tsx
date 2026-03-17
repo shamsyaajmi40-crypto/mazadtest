@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Clock, Eye, VolumeX, Volume2, Loader2, Gavel, History, AlertTriangle, Settings, CheckCircle, XCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import maskUsername from "@/utils/maskUsername.ts";
@@ -150,17 +150,26 @@ const AuctionBiddingPanel = ({
 
   useEffect(() => { if (bidCooldown === 0) setError(""); }, [bidCooldown]);
 
-  const applyAuctionUpdate = (data: { auction: any; bids: any[] }) => {
+  const applyAuctionUpdate = useCallback((data: { auction: any; bids: any[] }) => {
     setAuction((prev: any) => {
       if (!prev) return data.auction;
-      // Allow update if optimistic bid is null OR if server price has caught up/surpassed it
+      
+      // If server price >= our optimistic bid, we must clear the optimistic state to prevent freezing
+      if (optimisticBidRef.current !== null && data.auction.currentPrice >= optimisticBidRef.current) {
+        setOptimisticBid(null);
+        setBidLoading(false);
+        return data.auction;
+      }
+
+      // If we have an active optimistic bid and server price is still lower, preserve optimistic state but update time
       if (optimisticBidRef.current !== null && data.auction.currentPrice < optimisticBidRef.current) {
         return { ...prev, endTime: data.auction.endTime };
       }
+      
       return data.auction;
     });
     setBids(data.bids);
-  };
+  }, [setAuction, setBids]);
 
   const executeBid = async () => {
     if (!auction || bidLoading) return;
@@ -318,7 +327,7 @@ const AuctionBiddingPanel = ({
       socket.off("bid:new", handleBidNew); 
       socket.off("viewers_count", handleViewersCount);
     };
-  }, [socket, isConnected, playSound, triggerHaptic, setAuction, setBids, setViewersCount]);
+  }, [socket, isConnected, auction._id, applyAuctionUpdate, playSound, triggerHaptic, isHotAuction, setViewersCount]);
 
   useEffect(() => {
     if (optimisticBid !== null && auction && auction.currentPrice >= optimisticBid) {

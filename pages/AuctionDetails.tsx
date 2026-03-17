@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Auction, Bid } from "../types";
 import { getAuctionDetails } from "../services/auction";
 import { AuthContext } from "../context/AuthContext";
-import { Loader2, FileText, X, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { Loader2, FileText, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { useSocket } from "../context/SocketContext";
 import api from "../services/api";
@@ -15,6 +15,7 @@ import AuctionImages from "../components/Auction/AuctionImages";
 import AuctionBiddingPanel from "../components/Auction/AuctionBiddingPanel";
 import AuctionDeliveryPanel from "../components/Auction/AuctionDeliveryPanel";
 import AuctionRatingSection from "../components/Auction/AuctionRatingSection";
+import RejectModal from "../components/Auction/RejectModal";
 
 const AuctionDetails = () => {
   const { id } = useParams();
@@ -27,14 +28,12 @@ const AuctionDetails = () => {
   const [auction, setAuction] = useState<Auction | null>(null);
   const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
   // UI State
   const [ratings, setRatings] = useState<any[]>([]);
   const [ratingsLoading, setRatingsLoading] = useState(true);
   const [alreadyRated, setAlreadyRated] = useState(false);
   const [sellerRating, setSellerRating] = useState<any>(null);
-  const [showFeatureModal, setShowFeatureModal] = useState(false);
   const [showCourierModal, setShowCourierModal] = useState(false);
   const [courierErr, setCourierErr] = useState<string | null>(null);
   const [courierLoading, setCourierLoading] = useState(false);
@@ -44,6 +43,51 @@ const AuctionDetails = () => {
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectionReasons, setRejectionReasons] = useState<string[]>([]);
   const [rejectionNote, setRejectionNote] = useState("");
+
+  // Sound & Haptics Infrastructure
+  const [isMuted, setIsMuted] = useState(() => localStorage.getItem("mazad_muted") === "true");
+  const soundsRef = useRef<Record<string, HTMLAudioElement>>({});
+  const [viewersCount, setViewersCount] = useState(() => Math.floor(Math.random() * 8) + 3);
+
+  useEffect(() => {
+    soundsRef.current = {
+      bid: new Audio("https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"),
+      outbid: new Audio("https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3"),
+      success: new Audio("https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"),
+      tick: new Audio("https://assets.mixkit.co/active_storage/sfx/2570/2570-preview.mp3"),
+      gavel: new Audio("https://assets.mixkit.co/active_storage/sfx/967/967-preview.mp3"),
+      winner: new Audio("https://assets.mixkit.co/active_storage/sfx/2012/2012-preview.mp3"),
+      fire: new Audio("https://assets.mixkit.co/active_storage/sfx/1483/1483-preview.mp3"),
+      competition: new Audio("https://assets.mixkit.co/active_storage/sfx/2573/2573-preview.mp3"),
+    };
+    Object.values(soundsRef.current).forEach(s => { s.load(); s.volume = 0.5; });
+  }, []);
+
+  const playSound = (type: string) => {
+    if (isMuted) return;
+    const s = soundsRef.current[type];
+    if (s) { s.currentTime = 0; s.play().catch(() => {}); }
+  };
+
+  const triggerHaptic = (pattern: any) => {
+    if (window.navigator?.vibrate) window.navigator.vibrate(pattern || 50);
+  };
+
+  const toggleMute = () => {
+    setIsMuted(prev => {
+      const next = !prev;
+      localStorage.setItem("mazad_muted", String(next));
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (!auction || auction.status !== "active") return;
+    const t = setInterval(() => {
+      setViewersCount(prev => Math.max(2, Math.min(prev + (Math.random() > 0.4 ? 1 : -1), 30)));
+    }, 7000);
+    return () => clearInterval(t);
+  }, [auction?._id, auction?.status]);
 
   const auctionRef = useRef(auction);
   useEffect(() => { auctionRef.current = auction; }, [auction]);
@@ -105,6 +149,21 @@ const AuctionDetails = () => {
       refreshAuction();
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "فشل القبول");
+    } finally {
+      setAdminActionLoading(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!id || adminActionLoading) return;
+    try {
+      setAdminActionLoading(true);
+      await rejectAuction(id, { rejectionReasons, rejectionNote });
+      toast.success("تم رفض المزاد بنجاح");
+      setRejectModalOpen(false);
+      navigate("/admin/dashboard");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "فشل الرفض");
     } finally {
       setAdminActionLoading(false);
     }
@@ -196,11 +255,11 @@ const AuctionDetails = () => {
               setAuction={setAuction}
               setBids={setBids}
               refreshUser={refreshUser as any}
-              playSound={() => {}}
-              triggerHaptic={() => {}}
-              isMuted={false}
-              toggleMute={() => {}}
-              viewersCount={5}
+              playSound={playSound}
+              triggerHaptic={triggerHaptic}
+              isMuted={isMuted}
+              toggleMute={toggleMute}
+              viewersCount={viewersCount}
               handleApprove={handleApprove}
               setRejectModalOpen={setRejectModalOpen}
               adminActionLoading={adminActionLoading}
@@ -241,6 +300,17 @@ const AuctionDetails = () => {
           <RelatedAuctions currentAuctionId={auction._id} categoryId={auction.category?._id || auction.category} />
         </div>
       </div>
+
+      <RejectModal
+        isOpen={rejectModalOpen}
+        onClose={() => setRejectModalOpen(false)}
+        onReject={handleReject}
+        rejectionReasons={rejectionReasons}
+        setRejectionReasons={setRejectionReasons}
+        rejectionNote={rejectionNote}
+        setRejectionNote={setRejectionNote}
+        loading={adminActionLoading}
+      />
 
       {/* Courier Modal */}
       {showCourierModal && (

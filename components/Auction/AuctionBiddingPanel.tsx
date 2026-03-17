@@ -5,6 +5,7 @@ import maskUsername from "@/utils/maskUsername.ts";
 import { placeBid } from "../../services/auction";
 import { getImageUrl } from "../../utils/getImageUrl";
 import TermsModal from "../TermsModal";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface AuctionBiddingPanelProps {
   auction: any;
@@ -56,6 +57,7 @@ const AuctionBiddingPanel = ({
   const [isHotAuction, setIsHotAuction] = useState(false);
   const [priceFlash, setPriceFlash] = useState(false);
   const [timeFlash, setTimeFlash] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [error, setError] = useState("");
 
   const timeRef = useRef<HTMLDivElement>(null);
@@ -438,6 +440,21 @@ const AuctionBiddingPanel = ({
             )}
           </button>
         )}
+
+        {/* Balance Hint */}
+        {user && !isOwner && !isEnded && (
+          <div className="mt-3 flex items-center justify-center gap-2">
+            { (user.balance || 0) < (auction.depositAmount || 0) ? (
+              <span className="text-[11px] font-bold text-rose-500 bg-rose-50 px-3 py-1 rounded-full border border-rose-100 animate-pulse">
+                ⚠️ رصيدك الحالي {user.balance?.toLocaleString()} د.ع | تحتاج {(auction.depositAmount).toLocaleString()} د.ع عربون
+              </span>
+            ) : (
+              <span className="text-[10px] font-semibold text-slate-400">
+                سيتم حجز {(auction.depositAmount || 0).toLocaleString()} د.ع كعربون عند المزايدة
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
        {isPending && isAdmin && (
@@ -480,7 +497,7 @@ const AuctionBiddingPanel = ({
             <span className="text-[10px] sm:text-xs bg-slate-100 text-slate-500 px-2.5 py-1 rounded-md font-bold">{uniqueBids.length} منافسين</span>
           </h4>
           <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-            {uniqueBids.slice(0, 5).map((b, idx) => {
+            {uniqueBids.slice(0, 3).map((b, idx) => {
               const bId = b.bidderId;
               const isMe = bId === getUserId(user);
               const isFirst = idx === 0;
@@ -508,6 +525,14 @@ const AuctionBiddingPanel = ({
               );
             })}
           </div>
+          {uniqueBids.length > 0 && (
+            <button 
+              onClick={() => setShowHistoryModal(true)}
+              className="w-full mt-4 py-3 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl text-xs font-black transition-all border border-slate-200 border-dashed"
+            >
+              عرض السجل الكامل ({bids.length} مزايدات)
+            </button>
+          )}
         </div>
       )}
 
@@ -538,6 +563,70 @@ const AuctionBiddingPanel = ({
           await executeBid();
         }}
       />
+
+      {/* Full History Modal */}
+      <AnimatePresence>
+        {showHistoryModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[80] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setShowHistoryModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                  <History className="w-5 h-5 text-emerald-500" /> سجل المزايدات الكامل
+                </h3>
+                <button 
+                  onClick={() => setShowHistoryModal(false)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200/50 hover:bg-slate-200 transition-colors"
+                >
+                  <XCircle className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                {bids.map((bid, idx) => {
+                  const bId = getUserId(bid.bidder);
+                  const isMe = bId === getUserId(user);
+                  return (
+                    <div key={bid._id} className={`flex items-center justify-between p-4 rounded-2xl border ${idx === 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-100'} transition-all`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm ${idx === 0 ? 'bg-amber-400 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                          {idx === 0 ? '👑' : `#${idx + 1}`}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800 text-sm">
+                            {(isMe || isOwner) ? (isMe ? "أنت" : (bid.bidder?.name || "مزايد")) : maskUsername(bid.bidder?.name || "")}
+                          </p>
+                          <p className="text-[10px] text-slate-400 font-medium">
+                            {new Date(bid.createdAt).toLocaleTimeString('ar-IQ', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className={`font-black text-sm ${idx === 0 ? 'text-amber-600' : 'text-slate-900'}`}>
+                        {bid.amount.toLocaleString()} د.ع
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">إجمالي المزايدات: {bids.length}</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

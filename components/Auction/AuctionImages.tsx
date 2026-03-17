@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import { ChevronRight, ChevronLeft, Image, X } from "lucide-react";
+import { ChevronRight, ChevronLeft, Image, X, Maximize2 } from "lucide-react";
 import { getImageUrl } from "@/utils/getImageUrl";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface AuctionImagesProps {
   auction: any;
@@ -37,7 +37,10 @@ const AuctionImages = ({ auction }: AuctionImagesProps) => {
         onTouchEnd={handleTouchEnd}
       >
         {hasImages ? (
-          <img
+          <motion.img
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            key={activeImageIndex}
             src={getImageUrl(auction.images?.[activeImageIndex] || auction.images?.[0])}
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 cursor-zoom-in"
             alt={auction.title}
@@ -102,55 +105,85 @@ const AuctionImages = ({ auction }: AuctionImagesProps) => {
         </div>
       )}
 
-      {lightboxOpen && hasImages && (
-        <div
-          className="fixed inset-0 z-[70] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setLightboxOpen(false)}
-        >
-          <button
-            type="button"
+      <AnimatePresence>
+        {lightboxOpen && hasImages && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 select-none"
             onClick={() => setLightboxOpen(false)}
-            className="absolute top-4 left-4 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center"
           >
-            <X className="w-5 h-5" />
-          </button>
+            <motion.button
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              type="button"
+              onClick={() => setLightboxOpen(false)}
+              className="absolute top-6 left-6 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center border border-white/10 transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </motion.button>
 
-          {totalImages > 1 && (
-            <>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  prevImage();
-                }}
-                className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center"
-              >
-                <ChevronRight className="w-6 h-6" />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  nextImage();
-                }}
-                className="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center"
-              >
-                <ChevronLeft className="w-6 h-6" />
-              </button>
-            </>
-          )}
+            {totalImages > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    prevImage();
+                  }}
+                  className="absolute right-4 sm:right-10 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center border border-white/10 transition-all active:scale-90"
+                >
+                  <ChevronRight className="w-8 h-8" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    nextImage();
+                  }}
+                  className="absolute left-4 sm:left-10 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center border border-white/10 transition-all active:scale-90"
+                >
+                  <ChevronLeft className="w-8 h-8" />
+                </button>
+              </>
+            )}
 
-          <img
-            src={getImageUrl(auction.images?.[activeImageIndex] || auction.images?.[0])}
-            alt={auction.title}
-            className="max-h-[88vh] max-w-[94vw] object-contain rounded-2xl shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          />
-          <div className="absolute bottom-5 right-1/2 translate-x-1/2 text-white/90 text-sm font-black bg-white/10 px-3 py-1.5 rounded-full">
-            {activeImageIndex + 1} / {totalImages}
-          </div>
-        </div>
-      )}
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="relative max-h-[85vh] max-w-[95vw]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img
+                src={getImageUrl(auction.images?.[activeImageIndex] || auction.images?.[0])}
+                alt={auction.title}
+                className="max-h-[85vh] max-w-[95vw] object-contain rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+              />
+              <div className="absolute inset-0 pointer-events-none rounded-2xl ring-1 ring-white/20"></div>
+            </motion.div>
+
+            <div className="absolute bottom-8 right-1/2 translate-x-1/2 flex flex-col items-center gap-4">
+              <div className="text-white/90 text-sm font-black bg-white/10 backdrop-blur-md px-5 py-2 rounded-full border border-white/10 shadow-xl">
+                {activeImageIndex + 1} / {totalImages}
+              </div>
+              
+              <div className="flex gap-2.5 overflow-x-auto p-2 max-w-[90vw] hide-scrollbar">
+                {auction.images.map((img: string, idx: number) => (
+                  <button
+                    key={`lb-${idx}`}
+                    onClick={(e) => { e.stopPropagation(); setActiveImageIndex(idx); }}
+                    className={`relative shrink-0 w-14 h-14 rounded-xl overflow-hidden border-2 transition-all ${idx === activeImageIndex ? "border-primary scale-110" : "border-white/20 opacity-40"}`}
+                  >
+                    <img src={getImageUrl(img)} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 };

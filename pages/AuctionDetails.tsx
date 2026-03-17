@@ -3,8 +3,9 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Auction, Bid } from "../types";
 import { getAuctionDetails } from "../services/auction";
 import { AuthContext } from "../context/AuthContext";
-import { Loader2, FileText, X } from "lucide-react";
+import { Loader2, FileText, X, Gavel } from "lucide-react";
 import toast from "react-hot-toast";
+import { motion, AnimatePresence } from "framer-motion";
 import { useSocket } from "../context/SocketContext";
 import api from "../services/api";
 
@@ -41,6 +42,7 @@ const AuctionDetails = () => {
   const [courierCompanies, setCourierCompanies] = useState<any[]>([]);
   const [adminActionLoading, setAdminActionLoading] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [showStickyBar, setShowStickyBar] = useState(false);
   const [rejectionReasons, setRejectionReasons] = useState<string[]>([]);
   const [rejectionNote, setRejectionNote] = useState("");
 
@@ -145,6 +147,19 @@ const AuctionDetails = () => {
     }, 10000);
     return () => clearInterval(interval);
   }, [id, globalSocketConnected]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const biddingPanel = document.getElementById('bidding-panel');
+      if (biddingPanel) {
+        const rect = biddingPanel.getBoundingClientRect();
+        // Show sticky bar if the bidding panel is not in view (scrolled past it)
+        setShowStickyBar(rect.bottom < 0);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Handlers
   const handleApprove = async () => {
@@ -251,7 +266,7 @@ const AuctionDetails = () => {
           </div>
 
           {/* Right: Bidding & Actions */}
-          <div className="lg:col-span-5 space-y-6">
+          <div className="lg:col-span-5 space-y-6" id="bidding-panel">
             <AuctionBiddingPanel 
               auction={auction}
               bids={bids}
@@ -363,6 +378,35 @@ const AuctionDetails = () => {
           </div>
         </div>
       )}
+      {/* Mobile Sticky Bar */}
+      <AnimatePresence>
+        {showStickyBar && auction && auction.status === 'active' && (
+          <motion.div
+            initial={{ y: 100 }}
+            animate={{ y: 0 }}
+            exit={{ y: 100 }}
+            className="fixed bottom-0 left-0 right-0 z-50 lg:hidden px-4 pb-6 pt-4 bg-white/80 backdrop-blur-xl border-t border-slate-100 shadow-[0_-10px_30px_rgba(0,0,0,0.08)] flex items-center justify-between gap-4"
+          >
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">السعر الحالي</span>
+              <div className="flex items-baseline gap-1">
+                <span className="text-xl font-black text-slate-900">{auction.currentPrice.toLocaleString()}</span>
+                <span className="text-[10px] font-bold text-slate-400">د.ع</span>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const panel = document.getElementById('bidding-panel');
+                panel?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }}
+              className="flex-1 py-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2"
+            >
+              <Gavel className="w-5 h-5" />
+              زايد الآن
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

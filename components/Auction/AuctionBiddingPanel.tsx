@@ -22,6 +22,7 @@ interface AuctionBiddingPanelProps {
   isMuted: boolean;
   toggleMute: () => void;
   viewersCount: number;
+  setViewersCount: React.Dispatch<React.SetStateAction<number>>;
   handleApprove: () => Promise<void>;
   setRejectModalOpen: (open: boolean) => void;
   adminActionLoading: boolean;
@@ -43,6 +44,7 @@ const AuctionBiddingPanel = ({
   isMuted,
   toggleMute,
   viewersCount,
+  setViewersCount,
   handleApprove,
   setRejectModalOpen,
   adminActionLoading,
@@ -53,6 +55,7 @@ const AuctionBiddingPanel = ({
   const [showBidTermsModal, setShowBidTermsModal] = useState(false);
   const [isHotAuction, setIsHotAuction] = useState(false);
   const [priceFlash, setPriceFlash] = useState(false);
+  const [timeFlash, setTimeFlash] = useState(false);
   const [error, setError] = useState("");
 
   const timeRef = useRef<HTMLDivElement>(null);
@@ -131,7 +134,7 @@ const AuctionBiddingPanel = ({
       const h = Math.floor(diff / 3600000);
       const m = Math.floor((diff % 3600000) / 60000);
       const sec = Math.floor((diff % 60000) / 1000);
-      if (label === "active" && diff <= 10000 && diff > 0) playSound('tick');
+      if (label === "active" && diff <= 30000 && diff > 0) playSound('tick');
       timeRef.current.textContent = `${h}س ${m}د ${sec}ث`;
     }, 1000);
     return () => clearInterval(timer);
@@ -290,6 +293,8 @@ const AuctionBiddingPanel = ({
       }
 
       if ((data as any).extensionApplied) {
+        setTimeFlash(true);
+        setTimeout(() => setTimeFlash(false), 2000);
         toast(`⏱️ تم تمديد وقت المزاد بـ ${(data as any).extensionSeconds ?? 60} ثانية بسبب مزايدة في اللحظات الأخيرة!`, {
           duration: 5000,
           icon: '🔔',
@@ -299,8 +304,17 @@ const AuctionBiddingPanel = ({
     };
 
     socket.on("bid:new", handleBidNew);
-    return () => { socket.off("bid:new", handleBidNew); };
-  }, [socket, isConnected, playSound, triggerHaptic, setAuction, setBids, isHotAuction]);
+
+    const handleViewersCount = (count: number) => {
+      setViewersCount(count);
+    };
+    socket.on("viewers_count", handleViewersCount);
+
+    return () => { 
+      socket.off("bid:new", handleBidNew); 
+      socket.off("viewers_count", handleViewersCount);
+    };
+  }, [socket, isConnected, playSound, triggerHaptic, setAuction, setBids, isHotAuction, setViewersCount]);
 
   useEffect(() => {
     if (optimisticBid !== null && auction && auction.currentPrice >= optimisticBid) {
@@ -387,11 +401,12 @@ const AuctionBiddingPanel = ({
           </div>
 
           {!isEnded ? (
-            <div className={`flex flex-col justify-center rounded-2xl p-2.5 sm:p-3.5 relative overflow-hidden transition-all shadow-sm ${isLastMinutes ? 'bg-gradient-to-br from-orange-500 to-red-600 border-none shadow-orange-500/20' : 'bg-slate-900 border border-slate-800'}`}>
-              <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-1 ${isLastMinutes ? 'text-white/80' : 'text-slate-400'}`}>
-                {isLastMinutes ? "فرصة أخيرة!" : "الوقت المتبقي"}
+            <div className={`flex flex-col justify-center rounded-2xl p-2.5 sm:p-3.5 relative overflow-hidden transition-all shadow-sm 
+              ${timeFlash ? 'bg-orange-500 scale-105 shadow-orange-500/50' : isLastMinutes ? 'bg-gradient-to-br from-orange-500 to-red-600 border-none shadow-orange-500/20' : 'bg-slate-900 border border-slate-800'}`}>
+              <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-1 ${timeFlash || isLastMinutes ? 'text-white/80' : 'text-slate-400'}`}>
+                {timeFlash ? "تم التمديد!" : isLastMinutes ? "فرصة أخيرة!" : "الوقت المتبقي"}
               </span>
-              <div ref={timeRef} className={`text-[1.1rem] sm:text-[1.25rem] font-black tabular-nums tracking-tight leading-none relative z-10 whitespace-nowrap min-w-0 ${isLastMinutes ? 'text-white drop-shadow-md animate-pulse' : 'text-emerald-400'}`}></div>
+              <div ref={timeRef} className={`text-[1.1rem] sm:text-[1.25rem] font-black tabular-nums tracking-tight leading-none relative z-10 whitespace-nowrap min-w-0 ${timeFlash || isLastMinutes ? 'text-white drop-shadow-md animate-pulse' : 'text-emerald-400'}`}></div>
             </div>
           ) : (
             <div className="flex flex-col justify-center bg-slate-50 border border-slate-100 rounded-2xl p-2.5 sm:p-3.5">
@@ -405,11 +420,17 @@ const AuctionBiddingPanel = ({
           <button
             onClick={handlePlaceBid}
             disabled={isUpcoming || isPending || isRejected || bidLoading || bidCooldown > 0 || isCurrentLeader}
-            className="w-full py-4 sm:py-5 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white rounded-2xl sm:rounded-3xl font-black text-sm sm:text-base flex flex-col items-center justify-center gap-1 sm:gap-1.5
-            shadow-[0_10px_25px_-5px_rgba(16,185,129,0.5)] hover:shadow-[0_15px_30px_-5px_rgba(16,185,129,0.6)] transition-all duration-300
-            disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed group relative overflow-hidden"
+            className={`w-full py-4 sm:py-5 text-white rounded-2xl sm:rounded-3xl font-black text-sm sm:text-base flex flex-col items-center justify-center gap-1 sm:gap-1.5 transition-all duration-300 group relative overflow-hidden
+            ${isCurrentLeader 
+              ? 'bg-gradient-to-r from-slate-400 to-slate-500 shadow-lg opacity-90 cursor-default' 
+              : 'bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 shadow-[0_10px_25px_-5px_rgba(16,185,129,0.5)] hover:shadow-[0_15px_30px_-5px_rgba(16,185,129,0.6)] active:scale-95 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none'}`}
           >
-            {bidLoading ? <Loader2 className="animate-spin w-6 h-6" /> : (
+            {bidLoading ? <Loader2 className="animate-spin w-6 h-6" /> : isCurrentLeader ? (
+              <>
+                <CheckCircle className="w-5 h-5 text-emerald-100" />
+                <span className="text-emerald-50">أنت المتصدر حالياً</span>
+              </>
+            ) : (
               <>
                 <Gavel className="w-5 h-5" />
                 <span>{bidCooldown > 0 ? `انتظر ${bidCooldown}ث` : `${(displayedPrice + auction.increment).toLocaleString()} د.ع`}</span>

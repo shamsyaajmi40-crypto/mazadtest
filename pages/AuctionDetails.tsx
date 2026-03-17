@@ -111,7 +111,15 @@ const AuctionDetails = () => {
     setLoading(true);
     refreshAuction().finally(() => setLoading(false));
     refreshUser?.();
+    window.scrollTo(0, 0);
   }, [id]);
+
+  useEffect(() => {
+    if (auction?.title) {
+      document.title = `${auction.title} | مزاد`;
+    }
+    return () => { document.title = "مزاد - المنصة الأولى للمزادات"; };
+  }, [auction?.title]);
 
   useEffect(() => {
     if (!id) return;
@@ -134,7 +142,7 @@ const AuctionDetails = () => {
     if (!id) return;
     const interval = setInterval(() => {
       if (!globalSocketConnected) refreshAuction();
-    }, 15000);
+    }, 10000);
     return () => clearInterval(interval);
   }, [id, globalSocketConnected]);
 
@@ -260,6 +268,7 @@ const AuctionDetails = () => {
               isMuted={isMuted}
               toggleMute={toggleMute}
               viewersCount={viewersCount}
+              setViewersCount={setViewersCount}
               handleApprove={handleApprove}
               setRejectModalOpen={setRejectModalOpen}
               adminActionLoading={adminActionLoading}

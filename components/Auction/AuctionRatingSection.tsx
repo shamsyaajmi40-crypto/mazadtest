@@ -68,7 +68,36 @@ const AuctionRatingSection: React.FC<AuctionRatingSectionProps> = ({
 
   return (
     <div className="mt-12 space-y-12">
-      {!alreadyRated && (
+      {/* Seller Information - Always visible while active or ended */}
+      <div className="bg-surface p-8 rounded-[2.5rem] border border-slate-200/60 shadow-md shadow-slate-200/30">
+        <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
+          👤 معلومات البائع
+        </h3>
+        <div className="flex items-start gap-4 p-5 rounded-2xl bg-slate-50 border border-slate-100/60 shadow-sm">
+          <div className="w-14 h-14 bg-gradient-to-br from-slate-200 to-slate-100 rounded-2xl flex items-center justify-center font-black text-slate-500 shrink-0 shadow-inner">
+            {(auction.owner?.name?.[0] || 'ب').toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-black text-slate-400 mb-1 uppercase tracking-wider">صاحب المزاد</p>
+            <Link 
+              to={`/users/${typeof auction.owner === 'object' ? (auction.owner as any)._id : auction.owner}`} 
+              className="text-slate-900 font-bold hover:text-primary transition-colors hover:underline block text-lg truncate"
+            >
+              {auction.owner?.name || 'مستخدم غير معروف'}
+            </Link>
+            {sellerRating && sellerRating.count > 0 && (
+              <div className="flex items-center gap-2 mt-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200/80 w-fit shadow-sm">
+                <RatingStars value={sellerRating.average} />
+                <span className="text-xs font-black text-slate-700">{Number(sellerRating.average).toFixed(1)}</span>
+                <span className="text-[11px] text-slate-400 font-bold">({sellerRating.count})</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Rating Form - Only for Winner/Owner after deal is resolved */}
+      {!alreadyRated && isDealResolved && (isWinner || isOwner) && (
         <div id="rating-section" className="bg-white/70 backdrop-blur-md p-8 rounded-[2.5rem] border border-slate-200/50 shadow-xl shadow-slate-200/30 scroll-mt-32">
           <div className="flex items-center gap-3 mb-8">
             <span className="p-3 bg-gradient-to-br from-yellow-100 to-amber-50 rounded-2xl text-amber-500 shadow-sm border border-yellow-200/50">
@@ -169,7 +198,6 @@ const AuctionRatingSection: React.FC<AuctionRatingSectionProps> = ({
           <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-slate-400" /> التقييمات
           </h3>
-
           {ratingsLoading ? (
             <div className="flex justify-center py-10">
               <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-400 rounded-full animate-spin"></div>
@@ -197,27 +225,6 @@ const AuctionRatingSection: React.FC<AuctionRatingSectionProps> = ({
               )}
 
               <div className="space-y-4">
-                <div className="mt-8 space-y-4">
-                  <div className="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100/60">
-                    <div className="w-12 h-12 bg-slate-200 rounded-xl flex items-center justify-center font-black text-slate-500 shrink-0">
-                      {(auction.owner?.name?.[0] || 'ب').toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-400 mb-1">صاحب المزاد</p>
-                      <Link to={`/users/${typeof auction.owner === 'object' ? (auction.owner as any)._id : auction.owner}`} className="text-slate-800 font-bold hover:text-primary transition-colors hover:underline block mb-1">
-                        {auction.owner?.name || 'مستخدم غير معروف'}
-                      </Link>
-                      {sellerRating && sellerRating.count > 0 && (
-                        <div className="flex items-center gap-1.5 mt-1 bg-white px-2.5 py-1 rounded-lg border border-slate-200/60 w-fit shadow-sm">
-                          <RatingStars value={sellerRating.average} />
-                          <span className="text-[11px] font-black text-slate-700">{Number(sellerRating.average).toFixed(1)}</span>
-                          <span className="text-[10px] text-slate-400 font-medium">({sellerRating.count})</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
                 {ratings.map((r) => (
                   <div key={r._id} className="bg-white border border-slate-100 rounded-[1.5rem] p-5 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex justify-between items-start mb-4">
